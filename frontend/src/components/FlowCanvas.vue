@@ -4,6 +4,7 @@ import { Background } from '@vue-flow/background'
 import { Controls } from '@vue-flow/controls'
 import { ref, onMounted, onUnmounted } from 'vue'
 import { useWorkflowStore } from '../store/workflow'
+import axios from 'axios'
 import { Save, Play, Plus, List, Trash2 } from 'lucide-vue-next'
 
 interface ExecutionLog {
@@ -15,20 +16,42 @@ interface ExecutionLog {
   endTime?: number;
 }
 
+interface KnowledgeBase {
+  id: string;
+  name: string;
+  description?: string;
+  documents?: any[];
+}
+
 const store = useWorkflowStore()
 const { onConnect, addEdges, onNodeClick } = useVueFlow()
 
 const selectedNode = ref<any>(null)
 const showWorkflowList = ref(false)
 const isEditing = ref(false)
+const knowledgeBases = ref<KnowledgeBase[]>([])
 
 onConnect((params) => {
   addEdges(params)
 })
 
-onNodeClick((event) => {
+onNodeClick(async (event) => {
   selectedNode.value = event.node
+  // 如果点击的是知识检索节点，获取知识库列表
+  if (String(event.node.label || '').includes('检索')) {
+    await fetchKnowledgeBases()
+  }
 })
+
+// 获取知识库列表
+const fetchKnowledgeBases = async () => {
+  try {
+    const resp = await axios.get('http://localhost:3001/knowledge/bases')
+    knowledgeBases.value = resp.data
+  } catch (err) {
+    console.error('Failed to fetch knowledge bases:', err)
+  }
+}
 
 onMounted(async () => {
   await store.fetchWorkflows()
@@ -249,15 +272,20 @@ const handleDeleteWorkflow = async (e: Event, id: string) => {
             <input v-model="selectedNode.label" placeholder="输入节点名称..." />
           </div>
           
-          <div v-if="selectedNode.label?.includes('AI')" class="form-group">
+          <div v-if="String(selectedNode.label || '').includes('AI')" class="form-group">
             <label>Prompt 引导词</label>
             <textarea v-model="selectedNode.data.prompt" rows="8" placeholder="在此输入 AI 处理逻辑..."></textarea>
             <p v-pre class="hint">支持使用 {{nodeId.output}} 引用其他节点输出</p>
           </div>
 
-          <div v-if="selectedNode.label?.includes('检索')" class="form-group">
+          <div v-if="String(selectedNode.label || '').includes('检索')" class="form-group">
             <label>关联知识库</label>
-            <input v-model="selectedNode.data.kbId" placeholder="输入知识库 ID..." />
+            <select v-model="selectedNode.data.kbId" class="kb-select">
+              <option value="" disabled>选择知识库</option>
+              <option v-for="kb in knowledgeBases" :key="kb.id" :value="kb.id">
+                {{ kb.name }} ({{ kb.documents?.length || 0 }} 文档)
+              </option>
+            </select>
             <label>查询语句 (Query)</label>
             <input v-model="selectedNode.data.query" placeholder="要搜索的内容..." />
           </div>
@@ -395,6 +423,23 @@ input, textarea {
 }
 
 input:focus, textarea:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(110, 86, 207, 0.1);
+}
+
+.kb-select {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  font-size: 14px;
+  background: white;
+  color: var(--text-main);
+  cursor: pointer;
+}
+
+.kb-select:focus {
   outline: none;
   border-color: var(--primary);
   box-shadow: 0 0 0 3px rgba(110, 86, 207, 0.1);
