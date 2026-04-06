@@ -468,7 +468,7 @@ const handleDeleteWorkflow = async (e: Event, id: string) => {
           <div v-if="String(selectedNode.label || '').includes('条件')" class="form-group">
             <label>条件表达式</label>
             <input v-model="selectedNode.data.expression" placeholder="例如: score > 10" />
-            <p class="hint">支持格式: {{field}} > N, {{field}} < N, {{field}} == "value"</p>
+            <p v-pre class="hint">支持格式: {{field}} > N, {{field}} < N, {{field}} == "value"</p>
           </div>
           </template>
 
