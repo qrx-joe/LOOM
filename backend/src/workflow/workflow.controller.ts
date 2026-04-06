@@ -1,5 +1,6 @@
-import { Controller, Post, Body, Get, Param, Put, Delete } from '@nestjs/common';
-import { ExecutorService } from './executor.service';
+import { Controller, Post, Body, Get, Param, Put, Delete, Res } from '@nestjs/common';
+import type { Response } from 'express';
+import { ExecutorService, WorkflowEvent } from './executor.service';
 import { WorkflowService } from './workflow.service';
 import { Workflow } from './workflow.entity';
 import { WorkflowDefinition } from './interfaces/workflow.interface';
@@ -50,6 +51,50 @@ export class WorkflowController {
         };
 
         return await this.executorService.runWorkflow(definition);
+    }
+
+    // SSE: 工作流执行并实时推送状态
+    @Get(':id/run-stream')
+    async runStream(@Param('id') id: string, @Res() res: Response) {
+        const workflow = await this.workflowService.findOne(id);
+        if (!workflow) {
+            res.status(404).json({ error: 'Workflow not found' });
+            return;
+        }
+
+        const definition: WorkflowDefinition = {
+            id: workflow.id,
+            name: workflow.name,
+            nodes: workflow.nodes,
+            edges: workflow.edges,
+        };
+
+        // 设置 SSE headers
+        res.setHeader('Content-Type', 'text/event-stream');
+        res.setHeader('Cache-Control', 'no-cache');
+        res.setHeader('Connection', 'keep-alive');
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.flushHeaders();
+
+        // 定义事件回调
+        const sendEvent = (event: WorkflowEvent) => {
+            res.write(`data: ${JSON.stringify(event)}\n\n`);
+        };
+
+        // 执行工作流，传入回调
+        try {
+            await this.executorService.runWorkflow(definition, {}, sendEvent);
+        } catch (error: any) {
+            sendEvent({
+                type: 'workflow_complete',
+                nodeId: 'workflow',
+                data: { status: 'error', error: error.message },
+                timestamp: Date.now(),
+            });
+        }
+
+        // 完成后关闭连接
+        res.end();
     }
 
     // 临时：直接运行未保存的图

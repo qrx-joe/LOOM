@@ -3,6 +3,18 @@ import { OpenAI } from 'openai';
 import { WorkflowDefinition, NodeData, ExecutionLog, NodeType } from './interfaces/workflow.interface';
 import { KnowledgeService } from '../knowledge/knowledge.service';
 
+// SSE 事件类型
+export type WorkflowEventType = 'node_start' | 'node_complete' | 'node_error' | 'workflow_complete';
+
+export interface WorkflowEvent {
+    type: WorkflowEventType;
+    nodeId: string;
+    data?: any;
+    timestamp: number;
+}
+
+export type EventCallback = (event: WorkflowEvent) => void;
+
 @Injectable()
 export class ExecutorService {
     private readonly logger = new Logger(ExecutorService.name);
@@ -13,12 +25,26 @@ export class ExecutorService {
 
     constructor(private readonly knowledgeService: KnowledgeService) { }
 
-    async runWorkflow(workflow: WorkflowDefinition, initialInput: any = {}): Promise<ExecutionLog[]> {
+    async runWorkflow(
+        workflow: WorkflowDefinition,
+        initialInput: any = {},
+        onEvent?: EventCallback
+    ): Promise<ExecutionLog[]> {
         this.logger.log(`Starting workflow execution: ${workflow.name} (${workflow.id})`);
 
         const logs: ExecutionLog[] = [];
         const nodeResults = new Map<string, any>();
         nodeResults.set('START_INPUT', initialInput);
+
+        // 发送工作流开始事件
+        if (onEvent) {
+            onEvent({
+                type: 'workflow_complete',
+                nodeId: 'workflow',
+                data: { status: 'started', name: workflow.name },
+                timestamp: Date.now(),
+            });
+        }
 
         // 1. 构建邻接表和入度表
         const adj = new Map<string, string[]>();
@@ -60,17 +86,47 @@ export class ExecutorService {
             };
             logs.push(log);
 
+            // 发送节点开始事件
+            if (onEvent) {
+                onEvent({
+                    type: 'node_start',
+                    nodeId,
+                    data: { input: log.input },
+                    timestamp: log.startTime,
+                });
+            }
+
             try {
                 const result = await this.executeNode(node, log.input);
                 log.status = 'COMPLETED';
                 log.output = result;
                 log.endTime = Date.now();
                 nodeResults.set(nodeId, result);
+
+                // 发送节点完成事件
+                if (onEvent) {
+                    onEvent({
+                        type: 'node_complete',
+                        nodeId,
+                        data: { output: result },
+                        timestamp: log.endTime,
+                    });
+                }
             } catch (error: any) {
                 log.status = 'FAILED';
                 log.error = error.message;
                 log.endTime = Date.now();
                 this.logger.error(`Node ${nodeId} failed: ${error.message}`);
+
+                // 发送节点错误事件
+                if (onEvent) {
+                    onEvent({
+                        type: 'node_error',
+                        nodeId,
+                        data: { error: error.message },
+                        timestamp: log.endTime,
+                    });
+                }
                 // 如果节点失败，后续逻辑视业务而定，Demo 简单处理为中断
                 break;
             }
@@ -86,6 +142,16 @@ export class ExecutorService {
                     }
                 });
             }
+        }
+
+        // 发送工作流完成事件
+        if (onEvent) {
+            onEvent({
+                type: 'workflow_complete',
+                nodeId: 'workflow',
+                data: { status: 'completed', logs },
+                timestamp: Date.now(),
+            });
         }
 
         return logs;

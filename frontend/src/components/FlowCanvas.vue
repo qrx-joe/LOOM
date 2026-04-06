@@ -2,7 +2,7 @@
 import { VueFlow, useVueFlow } from '@vue-flow/core'
 import { Background } from '@vue-flow/background'
 import { Controls } from '@vue-flow/controls'
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { useWorkflowStore } from '../store/workflow'
 import { Save, Play, Plus, List, Trash2 } from 'lucide-vue-next'
 
@@ -46,6 +46,7 @@ onMounted(async () => {
 const runLogs = ref<ExecutionLog[]>([])
 const isRunning = ref(false)
 const isSaving = ref(false)
+let eventSource: EventSource | null = null
 
 const handleSave = async () => {
   isSaving.value = true
@@ -60,17 +61,88 @@ const handleSave = async () => {
 }
 
 const handleRun = async () => {
+  // 如果有未保存的修改，先保存
+  if (store.nodes.length > 0 && !store.currentWorkflowId) {
+    try {
+      await store.saveWorkflow()
+    } catch (e: any) {
+      alert(e.message || '保存失败')
+      return
+    }
+  }
+
+  if (!store.currentWorkflowId) {
+    alert('请先保存工作流')
+    return
+  }
+
   isRunning.value = true
   runLogs.value = []
-  try {
-    const result = await store.runWorkflow()
-    runLogs.value = result
-  } catch (e: any) {
-    alert(e.message || '运行失败')
-  } finally {
+
+  // 关闭之前的 SSE 连接
+  if (eventSource) {
+    eventSource.close()
+  }
+
+  // 建立 SSE 连接
+  const sseUrl = `http://localhost:3001/workflows/${store.currentWorkflowId}/run-stream`
+  eventSource = new EventSource(sseUrl)
+
+  eventSource.onmessage = (event) => {
+    try {
+      const data = JSON.parse(event.data)
+
+      switch (data.type) {
+        case 'node_start':
+          runLogs.value.push({
+            nodeId: data.nodeId,
+            status: 'RUNNING',
+            startTime: data.timestamp,
+          })
+          break
+
+        case 'node_complete':
+          const runningLog = runLogs.value.find(l => l.nodeId === data.nodeId && l.status === 'RUNNING')
+          if (runningLog) {
+            runningLog.status = 'COMPLETED'
+            runningLog.output = data.data.output
+            runningLog.endTime = data.timestamp
+          }
+          break
+
+        case 'node_error':
+          const errorLog = runLogs.value.find(l => l.nodeId === data.nodeId && l.status === 'RUNNING')
+          if (errorLog) {
+            errorLog.status = 'FAILED'
+            errorLog.error = data.data.error
+            errorLog.endTime = data.timestamp
+          }
+          break
+
+        case 'workflow_complete':
+          isRunning.value = false
+          break
+      }
+    } catch (e) {
+      console.error('Failed to parse SSE event:', e)
+    }
+  }
+
+  eventSource.onerror = (error) => {
+    console.error('SSE error:', error)
     isRunning.value = false
+    eventSource?.close()
+    eventSource = null
   }
 }
+
+// 组件卸载时关闭 SSE
+onUnmounted(() => {
+  if (eventSource) {
+    eventSource.close()
+    eventSource = null
+  }
+})
 
 const handleNewWorkflow = () => {
   store.createNewWorkflow()
