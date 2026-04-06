@@ -24,8 +24,10 @@ export class WorkflowService {
     }
 
     async update(id: string, workflowData: Partial<Workflow>) {
-        await this.workflowRepository.update(id, workflowData);
-        return this.findOne(id);
+        const workflow = await this.findOne(id);
+        if (!workflow) throw new Error('Workflow not found');
+        Object.assign(workflow, workflowData);
+        return this.workflowRepository.save(workflow);
     }
 
     remove(id: string) {

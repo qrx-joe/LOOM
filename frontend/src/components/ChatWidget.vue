@@ -1,12 +1,9 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
-import axios from 'axios'
 import { useChatStore } from '../store/chat'
-import { useWorkflowStore } from '../store/workflow'
 import { Send, MessageSquare, X, Sparkles, User } from 'lucide-vue-next'
 
 const chatStore = useChatStore()
-const workflowStore = useWorkflowStore()
 const userInput = ref('')
 const isOpen = ref(false)
 

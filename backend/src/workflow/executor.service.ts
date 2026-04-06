@@ -99,26 +99,42 @@ export class ExecutorService {
     }
 
     private async executeNode(node: NodeData, input: any): Promise<any> {
-        switch (node.type) {
+        // 兼容 data 和 config 两种属性
+        const config = (node as any).config || (node as any).data || {};
+
+        // 兼容 Vue Flow 内置类型和自定义类型
+        const nodeType = node.type as string;
+        switch (nodeType) {
+            case 'input':
+            case 'START':
             case NodeType.START:
                 return input;
+            case 'AI_AGENT':
             case NodeType.AI_AGENT:
-                return this.handleAIRequest(node, input);
+                return this.handleAIRequest(node, config, input);
+            case 'KNOWLEDGE_RETRIEVAL':
+            case 'knowledge':
             case NodeType.KNOWLEDGE_RETRIEVAL:
-                return this.handleKnowledgeRetrieval(node, input);
+                return this.handleKnowledgeRetrieval(node, config, input);
+            case 'CONDITION':
+            case 'condition':
             case NodeType.CONDITION:
-                return this.handleCondition(node, input);
+                return this.handleCondition(node, config, input);
+            case 'output':
+            case 'END':
             case NodeType.END:
                 return input;
             default:
-                throw new Error(`Unknown node type: ${node.type}`);
+                // 未知类型节点默认透传
+                this.logger.warn(`Unknown node type: ${nodeType}, passing through input`);
+                return input;
         }
     }
 
-    private async handleAIRequest(node: NodeData, input: any): Promise<any> {
+    private async handleAIRequest(node: NodeData, config: any, input: any): Promise<any> {
         this.logger.log(`Executing AI Agent node: ${node.id}`);
         // 提取 prompt 并替换上下文变量
-        let prompt = node.config.prompt || 'Hello';
+        let prompt = config.prompt || 'Hello';
 
         // 简单的变量插值: {{nodeId.output}}
         if (input._context) {
@@ -129,9 +145,14 @@ export class ExecutorService {
             });
         }
 
+        // 也处理 {{START_INPUT}} 作为用户输入
+        if (input.input) {
+            prompt = prompt.split('{{START_INPUT}}').join(input.input);
+        }
+
         try {
             const response = await this.openai.chat.completions.create({
-                model: node.config.model || 'gpt-3.5-turbo',
+                model: config.model || 'gpt-3.5-turbo',
                 messages: [{ role: 'user', content: prompt }],
             });
             return { text: response.choices[0].message.content };
@@ -141,17 +162,24 @@ export class ExecutorService {
         }
     }
 
-    private async handleKnowledgeRetrieval(node: NodeData, input: any): Promise<any> {
+    private async handleKnowledgeRetrieval(node: NodeData, config: any, input: any): Promise<any> {
         this.logger.log(`Executing Knowledge Retrieval node: ${node.id}`);
-        const { kbId, query } = input;
-        if (!kbId || !query) {
-            return { fragments: [], error: 'Missing kbId or query' };
+        // kbId 和 query 可能来自 config 或 input
+        const kbId = config.kbId || input.kbId;
+        const query = config.query || input.query || input.input || '';
+
+        if (!kbId) {
+            return { fragments: [], error: 'Missing kbId' };
         }
+        if (!query) {
+            return { fragments: [], error: 'Missing query' };
+        }
+
         const results = await this.knowledgeService.search(kbId, query);
         return { fragments: results.map(r => ({ id: r.id, content: r.content, score: r.score })) };
     }
 
-    private async handleCondition(node: NodeData, input: any): Promise<any> {
+    private async handleCondition(node: NodeData, config: any, input: any): Promise<any> {
         // 简单的分支逻辑实现
         this.logger.log(`Executing Condition node: ${node.id}`);
         return input;

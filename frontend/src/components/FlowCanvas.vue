@@ -2,8 +2,9 @@
 import { VueFlow, useVueFlow } from '@vue-flow/core'
 import { Background } from '@vue-flow/background'
 import { Controls } from '@vue-flow/controls'
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useWorkflowStore } from '../store/workflow'
+import { Save, Play, Plus, List, Trash2 } from 'lucide-vue-next'
 
 interface ExecutionLog {
   nodeId: string;
@@ -18,6 +19,8 @@ const store = useWorkflowStore()
 const { onConnect, addEdges, onNodeClick } = useVueFlow()
 
 const selectedNode = ref<any>(null)
+const showWorkflowList = ref(false)
+const isEditing = ref(false)
 
 onConnect((params) => {
   addEdges(params)
@@ -27,32 +30,127 @@ onNodeClick((event) => {
   selectedNode.value = event.node
 })
 
-// 初始化一些测试节点
-if (store.nodes.length === 0) {
-  store.nodes = [
-    { id: '1', type: 'input', label: '开始', position: { x: 50, y: 50 }, data: {} },
-    { id: '2', label: 'AI 节点', position: { x: 250, y: 50 }, data: { prompt: '' } },
-  ]
-}
+onMounted(async () => {
+  await store.fetchWorkflows()
+  // 如果没有已保存的工作流，创建新的空白工作流
+  const firstWorkflow = store.savedWorkflows[0]
+  if (!firstWorkflow) {
+    store.createNewWorkflow()
+    isEditing.value = true
+  } else {
+    // 默认加载第一个
+    store.loadWorkflow(firstWorkflow)
+  }
+})
 
 const runLogs = ref<ExecutionLog[]>([])
 const isRunning = ref(false)
+const isSaving = ref(false)
+
+const handleSave = async () => {
+  isSaving.value = true
+  try {
+    await store.saveWorkflow()
+    alert('工作流已保存')
+  } catch (e) {
+    alert('保存失败')
+  } finally {
+    isSaving.value = false
+  }
+}
 
 const handleRun = async () => {
   isRunning.value = true
+  runLogs.value = []
   try {
-    const result = await store.saveWorkflow()
+    const result = await store.runWorkflow()
     runLogs.value = result
-  } catch (e) {
-    alert('运行失败，请检查控制台')
+  } catch (e: any) {
+    alert(e.message || '运行失败')
   } finally {
     isRunning.value = false
+  }
+}
+
+const handleNewWorkflow = () => {
+  store.createNewWorkflow()
+  isEditing.value = true
+  showWorkflowList.value = false
+}
+
+const handleLoadWorkflow = (wf: any) => {
+  store.loadWorkflow(wf)
+  showWorkflowList.value = false
+}
+
+const handleDeleteWorkflow = async (e: Event, id: string) => {
+  e.stopPropagation()
+  if (confirm('确定要删除这个工作流吗？')) {
+    await store.deleteWorkflow(id)
   }
 }
 </script>
 
 <template>
   <div class="flow-container">
+    <!-- 顶部工具栏 -->
+    <div class="top-toolbar">
+      <div class="toolbar-left">
+        <input
+          v-model="store.workflowName"
+          class="workflow-name-input"
+          placeholder="工作流名称..."
+          :disabled="!isEditing"
+        />
+        <button v-if="!isEditing" @click="isEditing = true" class="tool-btn">
+          编辑名称
+        </button>
+      </div>
+
+      <div class="toolbar-right">
+        <div class="workflow-list-wrapper">
+          <button class="tool-btn" @click="showWorkflowList = !showWorkflowList">
+            <List :size="16" />
+            工作流列表
+          </button>
+          <div v-if="showWorkflowList" class="workflow-dropdown">
+            <div class="dropdown-header">已保存的工作流</div>
+            <div
+              v-for="wf in store.savedWorkflows"
+              :key="wf.id"
+              class="dropdown-item"
+              :class="{ active: store.currentWorkflowId === wf.id }"
+              @click="handleLoadWorkflow(wf)"
+            >
+              <span class="wf-name">{{ wf.name }}</span>
+              <button class="delete-wf-btn" @click="handleDeleteWorkflow($event, wf.id)">
+                <Trash2 :size="14" />
+              </button>
+            </div>
+            <div v-if="store.savedWorkflows.length === 0" class="dropdown-empty">
+              暂无已保存的工作流
+            </div>
+            <div class="dropdown-footer">
+              <button class="new-wf-btn" @click="handleNewWorkflow">
+                <Plus :size="14" />
+                新建工作流
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <button class="tool-btn primary" @click="handleSave" :disabled="isSaving">
+          <Save :size="16" />
+          {{ isSaving ? '保存中...' : '保存' }}
+        </button>
+
+        <button class="tool-btn success" @click="handleRun" :disabled="isRunning || store.nodes.length === 0">
+          <Play :size="16" />
+          {{ isRunning ? '执行中...' : '运行' }}
+        </button>
+      </div>
+    </div>
+
     <div class="canvas-area">
       <VueFlow
         v-model:nodes="store.nodes"
@@ -122,9 +220,12 @@ const handleRun = async () => {
 
     <div class="toolbar glass">
       <button class="run-btn" @click="handleRun" :disabled="isRunning">
-        {{ isRunning ? '正在执行' : '保存并执行工作流' }}
+        {{ isRunning ? '正在执行' : '运行工作流' }}
       </button>
     </div>
+
+    <!-- 点击空白处关闭下拉框 -->
+    <div v-if="showWorkflowList" class="overlay" @click="showWorkflowList = false"></div>
   </div>
 </template>
 
@@ -386,5 +487,208 @@ input:focus, textarea:focus {
 .run-btn:disabled {
   opacity: 0.7;
   cursor: not-allowed;
+}
+
+/* 顶部工具栏 */
+.top-toolbar {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  right: 20px;
+  height: 56px;
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(10px);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  z-index: 100;
+  box-shadow: var(--shadow-md);
+  border: 1px solid var(--border-subtle);
+}
+
+.toolbar-left,
+.toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.workflow-name-input {
+  background: transparent;
+  border: none;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-main);
+  padding: 8px 12px;
+  border-radius: 8px;
+  min-width: 200px;
+}
+
+.workflow-name-input:hover:not(:disabled) {
+  background: var(--primary-light);
+}
+
+.workflow-name-input:focus {
+  outline: none;
+  background: white;
+  box-shadow: 0 0 0 2px var(--primary);
+}
+
+.workflow-name-input:disabled {
+  color: var(--text-muted);
+}
+
+.tool-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border: 1px solid var(--border-subtle);
+  background: white;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-main);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.tool-btn:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.tool-btn.primary {
+  background: var(--primary);
+  color: white;
+  border-color: var(--primary);
+}
+
+.tool-btn.primary:hover {
+  background: var(--primary-hover);
+}
+
+.tool-btn.success {
+  background: #10b981;
+  color: white;
+  border-color: #10b981;
+}
+
+.tool-btn.success:hover {
+  background: #059669;
+}
+
+.tool-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* 工作流下拉列表 */
+.workflow-list-wrapper {
+  position: relative;
+}
+
+.workflow-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 280px;
+  background: white;
+  border-radius: 12px;
+  box-shadow: var(--shadow-lg);
+  border: 1px solid var(--border-subtle);
+  z-index: 1001;
+  overflow: hidden;
+}
+
+.dropdown-header {
+  padding: 12px 16px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: #f8f9fa;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.dropdown-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.dropdown-item:hover {
+  background: #f4f4f7;
+}
+
+.dropdown-item.active {
+  background: var(--primary-light);
+}
+
+.wf-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-main);
+}
+
+.delete-wf-btn {
+  background: transparent;
+  border: none;
+  color: #ef4444;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  opacity: 0.6;
+}
+
+.delete-wf-btn:hover {
+  background: #fee2e2;
+  opacity: 1;
+}
+
+.dropdown-empty {
+  padding: 24px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.dropdown-footer {
+  padding: 12px 16px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.new-wf-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px;
+  background: var(--primary-light);
+  color: var(--primary);
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.new-wf-btn:hover {
+  background: var(--primary);
+  color: white;
+}
+
+.overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 999;
 }
 </style>
