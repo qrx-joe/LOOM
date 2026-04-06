@@ -30,6 +30,13 @@ export class Message {
     @Column('text')
     content: string;
 
+    // 消息元数据（如引用来源）
+    @Column('simple-json', { nullable: true })
+    metadata: {
+        sourceDocs?: { id: string; content: string; score: number; documentName: string }[];
+        nodeIds?: string[];
+    };
+
     @ManyToOne(() => Session, (session) => session.messages)
     session: Session;
 

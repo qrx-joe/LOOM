@@ -60,11 +60,24 @@ export class ChatService {
         };
 
         // 3. 执行工作流
-        // 我们将用户输入作为初始输入传入开始节点
         const logs = await this.executorService.runWorkflow(definition, { input: content });
 
-        // 4. 获取输出节点的结果
-        // 简单起见，取最后一个完成的节点的 output
+        // 4. 收集知识检索结果（用于答案溯源）
+        const sourceDocs: { id: string; content: string; score: number; documentName: string }[] = [];
+        for (const log of logs) {
+            if (log.output && log.output.fragments && Array.isArray(log.output.fragments)) {
+                for (const frag of log.output.fragments) {
+                    sourceDocs.push({
+                        id: frag.id,
+                        content: frag.content,
+                        score: frag.score,
+                        documentName: frag.documentName || '',
+                    });
+                }
+            }
+        }
+
+        // 5. 获取输出节点的结果
         const lastLog = logs.reverse().find(l => l.status === 'COMPLETED');
         let assistantReply = '对不起，我没法理解这个请求。';
         if (lastLog && lastLog.output) {
@@ -73,11 +86,12 @@ export class ChatService {
                 : String(lastLog.output);
         }
 
-        // 5. 保存助手回复
+        // 6. 保存助手回复（带溯源元数据）
         const assistantMsg = this.messageRepository.create({
             role: 'assistant',
             content: assistantReply,
             session,
+            metadata: sourceDocs.length > 0 ? { sourceDocs } : undefined,
         });
         await this.messageRepository.save(assistantMsg);
 

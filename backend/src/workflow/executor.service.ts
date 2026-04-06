@@ -242,7 +242,14 @@ export class ExecutorService {
         }
 
         const results = await this.knowledgeService.search(kbId, query);
-        return { fragments: results.map(r => ({ id: r.id, content: r.content, score: r.score })) };
+        return {
+            fragments: results.map(r => ({
+                id: r.id,
+                content: r.content,
+                score: r.score,
+                documentName: r.documentName,
+            }))
+        };
     }
 
     private async handleCondition(node: NodeData, config: any, input: any): Promise<any> {

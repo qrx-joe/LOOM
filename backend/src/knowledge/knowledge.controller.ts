@@ -1,6 +1,6 @@
 import { Controller, Post, Body, Get, UploadedFile, UseInterceptors, Param } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { KnowledgeService } from './knowledge.service';
+import { KnowledgeService, SearchResult } from './knowledge.service';
 
 @Controller('knowledge')
 export class KnowledgeController {

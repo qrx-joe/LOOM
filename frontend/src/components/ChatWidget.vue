@@ -77,8 +77,18 @@ const startNewChat = async () => {
               <User v-if="msg.role === 'user'" :size="14" />
               <Sparkles v-else :size="14" />
             </div>
-            <div class="bubble-content">
-              {{ msg.content }}
+            <div class="bubble-wrapper">
+              <div class="bubble-content">
+                {{ msg.content }}
+              </div>
+              <!-- 引用来源 -->
+              <div v-if="msg.metadata?.sourceDocs?.length > 0" class="source-docs">
+                <div class="source-header">引用来源</div>
+                <div v-for="(doc, idx) in msg.metadata.sourceDocs" :key="idx" class="source-item">
+                  <span class="source-name">{{ doc.documentName || '未知文档' }}</span>
+                  <span class="source-score">{{ (doc.score * 100).toFixed(0) }}%</span>
+                </div>
+              </div>
             </div>
           </div>
           
@@ -277,6 +287,12 @@ const startNewChat = async () => {
   line-height: 1.5;
 }
 
+.bubble-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
 .user .bubble-content {
   background: var(--primary);
   color: white;
@@ -288,6 +304,50 @@ const startNewChat = async () => {
   border: 1px solid var(--border-subtle);
   border-top-left-radius: 4px;
   box-shadow: var(--shadow-sm);
+}
+
+/* 引用来源样式 */
+.source-docs {
+  background: #f8f9fa;
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 12px;
+}
+
+.source-header {
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.source-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 0;
+  border-bottom: 1px solid #eee;
+}
+
+.source-item:last-child {
+  border-bottom: none;
+}
+
+.source-name {
+  color: var(--text-main);
+  font-weight: 500;
+}
+
+.source-score {
+  color: var(--primary);
+  font-weight: 600;
+  font-size: 11px;
+  background: var(--primary-light);
+  padding: 2px 6px;
+  border-radius: 4px;
 }
 
 .chat-input-wrapper {

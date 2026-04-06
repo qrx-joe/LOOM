@@ -3,11 +3,32 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { KnowledgeBase, KnowledgeDocument, KnowledgeChunk } from './knowledge.entity';
 
+export interface SearchResult {
+    id: string;
+    content: string;
+    documentId: string;
+    documentName: string;
+    score: number;
+    bm25Score?: number;
+    vectorScore?: number;
+}
+
+interface ChunkWithScore extends KnowledgeChunk {
+    bm25Score: number;
+    vectorScore: number;
+    combinedScore: number;
+}
+
 @Injectable()
 export class KnowledgeService {
     private readonly logger = new Logger(KnowledgeService.name);
     // 固定向量维度
     private readonly EMBEDDING_DIM = 384;
+    // BM25 参数
+    private readonly BM25_K1 = 1.5;
+    private readonly BM25_B = 0.75;
+    // 混合检索权重 (keyword weight)
+    private readonly KEYWORD_WEIGHT = 0.4;
     // 停用词
     private readonly STOP_WORDS = new Set([
         '的', '了', '是', '在', '我', '有', '和', '就', '不', '人', '都', '一', '一个', '上', '也', '很', '到', '说', '要', '去', '你',
@@ -18,7 +39,10 @@ export class KnowledgeService {
 
     // 全局词表（从所有 chunk 中提取的高频词）
     private globalVocabulary: Map<string, number> = new Map();
-    private vocabFrozen = false;
+    // 文档频率 (DF) - 用于 IDF 计算
+    private documentFrequency: Map<string, number> = new Map();
+    // 总文档数
+    private totalDocuments = 0;
 
     constructor(
         @InjectRepository(KnowledgeBase)
@@ -50,11 +74,8 @@ export class KnowledgeService {
 
         // 简单分片：按行或固定长度
         const chunks = this.splitText(content, 500);
-        const allChunks: string[] = [];
 
         for (const chunkText of chunks) {
-            // 收集所有 chunk 的文本用于构建词表
-            allChunks.push(chunkText);
             const embedding = this.computeEmbedding(chunkText);
             const chunk = this.chunkRepository.create({
                 content: chunkText,
@@ -62,28 +83,24 @@ export class KnowledgeService {
                 document: doc,
             });
             await this.chunkRepository.save(chunk);
+
+            // 更新文档频率
+            this.updateDocumentFrequency(chunkText);
         }
 
-        // 更新全局词表（仅在新文档处理时扩展）
-        this.updateVocabulary(allChunks);
+        this.totalDocuments++;
+        this.logger.log(`Processed document: ${fileName}, chunks: ${chunks.length}`);
 
         return doc;
     }
 
-    // 更新全局词表
-    private updateVocabulary(chunks: string[]) {
-        const wordFreq = new Map<string, number>();
-        for (const chunk of chunks) {
-            const words = this.tokenize(chunk);
-            for (const word of words) {
-                wordFreq.set(word, (wordFreq.get(word) || 0) + 1);
-            }
+    // 更新文档频率（用于 BM25 IDF）
+    private updateDocumentFrequency(text: string) {
+        const words = this.tokenize(text);
+        const uniqueWords = new Set(words);
+        for (const word of uniqueWords) {
+            this.documentFrequency.set(word, (this.documentFrequency.get(word) || 0) + 1);
         }
-        // 合并到全局词表
-        for (const [word, freq] of wordFreq) {
-            this.globalVocabulary.set(word, (this.globalVocabulary.get(word) || 0) + freq);
-        }
-        this.logger.log(`Vocabulary size: ${this.globalVocabulary.size}`);
     }
 
     // 简单分词（基于空格和标点）
@@ -128,8 +145,9 @@ export class KnowledgeService {
         return vec;
     }
 
-    // 向量搜索（余弦相似度）
-    async search(kbId: string, query: string, topK = 3) {
+    // 混合搜索：BM25 + 向量
+    async search(kbId: string, query: string, topK = 3): Promise<SearchResult[]> {
+        const queryWords = this.tokenize(query);
         const queryEmbedding = this.computeEmbedding(query);
 
         // 获取知识库下所有的 chunks
@@ -138,15 +156,82 @@ export class KnowledgeService {
             relations: ['document'],
         });
 
-        // 计算相似度并排序
-        const results = chunks.map(chunk => ({
-            ...chunk,
-            score: this.cosineSimilarity(queryEmbedding, chunk.embedding),
-        }));
+        if (chunks.length === 0) {
+            return [];
+        }
 
-        return results
-            .sort((a, b) => b.score - a.score)
-            .slice(0, topK);
+        // 计算 BM25 和向量分数
+        const avgDocLen = chunks.reduce((sum, c) => sum + c.content.length, 0) / chunks.length;
+
+        const scoredChunks: ChunkWithScore[] = chunks.map(chunk => {
+            const bm25Score = this.calculateBM25(queryWords, chunk.content, avgDocLen);
+            const vectorScore = this.cosineSimilarity(queryEmbedding, chunk.embedding);
+
+            // 混合分数：加权融合
+            const combinedScore = this.KEYWORD_WEIGHT * bm25Score + (1 - this.KEYWORD_WEIGHT) * vectorScore;
+
+            return {
+                ...chunk,
+                bm25Score,
+                vectorScore,
+                combinedScore,
+            };
+        });
+
+        // 按混合分数排序
+        scoredChunks.sort((a, b) => b.combinedScore - a.combinedScore);
+
+        // 返回 topK 结果
+        return scoredChunks.slice(0, topK).map(chunk => ({
+            id: chunk.id,
+            content: chunk.content,
+            documentId: chunk.document?.id || '',
+            documentName: chunk.document?.name || '',
+            score: chunk.combinedScore,
+            bm25Score: chunk.bm25Score,
+            vectorScore: chunk.vectorScore,
+        }));
+    }
+
+    // 计算 BM25 分数
+    private calculateBM25(queryWords: string[], document: string, avgDocLen: number): number {
+        if (queryWords.length === 0 || document.length === 0) {
+            return 0;
+        }
+
+        const docWords = this.tokenize(document);
+        const docLen = document.length;
+        const docWordFreq = new Map<string, number>();
+        for (const word of docWords) {
+            docWordFreq.set(word, (docWordFreq.get(word) || 0) + 1);
+        }
+
+        let score = 0;
+        const N = Math.max(this.totalDocuments, 1);
+
+        for (const term of queryWords) {
+            const df = this.documentFrequency.get(term) || 0;
+            if (df === 0) continue;
+
+            // IDF: log((N - df + 0.5) / (df + 0.5))
+            const idf = Math.log((N - df + 0.5) / (df + 0.5) + 1);
+
+            // TF: (k1 + 1) * tf / (k1 * (1 - b + b * d/avgD) + tf)
+            const tf = docWordFreq.get(term) || 0;
+            const tfComponent = (this.BM25_K1 + 1) * tf /
+                (this.BM25_K1 * (1 - this.BM25_B + this.BM25_B * docLen / avgDocLen) + tf);
+
+            score += idf * tfComponent;
+        }
+
+        // 归一化到 0-1 范围（近似）
+        // BM25 分数范围不固定，我们使用 sigmoid 近似归一化
+        return this.sigmoid(score);
+    }
+
+    // Sigmoid 函数用于归一化
+    private sigmoid(x: number): number {
+        return 1 / (1 + Math.exp(-x));
     }
 
     private splitText(text: string, size: number): string[] {
