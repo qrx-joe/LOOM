@@ -6,6 +6,7 @@ import { ConfigModule } from '@nestjs/config';
 import { WorkflowModule } from './workflow/workflow.module';
 import { KnowledgeModule } from './knowledge/knowledge.module';
 import { ChatModule } from './chat/chat.module';
+import { SeederModule } from './seeder/seeder.module';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { ChatModule } from './chat/chat.module';
     WorkflowModule,
     KnowledgeModule,
     ChatModule,
+    SeederModule,
   ],
   controllers: [AppController],
   providers: [AppService],

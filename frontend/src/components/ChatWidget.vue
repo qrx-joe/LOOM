@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, watch } from 'vue'
 import axios from 'axios'
 import { useChatStore } from '../store/chat'
 import { useWorkflowStore } from '../store/workflow'
@@ -17,10 +17,19 @@ const handleSend = async () => {
   await chatStore.sendMessage(content)
 }
 
-const startNewChat = async () => {
-  if (workflowStore.nodes.length > 0) {
-    alert('请确保工作流已保存并发布')
+// 打开聊天窗口时获取工作流列表
+watch(isOpen, async (open) => {
+  if (open) {
+    await chatStore.fetchWorkflows()
   }
+})
+
+const startNewChat = async () => {
+  if (!chatStore.currentWorkflowId) {
+    alert('请先选择一个工作流')
+    return
+  }
+  await chatStore.createSession(chatStore.currentWorkflowId)
 }
 </script>
 
@@ -43,8 +52,19 @@ const startNewChat = async () => {
               <span class="status">在线中</span>
             </div>
           </div>
-          <button v-if="!chatStore.currentSessionId" @click="startNewChat" class="start-session-btn">
-            进入会话
+          <div v-if="!chatStore.currentSessionId" class="session-start">
+            <select v-model="chatStore.currentWorkflowId" class="workflow-select">
+              <option value="" disabled>选择工作流</option>
+              <option v-for="wf in chatStore.workflows" :key="wf.id" :value="wf.id">
+                {{ wf.name }}
+              </option>
+            </select>
+            <button @click="startNewChat" class="start-session-btn">
+              进入会话
+            </button>
+          </div>
+          <button v-else @click="chatStore.currentSessionId = null" class="start-session-btn">
+            切换会话
           </button>
         </header>
 
@@ -186,6 +206,27 @@ const startNewChat = async () => {
   font-weight: 600;
   border: none;
   cursor: pointer;
+}
+
+.session-start {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.workflow-select {
+  padding: 6px 10px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  font-size: 12px;
+  background: white;
+  color: var(--text-main);
+  cursor: pointer;
+}
+
+.workflow-select:focus {
+  outline: none;
+  border-color: var(--primary);
 }
 
 .message-list {

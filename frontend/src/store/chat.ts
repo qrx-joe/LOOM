@@ -4,18 +4,30 @@ import axios from 'axios';
 
 export const useChatStore = defineStore('chat', () => {
     const sessions = ref<any[]>([]);
+    const workflows = ref<any[]>([]);
     const currentSessionId = ref<string | null>(null);
+    const currentWorkflowId = ref<string | null>(null);
     const messages = ref<any[]>([]);
     const isLoading = ref(false);
 
-    const fetchSessions = async () => {
-        // 简化版：暂时直接取
+    const fetchWorkflows = async () => {
+        try {
+            const resp = await axios.get('http://localhost:3001/workflows');
+            workflows.value = resp.data;
+            // 自动选择第一个工作流
+            if (resp.data.length > 0 && !currentWorkflowId.value) {
+                currentWorkflowId.value = resp.data[0].id;
+            }
+        } catch (err) {
+            console.error('Fetch workflows failed', err);
+        }
     };
 
     const createSession = async (workflowId: string) => {
         try {
             const resp = await axios.post('http://localhost:3001/chat/sessions', { workflowId });
             currentSessionId.value = resp.data.id;
+            currentWorkflowId.value = workflowId;
             messages.value = [];
             return resp.data;
         } catch (err) {
@@ -50,5 +62,16 @@ export const useChatStore = defineStore('chat', () => {
         }
     };
 
-    return { sessions, currentSessionId, messages, isLoading, createSession, sendMessage, fetchMessages };
+    return {
+        sessions,
+        workflows,
+        currentSessionId,
+        currentWorkflowId,
+        messages,
+        isLoading,
+        fetchWorkflows,
+        createSession,
+        sendMessage,
+        fetchMessages
+    };
 });

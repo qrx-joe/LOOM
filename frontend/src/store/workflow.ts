@@ -15,7 +15,7 @@ export const useWorkflowStore = defineStore('workflow', () => {
             edges: edges.value,
         };
         try {
-            const resp = await axios.post('http://localhost:3001/workflows/run', payload);
+            const resp = await axios.post('http://localhost:3001/workflows/run-preview', payload);
             return resp.data;
         } catch (err) {
             console.error('Failed to run workflow', err);
