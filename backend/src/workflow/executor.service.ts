@@ -48,7 +48,8 @@ export class ExecutorService {
         }
 
         // 1. 构建邻接表和入度表
-        const adj = new Map<string, string[]>();
+        // adj: sourceId -> [{targetId, condition}]
+        const adj = new Map<string, {targetId: string; condition?: string}[]>();
         const inDegree = new Map<string, number>();
 
         workflow.nodes.forEach(node => {
@@ -59,9 +60,12 @@ export class ExecutorService {
         workflow.edges.forEach(edge => {
             const sourceAdj = adj.get(edge.source);
             if (sourceAdj) {
-                sourceAdj.push(edge.target);
+                sourceAdj.push({ targetId: edge.target, condition: edge.condition });
             }
-            inDegree.set(edge.target, (inDegree.get(edge.target) || 0) + 1);
+            // 如果边没有 condition，则无条件执行
+            if (!edge.condition) {
+                inDegree.set(edge.target, (inDegree.get(edge.target) || 0) + 1);
+            }
         });
 
         // 2. 拓扑排序队列
@@ -135,13 +139,26 @@ export class ExecutorService {
             // 处理后继节点
             const nextNodes = adj.get(nodeId);
             if (nextNodes) {
-                nextNodes.forEach(nextId => {
-                    const currentInDegree = inDegree.get(nextId) || 0;
-                    inDegree.set(nextId, currentInDegree - 1);
-                    if (inDegree.get(nextId) === 0) {
-                        queue.push(nextId);
+                for (const { targetId, condition } of nextNodes) {
+                    // 如果边有条件，检查是否匹配
+                    if (condition) {
+                        // 条件节点的输出中应该有 conditionResult 字段
+                        const conditionResult = nodeResults.get(nodeId)?.conditionResult;
+                        if (conditionResult !== condition) {
+                            // 条件不匹配，跳过这条边
+                            continue;
+                        }
+                        // 条件匹配，直接加入队列，不走入度递减逻辑
+                        queue.push(targetId);
+                    } else {
+                        // 无条件边，正常处理
+                        const currentInDegree = inDegree.get(targetId) || 0;
+                        inDegree.set(targetId, currentInDegree - 1);
+                        if (inDegree.get(targetId) === 0) {
+                            queue.push(targetId);
+                        }
                     }
-                });
+                }
             }
         }
 
@@ -222,6 +239,7 @@ export class ExecutorService {
             const stream = await this.openai.chat.completions.create({
                 model: config.model || 'gpt-3.5-turbo',
                 messages: [{ role: 'user', content: prompt }],
+                temperature: config.temperature ?? 0.7,
                 stream: true,
             });
 
@@ -267,8 +285,40 @@ export class ExecutorService {
     }
 
     private async handleCondition(node: NodeData, config: any, input: any): Promise<any> {
-        // 简单的分支逻辑实现
         this.logger.log(`Executing Condition node: ${node.id}`);
-        return input;
+        const expression = config.expression || '';
+
+        // 简单的条件表达式求值
+        // 支持格式: "{{input}}" > 10, "{{input}}" == "yes" 等
+        // 或者直接检查 input 中是否有某个字段
+        let conditionResult = 'true'; // 默认走 true 分支
+
+        try {
+            // 简单实现：如果表达式包含 >, <, ==, != 等，比较数值或字符串
+            const matchGt = expression.match(/{{(\w+)}}\s*>\s*(\d+)/);
+            const matchLt = expression.match(/{{(\w+)}}\s*<\s*(\d+)/);
+            const matchEq = expression.match(/{{(\w+)}}\s*==\s*"?([^"]+)"?/);
+
+            if (matchGt) {
+                const value = parseFloat(input[matchGt[1]] || '0');
+                conditionResult = value > parseFloat(matchGt[2]) ? 'true' : 'false';
+            } else if (matchLt) {
+                const value = parseFloat(input[matchLt[1]] || '0');
+                conditionResult = value < parseFloat(matchLt[2]) ? 'true' : 'false';
+            } else if (matchEq) {
+                const value = String(input[matchEq[1]] || '');
+                conditionResult = value === matchEq[2] ? 'true' : 'false';
+            } else {
+                // 默认：如果 input 有某个字段存在且为真值
+                if (input[expression] || expression === 'input') {
+                    conditionResult = 'true';
+                }
+            }
+        } catch (e) {
+            this.logger.warn(`Condition evaluation error: ${e}`);
+        }
+
+        this.logger.log(`Condition node ${node.id} result: ${conditionResult}`);
+        return { conditionResult, ...input };
     }
 }

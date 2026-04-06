@@ -16,6 +16,7 @@ export interface WorkflowEdge {
     target: string;
     sourceHandle?: string;
     targetHandle?: string;
+    condition?: string;
 }
 
 export interface Workflow {

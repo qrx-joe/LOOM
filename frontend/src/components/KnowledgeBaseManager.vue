@@ -31,10 +31,10 @@ const createKb = async () => {
 const handleUpload = async (kbId: string, event: any) => {
   const file = event.target.files[0]
   if (!file) return
-  
+
   const formData = new FormData()
   formData.append('file', file)
-  
+
   isLoading.value = true
   try {
     await axios.post(`http://localhost:3001/knowledge/bases/${kbId}/upload`, formData, {
@@ -46,6 +46,33 @@ const handleUpload = async (kbId: string, event: any) => {
     alert('上传失败')
   } finally {
     isLoading.value = false
+  }
+}
+
+const deleteKb = async (kbId: string, event: Event) => {
+  event.stopPropagation()
+  if (!confirm('确定要删除这个知识库吗？删除后无法恢复。')) return
+
+  try {
+    await axios.delete(`http://localhost:3001/knowledge/bases/${kbId}`)
+    if (selectedKb.value?.id === kbId) {
+      selectedKb.value = null
+    }
+    await fetchKbs()
+  } catch (err) {
+    alert('删除失败')
+  }
+}
+
+const deleteDoc = async (docId: string, event: Event) => {
+  event.stopPropagation()
+  if (!confirm('确定要删除这个文档吗？')) return
+
+  try {
+    await axios.delete(`http://localhost:3001/knowledge/documents/${docId}`)
+    await fetchKbs()
+  } catch (err) {
+    alert('删除失败')
   }
 }
 
@@ -91,7 +118,9 @@ onMounted(fetchKbs)
               上传文档
               <input type="file" @change="e => handleUpload(kb.id, e)" hidden />
             </label>
-            <button class="icon-btn danger"><Trash2 :size="16" /></button>
+            <button class="icon-btn danger" @click="e => deleteKb(kb.id, e)">
+              <Trash2 :size="16" />
+            </button>
           </div>
         </div>
       </div>
@@ -116,7 +145,12 @@ onMounted(fetchKbs)
                   <span class="doc-date">{{ new Date(doc.createdAt).toLocaleDateString() }}</span>
                 </div>
               </div>
-              <div class="doc-status-tag">已索引</div>
+              <div class="doc-actions">
+                <div class="doc-status-tag">已索引</div>
+                <button class="icon-btn danger small" @click="e => deleteDoc(doc.id, e)">
+                  <Trash2 :size="14" />
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -334,4 +368,39 @@ input {
 /* Transitions */
 .fade-enter-active, .fade-leave-active { transition: opacity 0.3s ease; }
 .fade-enter-from, .fade-leave-to { opacity: 0; }
+
+/* Icon Button */
+.icon-btn {
+  background: transparent;
+  border: none;
+  padding: 8px;
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  color: var(--text-muted);
+}
+
+.icon-btn:hover {
+  background: #fee2e2;
+  color: #ef4444;
+}
+
+.icon-btn.small {
+  padding: 6px;
+  border-radius: 6px;
+}
+
+.icon-btn.danger {
+  color: #ef4444;
+}
+
+/* Doc Actions */
+.doc-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
 </style>

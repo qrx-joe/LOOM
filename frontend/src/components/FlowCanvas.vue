@@ -24,13 +24,58 @@ interface KnowledgeBase {
 }
 
 const store = useWorkflowStore()
-const { onConnect, addEdges, onNodeClick, addNodes, project } = useVueFlow()
+const { onConnect, addEdges, onNodeClick, onEdgeClick, addNodes, project, removeNodes, removeEdges } = useVueFlow()
 
 const selectedNode = ref<any>(null)
+const selectedEdge = ref<any>(null)
 const showWorkflowList = ref(false)
 const isEditing = ref(false)
 const knowledgeBases = ref<KnowledgeBase[]>([])
 const draggedNodeType = ref<string | null>(null)
+
+// 监听边的点击
+onEdgeClick((event) => {
+  selectedEdge.value = event.edge
+  selectedNode.value = null
+})
+
+// 键盘事件处理 - 删除选中的节点或边
+const handleKeyDown = (e: KeyboardEvent) => {
+  if (e.key === 'Delete' || e.key === 'Backspace') {
+    // 避免在输入框中触发删除
+    if ((e.target as HTMLElement).tagName === 'INPUT' || (e.target as HTMLElement).tagName === 'TEXTAREA') {
+      return
+    }
+
+    if (selectedNode.value) {
+      removeNodes(selectedNode.value.id)
+      selectedNode.value = null
+    } else if (selectedEdge.value) {
+      removeEdges(selectedEdge.value.id)
+      selectedEdge.value = null
+    }
+  }
+}
+
+// 初始化
+onMounted(async () => {
+  // 添加键盘监听
+  window.addEventListener('keydown', handleKeyDown)
+
+  // 加载工作流
+  await store.fetchWorkflows()
+  const firstWorkflow = store.savedWorkflows[0]
+  if (!firstWorkflow) {
+    store.createNewWorkflow()
+    isEditing.value = true
+  } else {
+    store.loadWorkflow(firstWorkflow)
+  }
+})
+
+onUnmounted(() => {
+  window.removeEventListener('keydown', handleKeyDown)
+})
 
 // 节点类型定义
 const nodeTypes = [
@@ -89,7 +134,7 @@ const handleDrop = (e: DragEvent) => {
 const getDefaultNodeData = (type: string): any => {
   switch (type) {
     case 'AI_AGENT':
-      return { prompt: '基于上下文回答问题：\n{{START_INPUT}}' }
+      return { prompt: '基于上下文回答问题：\n{{START_INPUT}}', model: 'gpt-3.5-turbo', temperature: 0.7 }
     case 'KNOWLEDGE_RETRIEVAL':
       return { kbId: '', query: '' }
     case 'CONDITION':
@@ -108,7 +153,7 @@ const handleDragOver = (e: DragEvent) => {
 }
 
 onConnect((params) => {
-  addEdges(params)
+  addEdges({ ...params, id: `edge-${Date.now()}` })
 })
 
 onNodeClick(async (event) => {
@@ -364,13 +409,15 @@ const handleDeleteWorkflow = async (e: Event, id: string) => {
 
     <!-- 侧边属性栏 - Glassmorphism -->
     <transition name="slide">
-      <div v-if="selectedNode" class="sidebar glass">
+      <div v-if="selectedNode || selectedEdge" class="sidebar glass">
         <header class="sidebar-header">
-          <h3>节点配置</h3>
-          <span class="node-id">#{{ selectedNode.id }}</span>
+          <h3>{{ selectedEdge ? '连线配置' : '节点配置' }}</h3>
+          <span class="node-id">{{ selectedEdge ? `#${selectedEdge.source} → ${selectedEdge.target}` : `#${selectedNode?.id}` }}</span>
         </header>
-        
+
         <div class="sidebar-content">
+          <!-- 节点配置 -->
+          <template v-if="selectedNode">
           <div class="form-group">
             <label>显示名称</label>
             <input v-model="selectedNode.label" placeholder="输入节点名称..." />
@@ -380,6 +427,30 @@ const handleDeleteWorkflow = async (e: Event, id: string) => {
             <label>Prompt 引导词</label>
             <textarea v-model="selectedNode.data.prompt" rows="8" placeholder="在此输入 AI 处理逻辑..."></textarea>
             <p v-pre class="hint">支持使用 {{nodeId.output}} 引用其他节点输出</p>
+          </div>
+
+          <div v-if="String(selectedNode.label || '').includes('AI')" class="form-group">
+            <label>AI 模型</label>
+            <select v-model="selectedNode.data.model" class="kb-select">
+              <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
+              <option value="gpt-4">GPT-4</option>
+              <option value="gpt-4-turbo">GPT-4 Turbo</option>
+              <option value="gpt-4o">GPT-4o</option>
+              <option value="gpt-4o-mini">GPT-4o Mini</option>
+            </select>
+          </div>
+
+          <div v-if="String(selectedNode.label || '').includes('AI')" class="form-group">
+            <label>Temperature: {{ selectedNode.data.temperature }}</label>
+            <input
+              type="range"
+              v-model="selectedNode.data.temperature"
+              min="0"
+              max="2"
+              step="0.1"
+              class="temp-slider"
+            />
+            <p class="hint">较低的值更确定性，较高的值更有创造性</p>
           </div>
 
           <div v-if="String(selectedNode.label || '').includes('检索')" class="form-group">
@@ -393,10 +464,30 @@ const handleDeleteWorkflow = async (e: Event, id: string) => {
             <label>查询语句 (Query)</label>
             <input v-model="selectedNode.data.query" placeholder="要搜索的内容..." />
           </div>
+
+          <div v-if="String(selectedNode.label || '').includes('条件')" class="form-group">
+            <label>条件表达式</label>
+            <input v-model="selectedNode.data.expression" placeholder="例如: score > 10" />
+            <p class="hint">支持格式: {{field}} > N, {{field}} < N, {{field}} == "value"</p>
+          </div>
+          </template>
+
+          <!-- 边配置 -->
+          <template v-if="selectedEdge">
+          <div class="form-group">
+            <label>连线条件</label>
+            <select v-model="selectedEdge.condition" class="kb-select">
+              <option value="">无条件 (默认)</option>
+              <option value="true">条件为 true 时执行</option>
+              <option value="false">条件为 false 时执行</option>
+            </select>
+            <p class="hint">只有条件节点后的连线需要设置条件</p>
+          </div>
+          </template>
         </div>
 
         <footer class="sidebar-footer">
-          <button @click="selectedNode = null" class="secondary-btn">关闭面板</button>
+          <button @click="selectedNode = null; selectedEdge = null" class="secondary-btn">关闭面板</button>
         </footer>
       </div>
     </transition>
@@ -640,6 +731,34 @@ input:focus, textarea:focus {
   outline: none;
   border-color: var(--primary);
   box-shadow: 0 0 0 3px rgba(110, 86, 207, 0.1);
+}
+
+.temp-slider {
+  width: 100%;
+  height: 6px;
+  border-radius: 3px;
+  background: #e5e7eb;
+  appearance: none;
+  cursor: pointer;
+}
+
+.temp-slider::-webkit-slider-thumb {
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--primary);
+  cursor: pointer;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.temp-slider::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--primary);
+  cursor: pointer;
+  border: none;
 }
 
 .sidebar-footer {
