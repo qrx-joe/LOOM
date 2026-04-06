@@ -24,12 +24,88 @@ interface KnowledgeBase {
 }
 
 const store = useWorkflowStore()
-const { onConnect, addEdges, onNodeClick } = useVueFlow()
+const { onConnect, addEdges, onNodeClick, addNodes, project } = useVueFlow()
 
 const selectedNode = ref<any>(null)
 const showWorkflowList = ref(false)
 const isEditing = ref(false)
 const knowledgeBases = ref<KnowledgeBase[]>([])
+const draggedNodeType = ref<string | null>(null)
+
+// 节点类型定义
+const nodeTypes = [
+  { type: 'input', label: '开始', icon: '▶', color: '#10b981', description: '工作流入口节点' },
+  { type: 'AI_AGENT', label: 'AI 节点', icon: '🤖', color: '#6366f1', description: '调用大模型' },
+  { type: 'KNOWLEDGE_RETRIEVAL', label: '知识检索', icon: '📚', color: '#f59e0b', description: 'RAG 检索' },
+  { type: 'CONDITION', label: '条件分支', icon: '🔀', color: '#ec4899', description: 'IF/ELSE 分支' },
+  { type: 'output', label: '结束', icon: '■', color: '#ef4444', description: '工作流结束' },
+]
+
+// 拖拽开始
+const handleDragStart = (e: DragEvent, nodeType: string) => {
+  draggedNodeType.value = nodeType
+  if (e.dataTransfer) {
+    e.dataTransfer.effectAllowed = 'move'
+    e.dataTransfer.setData('application/vueflow', nodeType)
+  }
+}
+
+// 拖拽结束
+const handleDragEnd = () => {
+  draggedNodeType.value = null
+}
+
+// 处理拖拽放置
+const handleDrop = (e: DragEvent) => {
+  e.preventDefault()
+  if (!e.dataTransfer) return
+
+  const nodeType = e.dataTransfer.getData('application/vueflow')
+  if (!nodeType) return
+
+  // 获取画布区域的位置
+  const canvasArea = document.querySelector('.canvas-area')
+  if (!canvasArea) return
+
+  const canvasRect = canvasArea.getBoundingClientRect()
+  const position = project({
+    x: e.clientX - canvasRect.left,
+    y: e.clientY - canvasRect.top,
+  })
+
+  // 生成新节点
+  const newNode = {
+    id: `node-${Date.now()}`,
+    type: nodeType,
+    label: nodeTypes.find(n => n.type === nodeType)?.label || '新节点',
+    position,
+    data: getDefaultNodeData(nodeType),
+  }
+
+  addNodes(newNode)
+}
+
+// 获取节点默认数据
+const getDefaultNodeData = (type: string): any => {
+  switch (type) {
+    case 'AI_AGENT':
+      return { prompt: '基于上下文回答问题：\n{{START_INPUT}}' }
+    case 'KNOWLEDGE_RETRIEVAL':
+      return { kbId: '', query: '' }
+    case 'CONDITION':
+      return { expression: '' }
+    default:
+      return {}
+  }
+}
+
+// 处理画布拖拽悬停
+const handleDragOver = (e: DragEvent) => {
+  e.preventDefault()
+  if (e.dataTransfer) {
+    e.dataTransfer.dropEffect = 'move'
+  }
+}
 
 onConnect((params) => {
   addEdges(params)
@@ -247,15 +323,43 @@ const handleDeleteWorkflow = async (e: Event, id: string) => {
     </div>
 
     <div class="canvas-area">
-      <VueFlow
-        v-model:nodes="store.nodes"
-        v-model:edges="store.edges"
-        fit-view-on-init
-        class="custom-flow"
+      <!-- 左侧节点面板 -->
+      <div class="node-palette">
+        <div class="palette-header">节点列表</div>
+        <div class="palette-nodes">
+          <div
+            v-for="node in nodeTypes"
+            :key="node.type"
+            class="palette-node"
+            :style="{ borderColor: node.color }"
+            draggable="true"
+            @dragstart="handleDragStart($event, node.type)"
+            @dragend="handleDragEnd"
+          >
+            <span class="node-icon" :style="{ background: node.color }">{{ node.icon }}</span>
+            <span class="node-label">{{ node.label }}</span>
+          </div>
+        </div>
+        <div class="palette-hint">拖拽到画布创建节点</div>
+      </div>
+
+      <!-- Vue Flow 画布 -->
+      <div
+        class="flow-wrapper"
+        @drop="handleDrop"
+        @dragover="handleDragOver"
       >
-        <Background pattern-color="#ccc" :gap="20" />
-        <Controls />
-      </VueFlow>
+        <VueFlow
+          v-model:nodes="store.nodes"
+          v-model:edges="store.edges"
+          fit-view-on-init
+          class="custom-flow"
+          :default-edge-options="{ type: 'smoothstep' }"
+        >
+          <Background pattern-color="#ccc" :gap="20" />
+          <Controls />
+        </VueFlow>
+      </div>
     </div>
 
     <!-- 侧边属性栏 - Glassmorphism -->
@@ -342,10 +446,103 @@ const handleDeleteWorkflow = async (e: Event, id: string) => {
 .canvas-area {
   flex-grow: 1;
   height: 100%;
+  display: flex;
+  gap: 16px;
+  padding-left: 80px;
 }
 
 .custom-flow {
   background: white;
+}
+
+/* 节点面板 */
+.node-palette {
+  position: absolute;
+  left: 20px;
+  top: 90px;
+  width: 70px;
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 12px;
+  box-shadow: var(--shadow-md);
+  border: 1px solid var(--border-subtle);
+  padding: 12px 8px;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.palette-header {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.palette-nodes {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.palette-node {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 4px;
+  border-radius: 8px;
+  border: 2px solid transparent;
+  background: #f8f9fa;
+  cursor: grab;
+  transition: all 0.2s;
+}
+
+.palette-node:hover {
+  background: white;
+  box-shadow: var(--shadow-sm);
+  transform: translateY(-2px);
+}
+
+.palette-node:active {
+  cursor: grabbing;
+  transform: scale(0.95);
+}
+
+.node-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  color: white;
+}
+
+.node-label {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-main);
+  text-align: center;
+}
+
+.palette-hint {
+  font-size: 9px;
+  color: var(--text-muted);
+  text-align: center;
+  padding-top: 8px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.flow-wrapper {
+  flex: 1;
+  height: 100%;
+  position: relative;
 }
 
 .sidebar {
