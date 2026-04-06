@@ -19,6 +19,10 @@ coverage/
 !.env.sample
 !.env.template
 
+# database
+*.db
+*.db-*
+
 # secrets and keys
 *.pem
 *.key
