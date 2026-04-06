@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Get, UploadedFile, UseInterceptors, Param } from '@nestjs/common';
+import { Controller, Post, Body, Get, UploadedFile, UseInterceptors, Param, Delete } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { KnowledgeService, SearchResult } from './knowledge.service';
 
@@ -14,6 +14,16 @@ export class KnowledgeController {
     @Get('bases')
     findAllBases() {
         return this.knowledgeService.findAllBases();
+    }
+
+    @Delete('bases/:id')
+    deleteBase(@Param('id') id: string) {
+        return this.knowledgeService.deleteBase(id);
+    }
+
+    @Delete('documents/:id')
+    deleteDocument(@Param('id') id: string) {
+        return this.knowledgeService.deleteDocument(id);
     }
 
     @Post('bases/:id/upload')

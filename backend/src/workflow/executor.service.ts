@@ -4,7 +4,7 @@ import { WorkflowDefinition, NodeData, ExecutionLog, NodeType } from './interfac
 import { KnowledgeService } from '../knowledge/knowledge.service';
 
 // SSE 事件类型
-export type WorkflowEventType = 'node_start' | 'node_complete' | 'node_error' | 'workflow_complete';
+export type WorkflowEventType = 'node_start' | 'node_complete' | 'node_error' | 'workflow_complete' | 'token';
 
 export interface WorkflowEvent {
     type: WorkflowEventType;
@@ -28,7 +28,8 @@ export class ExecutorService {
     async runWorkflow(
         workflow: WorkflowDefinition,
         initialInput: any = {},
-        onEvent?: EventCallback
+        onEvent?: EventCallback,
+        onToken?: (token: string) => void
     ): Promise<ExecutionLog[]> {
         this.logger.log(`Starting workflow execution: ${workflow.name} (${workflow.id})`);
 
@@ -97,7 +98,7 @@ export class ExecutorService {
             }
 
             try {
-                const result = await this.executeNode(node, log.input);
+                const result = await this.executeNode(node, log.input, onToken);
                 log.status = 'COMPLETED';
                 log.output = result;
                 log.endTime = Date.now();
@@ -164,7 +165,7 @@ export class ExecutorService {
         return { ...node.config, _context: Object.fromEntries(nodeResults) };
     }
 
-    private async executeNode(node: NodeData, input: any): Promise<any> {
+    private async executeNode(node: NodeData, input: any, onToken?: (token: string) => void): Promise<any> {
         // 兼容 data 和 config 两种属性
         const config = (node as any).config || (node as any).data || {};
 
@@ -177,7 +178,7 @@ export class ExecutorService {
                 return input;
             case 'AI_AGENT':
             case NodeType.AI_AGENT:
-                return this.handleAIRequest(node, config, input);
+                return this.handleAIRequest(node, config, input, onToken);
             case 'KNOWLEDGE_RETRIEVAL':
             case 'knowledge':
             case NodeType.KNOWLEDGE_RETRIEVAL:
@@ -197,7 +198,7 @@ export class ExecutorService {
         }
     }
 
-    private async handleAIRequest(node: NodeData, config: any, input: any): Promise<any> {
+    private async handleAIRequest(node: NodeData, config: any, input: any, onToken?: (token: string) => void): Promise<any> {
         this.logger.log(`Executing AI Agent node: ${node.id}`);
         // 提取 prompt 并替换上下文变量
         let prompt = config.prompt || 'Hello';
@@ -217,11 +218,24 @@ export class ExecutorService {
         }
 
         try {
-            const response = await this.openai.chat.completions.create({
+            // 流式调用
+            const stream = await this.openai.chat.completions.create({
                 model: config.model || 'gpt-3.5-turbo',
                 messages: [{ role: 'user', content: prompt }],
+                stream: true,
             });
-            return { text: response.choices[0].message.content };
+
+            let fullText = '';
+            for await (const chunk of stream) {
+                const content = chunk.choices[0]?.delta?.content || '';
+                if (content) {
+                    fullText += content;
+                    if (onToken) {
+                        onToken(content);
+                    }
+                }
+            }
+            return { text: fullText };
         } catch (error: any) {
             this.logger.error(`AI call failed: ${error.message}`);
             return { text: `[AI Error: ${error.message}]` };

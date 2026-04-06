@@ -9,6 +9,8 @@ export const useChatStore = defineStore('chat', () => {
     const currentWorkflowId = ref<string | null>(null);
     const messages = ref<any[]>([]);
     const isLoading = ref(false);
+    const streamingContent = ref('');
+    let eventSource: EventSource | null = null;
 
     const fetchWorkflows = async () => {
         try {
@@ -35,6 +37,68 @@ export const useChatStore = defineStore('chat', () => {
         }
     };
 
+    // 流式发送消息（打字机效果）
+    const sendMessageStream = (content: string) => {
+        if (!currentSessionId.value) return;
+
+        // 乐观更新：先加用户消息
+        messages.value.push({ role: 'user', content, createdAt: new Date() });
+
+        // 创建 SSE 连接
+        const sseUrl = `http://localhost:3001/chat/sessions/${currentSessionId.value}/messages/stream?content=${encodeURIComponent(content)}`;
+        eventSource = new EventSource(sseUrl);
+
+        // 添加一个临时的 assistant 消息用于流式更新
+        const assistantMsgIndex = messages.value.length;
+        messages.value.push({
+            role: 'assistant',
+            content: '',
+            createdAt: new Date(),
+            isStreaming: true
+        });
+
+        isLoading.value = true;
+        streamingContent.value = '';
+
+        eventSource.onmessage = (event) => {
+            try {
+                const data = JSON.parse(event.data);
+
+                if (data.type === 'token') {
+                    // 累积 token
+                    streamingContent.value += data.content;
+                    // 更新消息内容（打字机效果）
+                    messages.value[assistantMsgIndex].content = streamingContent.value;
+                } else if (data.type === 'done') {
+                    // 流式结束
+                    messages.value[assistantMsgIndex].content = data.content;
+                    messages.value[assistantMsgIndex].metadata = data.metadata;
+                    messages.value[assistantMsgIndex].isStreaming = false;
+                    isLoading.value = false;
+                    closeStream();
+                }
+            } catch (e) {
+                console.error('Failed to parse SSE event:', e);
+            }
+        };
+
+        eventSource.onerror = (error) => {
+            console.error('SSE error:', error);
+            isLoading.value = false;
+            messages.value[assistantMsgIndex].content = '抱歉，发生了错误。';
+            messages.value[assistantMsgIndex].isStreaming = false;
+            closeStream();
+        };
+    };
+
+    const closeStream = () => {
+        if (eventSource) {
+            eventSource.close();
+            eventSource = null;
+        }
+    };
+
+    // 非流式发送消息（备用）
     const sendMessage = async (content: string) => {
         if (!currentSessionId.value) return;
         isLoading.value = true;
@@ -72,6 +136,8 @@ export const useChatStore = defineStore('chat', () => {
         fetchWorkflows,
         createSession,
         sendMessage,
-        fetchMessages
+        sendMessageStream,
+        fetchMessages,
+        closeStream,
     };
 });

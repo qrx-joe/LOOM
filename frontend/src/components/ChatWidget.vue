@@ -7,11 +7,11 @@ const chatStore = useChatStore()
 const userInput = ref('')
 const isOpen = ref(false)
 
-const handleSend = async () => {
+const handleSend = () => {
   if (!userInput.value.trim() || chatStore.isLoading) return
   const content = userInput.value
   userInput.value = ''
-  await chatStore.sendMessage(content)
+  chatStore.sendMessageStream(content)
 }
 
 // 打开聊天窗口时获取工作流列表
@@ -79,10 +79,10 @@ const startNewChat = async () => {
             </div>
             <div class="bubble-wrapper">
               <div class="bubble-content">
-                {{ msg.content }}
+                {{ msg.content }}<span v-if="msg.isStreaming" class="typing-cursor">▋</span>
               </div>
               <!-- 引用来源 -->
-              <div v-if="msg.metadata?.sourceDocs?.length > 0" class="source-docs">
+              <div v-if="msg.metadata?.sourceDocs?.length > 0 && !msg.isStreaming" class="source-docs">
                 <div class="source-header">引用来源</div>
                 <div v-for="(doc, idx) in msg.metadata.sourceDocs" :key="idx" class="source-item">
                   <span class="source-name">{{ doc.documentName || '未知文档' }}</span>
@@ -424,4 +424,17 @@ input {
 }
 
 .loading-spin { animation: spin 2s linear infinite; }
+
+/* 打字机光标 */
+.typing-cursor {
+  display: inline-block;
+  color: var(--primary);
+  animation: blink 1s step-end infinite;
+  margin-left: 2px;
+}
+
+@keyframes blink {
+  0%, 50% { opacity: 1; }
+  51%, 100% { opacity: 0; }
+}
 </style>

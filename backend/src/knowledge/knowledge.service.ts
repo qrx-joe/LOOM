@@ -64,6 +64,39 @@ export class KnowledgeService {
         return this.kbRepository.find({ relations: ['documents'] });
     }
 
+    // 删除知识库及其所有文档
+    async deleteBase(id: string) {
+        const kb = await this.kbRepository.findOne({
+            where: { id },
+            relations: ['documents'],
+        });
+        if (!kb) throw new Error('Knowledge Base not found');
+
+        // 删除所有关联的文档和 chunks
+        for (const doc of kb.documents || []) {
+            await this.chunkRepository.delete({ document: { id: doc.id } });
+        }
+        await this.docRepository.delete({ knowledgeBase: { id } });
+        await this.kbRepository.delete(id);
+
+        return { success: true };
+    }
+
+    // 删除单个文档及其 chunks
+    async deleteDocument(id: string) {
+        const doc = await this.docRepository.findOne({
+            where: { id },
+            relations: ['knowledgeBase'],
+        });
+        if (!doc) throw new Error('Document not found');
+
+        // 删除关联的 chunks
+        await this.chunkRepository.delete({ document: { id } });
+        await this.docRepository.delete(id);
+
+        return { success: true };
+    }
+
     // 上传并分片处理
     async processDocument(kbId: string, fileName: string, content: string) {
         const kb = await this.kbRepository.findOneBy({ id: kbId });

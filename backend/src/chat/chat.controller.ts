@@ -1,4 +1,5 @@
-import { Controller, Post, Body, Get, Param } from '@nestjs/common';
+import { Controller, Post, Body, Get, Param, Res } from '@nestjs/common';
+import type { Response } from 'express';
 import { ChatService } from './chat.service';
 
 @Controller('chat')
@@ -21,5 +22,30 @@ export class ChatController {
         @Body() body: { content: string },
     ) {
         return this.chatService.sendMessage(id, body.content);
+    }
+
+    // SSE 流式发送消息
+    @Get('sessions/:id/messages/stream')
+    async sendMessageStream(
+        @Param('id') id: string,
+        @Body() body: { content: string },
+        @Res() res: Response,
+    ) {
+        // 设置 SSE headers
+        res.setHeader('Content-Type', 'text/event-stream');
+        res.setHeader('Cache-Control', 'no-cache');
+        res.setHeader('Connection', 'keep-alive');
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.flushHeaders();
+
+        try {
+            await this.chatService.sendMessageStream(id, body.content, (data) => {
+                res.write(`data: ${JSON.stringify(data)}\n\n`);
+            });
+        } catch (error: any) {
+            res.write(`data: ${JSON.stringify({ type: 'error', content: error.message })}\n\n`);
+        }
+
+        res.end();
     }
 }

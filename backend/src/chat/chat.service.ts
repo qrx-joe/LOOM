@@ -97,4 +97,87 @@ export class ChatService {
 
         return assistantMsg;
     }
+
+    // 流式发送消息
+    async sendMessageStream(
+        sessionId: string,
+        content: string,
+        onToken: (data: any) => void
+    ) {
+        const session = await this.sessionRepository.findOne({
+            where: { id: sessionId },
+            relations: ['workflow'],
+        });
+        if (!session) throw new Error('Session not found');
+
+        // 1. 保存用户消息
+        const userMsg = this.messageRepository.create({
+            role: 'user',
+            content,
+            session,
+        });
+        await this.messageRepository.save(userMsg);
+
+        // 2. 转换工作流定义
+        const workflow = session.workflow;
+        const definition: WorkflowDefinition = {
+            id: workflow.id,
+            name: workflow.name,
+            nodes: workflow.nodes,
+            edges: workflow.edges,
+        };
+
+        // 3. 收集知识检索结果（用于答案溯源）
+        const sourceDocs: { id: string; content: string; score: number; documentName: string }[] = [];
+
+        // 4. 执行工作流（带 token 回调）
+        const logs = await this.executorService.runWorkflow(
+            definition,
+            { input: content },
+            undefined, // onEvent
+            (token) => {
+                // 每个 token 都通过 SSE 发送
+                onToken({ type: 'token', content: token });
+            }
+        );
+
+        // 5. 收集知识检索结果
+        for (const log of logs) {
+            if (log.output && log.output.fragments && Array.isArray(log.output.fragments)) {
+                for (const frag of log.output.fragments) {
+                    sourceDocs.push({
+                        id: frag.id,
+                        content: frag.content,
+                        score: frag.score,
+                        documentName: frag.documentName || '',
+                    });
+                }
+            }
+        }
+
+        // 6. 获取输出节点的结果
+        const lastLog = logs.reverse().find(l => l.status === 'COMPLETED');
+        let assistantReply = '对不起，我没法理解这个请求。';
+        if (lastLog && lastLog.output) {
+            assistantReply = typeof lastLog.output === 'object'
+                ? (lastLog.output.text || JSON.stringify(lastLog.output))
+                : String(lastLog.output);
+        }
+
+        // 7. 发送完成事件
+        onToken({
+            type: 'done',
+            content: assistantReply,
+            metadata: sourceDocs.length > 0 ? { sourceDocs } : undefined
+        });
+
+        // 8. 保存助手回复（带溯源元数据）
+        const assistantMsg = this.messageRepository.create({
+            role: 'assistant',
+            content: assistantReply,
+            session,
+            metadata: sourceDocs.length > 0 ? { sourceDocs } : undefined,
+        });
+        await this.messageRepository.save(assistantMsg);
+    }
 }
