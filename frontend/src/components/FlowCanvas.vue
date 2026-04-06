@@ -174,19 +174,6 @@ const fetchKnowledgeBases = async () => {
   }
 }
 
-onMounted(async () => {
-  await store.fetchWorkflows()
-  // 如果没有已保存的工作流，创建新的空白工作流
-  const firstWorkflow = store.savedWorkflows[0]
-  if (!firstWorkflow) {
-    store.createNewWorkflow()
-    isEditing.value = true
-  } else {
-    // 默认加载第一个
-    store.loadWorkflow(firstWorkflow)
-  }
-})
-
 const runLogs = ref<ExecutionLog[]>([])
 const isRunning = ref(false)
 const isSaving = ref(false)
