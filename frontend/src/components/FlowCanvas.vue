@@ -433,7 +433,7 @@ const getIconComponent = (iconName: string) => {
         <header class="sidebar-header">
           <div class="sidebar-title">
             <h3>{{ selectedEdge ? '连线配置' : '节点配置' }}</h3>
-            <span class="node-id">{{ selectedEdge ? `#${selectedEdge.source} → ${selectedEdge.target}` : `#${selectedNode?.id}` }}</span>
+            <span class="node-id">{{ selectedEdge ? `#${selectedEdge.source} -> ${selectedEdge.target}` : `#${selectedNode?.id}` }}</span>
           </div>
           <button class="close-btn" @click="closeSidebar">
             <X :size="18" />
