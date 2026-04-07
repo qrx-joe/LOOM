@@ -12,7 +12,8 @@ import { SeederModule } from './seeder/seeder.module';
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     TypeOrmModule.forRoot({
-      type: 'sqlite',
+      type: process.env.DATABASE_URL ? 'postgres' : 'sqlite',
+      url: process.env.DATABASE_URL,
       database: process.env.DATABASE_PATH || 'mini-coze.db',
       autoLoadEntities: true,
       synchronize: process.env.NODE_ENV !== 'production',
