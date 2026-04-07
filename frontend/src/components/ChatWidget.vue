@@ -40,10 +40,10 @@ const startNewChat = async () => {
 
     <!-- 聊天窗口 - Glassmorphism -->
     <transition name="pop">
-      <div v-if="isOpen" class="chat-window glass">
+      <div v-if="isOpen" class="chat-window">
         <header class="chat-header">
           <div class="header-info">
-            <div class="bot-avatar">✨</div>
+            <div class="bot-avatar"><Sparkles :size="20" /></div>
             <div class="bot-texts">
               <h3>AI 助手</h3>
               <span class="status">在线中</span>
@@ -93,7 +93,7 @@ const startNewChat = async () => {
           </div>
           
           <div v-if="chatStore.isLoading" class="message-bubble assistant">
-            <div class="avatar-sm loading-spin">✨</div>
+            <div class="avatar-sm loading-spin"><Sparkles :size="14" /></div>
             <div class="bubble-content typing">
               <span></span><span></span><span></span>
             </div>
@@ -135,7 +135,7 @@ const startNewChat = async () => {
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 8px 32px rgba(110, 86, 207, 0.4);
+  box-shadow: 0 8px 32px rgba(71, 118, 246, 0.3);
   cursor: pointer;
   border: none;
   transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
@@ -161,10 +161,10 @@ const startNewChat = async () => {
   border-radius: 24px;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 20px 50px rgba(0,0,0,0.15);
+  box-shadow: var(--shadow-xl);
   overflow: hidden;
-  border: 1px solid var(--glass-border);
-  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-surface);
 }
 
 .chat-header {

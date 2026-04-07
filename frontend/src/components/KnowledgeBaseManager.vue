@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import axios from 'axios'
-import { Plus, Trash2, Upload, FileText } from 'lucide-vue-next'
+import { Plus, Trash2, Upload, FileText, BookOpen, FolderOpen } from 'lucide-vue-next'
 
 const kbs = ref<any[]>([])
 const newKbName = ref('')
@@ -100,12 +100,12 @@ onMounted(fetchKbs)
         <div 
           v-for="kb in kbs" 
           :key="kb.id" 
-          class="kb-card glass-card"
+          class="kb-card"
           :class="{ active: selectedKb?.id === kb.id }"
           @click="selectedKb = kb"
         >
           <div class="kb-card-header">
-            <div class="kb-icon">📚</div>
+            <div class="kb-icon"><BookOpen :size="24" /></div>
             <div class="kb-meta">
               <h3>{{ kb.name }}</h3>
               <span class="kb-tag">{{ kb.documents?.length || 0 }} Docs</span>
@@ -126,7 +126,7 @@ onMounted(fetchKbs)
       </div>
 
       <transition name="fade">
-        <div v-if="selectedKb" class="kb-detail-panel glass">
+        <div v-if="selectedKb" class="kb-detail-panel">
           <header class="detail-header">
             <h2>文档详情 - {{ selectedKb.name }}</h2>
             <p v-if="selectedKb.documents?.length > 0">共 {{ selectedKb.documents.length }} 个文档</p>
@@ -134,7 +134,7 @@ onMounted(fetchKbs)
 
           <div class="doc-list">
             <div v-if="selectedKb.documents?.length === 0" class="empty-state">
-              <div class="empty-icon">📂</div>
+              <div class="empty-icon"><FolderOpen :size="48" /></div>
               <p>暂无文档，请点击上方“上传文档”开始。</p>
             </div>
             <div v-for="doc in selectedKb.documents" :key="doc.id" class="doc-row">
@@ -277,6 +277,8 @@ onMounted(fetchKbs)
   padding: 32px;
   border-radius: 24px;
   border: 1px solid var(--border-subtle);
+  background: var(--bg-surface);
+  box-shadow: var(--shadow-md);
 }
 
 .detail-header {
@@ -340,8 +342,8 @@ onMounted(fetchKbs)
 }
 
 .empty-icon {
-  font-size: 3rem;
   margin-bottom: 16px;
+  color: var(--text-disabled);
 }
 
 .primary-btn {
