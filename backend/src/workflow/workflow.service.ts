@@ -2,12 +2,15 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Workflow } from './workflow.entity';
+import { WorkflowLog } from './workflow-log.entity';
 
 @Injectable()
 export class WorkflowService {
     constructor(
         @InjectRepository(Workflow)
         private workflowRepository: Repository<Workflow>,
+        @InjectRepository(WorkflowLog)
+        private workflowLogRepository: Repository<WorkflowLog>,
     ) { }
 
     findAll() {
@@ -32,5 +35,12 @@ export class WorkflowService {
 
     remove(id: string) {
         return this.workflowRepository.delete(id);
+    }
+
+    getLogs(workflowId: string) {
+        return this.workflowLogRepository.find({
+            where: { workflowId },
+            order: { startedAt: 'ASC' },
+        });
     }
 }

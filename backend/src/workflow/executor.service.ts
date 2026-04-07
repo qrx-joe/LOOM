@@ -1,7 +1,9 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Inject } from '@nestjs/common';
+import { Repository } from 'typeorm';
 import { OpenAI } from 'openai';
 import { WorkflowDefinition, NodeData, ExecutionLog, NodeType } from './interfaces/workflow.interface';
 import { KnowledgeService } from '../knowledge/knowledge.service';
+import { WorkflowLog, WorkflowLogStatus } from './workflow-log.entity';
 
 // SSE 事件类型
 export type WorkflowEventType = 'node_start' | 'node_complete' | 'node_error' | 'workflow_complete' | 'token';
@@ -23,7 +25,11 @@ export class ExecutorService {
         baseURL: process.env.DEEPSEEK_BASE_URL || 'https://api.siliconflow.cn/v1',
     });
 
-    constructor(private readonly knowledgeService: KnowledgeService) { }
+    constructor(
+        private readonly knowledgeService: KnowledgeService,
+        @Inject('WORKFLOW_LOG_REPOSITORY')
+        private readonly workflowLogRepo: Repository<WorkflowLog>,
+    ) { }
 
     async runWorkflow(
         workflow: WorkflowDefinition,
@@ -37,12 +43,23 @@ export class ExecutorService {
         const nodeResults = new Map<string, any>();
         nodeResults.set('START_INPUT', initialInput);
 
+        // 创建工作流执行日志记录
+        const workflowLog = (await this.workflowLogRepo.save(
+            this.workflowLogRepo.create({
+                workflowId: workflow.id,
+                nodeId: undefined,
+                status: WorkflowLogStatus.RUNNING,
+                inputData: initialInput,
+                metadata: { name: workflow.name },
+            }),
+        )) as WorkflowLog;
+
         // 发送工作流开始事件
         if (onEvent) {
             onEvent({
                 type: 'workflow_complete',
                 nodeId: 'workflow',
-                data: { status: 'started', name: workflow.name },
+                data: { status: 'started', name: workflow.name, logId: workflowLog.id },
                 timestamp: Date.now(),
             });
         }
@@ -74,6 +91,8 @@ export class ExecutorService {
             if (degree === 0) queue.push(nodeId);
         });
 
+        let hasError = false;
+
         // 3. 按顺序执行
         while (queue.length > 0) {
             const nodeId = queue.shift();
@@ -82,12 +101,25 @@ export class ExecutorService {
             const node = workflow.nodes.find(n => n.id === nodeId);
             if (!node) continue;
 
+            const nodeInput = this.resolveInputs(node, nodeResults);
+            const startTime = Date.now();
+
+            // 创建节点执行日志（持久化）
+            const nodeLog = await this.workflowLogRepo.save(
+                this.workflowLogRepo.create({
+                    workflowId: workflow.id,
+                    nodeId,
+                    status: WorkflowLogStatus.RUNNING,
+                    inputData: nodeInput,
+                }),
+            );
+
             const log: ExecutionLog = {
                 nodeId,
                 status: 'RUNNING',
-                input: this.resolveInputs(node, nodeResults),
+                input: nodeInput,
                 output: null,
-                startTime: Date.now(),
+                startTime,
             };
             logs.push(log);
 
@@ -97,7 +129,7 @@ export class ExecutorService {
                     type: 'node_start',
                     nodeId,
                     data: { input: log.input },
-                    timestamp: log.startTime,
+                    timestamp: startTime,
                 });
             }
 
@@ -107,6 +139,13 @@ export class ExecutorService {
                 log.output = result;
                 log.endTime = Date.now();
                 nodeResults.set(nodeId, result);
+
+                // 更新节点日志为完成
+                await this.workflowLogRepo.update(nodeLog.id, {
+                    status: WorkflowLogStatus.COMPLETED,
+                    outputData: result,
+                    completedAt: new Date(log.endTime),
+                });
 
                 // 发送节点完成事件
                 if (onEvent) {
@@ -121,7 +160,15 @@ export class ExecutorService {
                 log.status = 'FAILED';
                 log.error = error.message;
                 log.endTime = Date.now();
+                hasError = true;
                 this.logger.error(`Node ${nodeId} failed: ${error.message}`);
+
+                // 更新节点日志为失败
+                await this.workflowLogRepo.update(nodeLog.id, {
+                    status: WorkflowLogStatus.FAILED,
+                    error: error.message,
+                    completedAt: new Date(log.endTime),
+                });
 
                 // 发送节点错误事件
                 if (onEvent) {
@@ -162,12 +209,21 @@ export class ExecutorService {
             }
         }
 
+        // 更新工作流日志状态
+        const updatedLog = await this.workflowLogRepo.findOneBy({ id: workflowLog.id });
+        if (updatedLog) {
+            updatedLog.status = hasError ? WorkflowLogStatus.FAILED : WorkflowLogStatus.COMPLETED;
+            updatedLog.outputData = JSON.stringify({ nodeCount: workflow.nodes.length });
+            updatedLog.completedAt = new Date();
+            await this.workflowLogRepo.save(updatedLog);
+        }
+
         // 发送工作流完成事件
         if (onEvent) {
             onEvent({
                 type: 'workflow_complete',
                 nodeId: 'workflow',
-                data: { status: 'completed', logs },
+                data: { status: hasError ? 'error' : 'completed', logs, logId: workflowLog.id },
                 timestamp: Date.now(),
             });
         }

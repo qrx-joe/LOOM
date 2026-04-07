@@ -97,6 +97,12 @@ export class WorkflowController {
         res.end();
     }
 
+    // 获取工作流执行日志
+    @Get(':id/logs')
+    getLogs(@Param('id') id: string) {
+        return this.workflowService.getLogs(id);
+    }
+
     // 临时：直接运行未保存的图
     @Post('run-preview')
     async runPreview(@Body() workflow: WorkflowDefinition) {
