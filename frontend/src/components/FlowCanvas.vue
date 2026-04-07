@@ -5,7 +5,11 @@ import { Controls } from '@vue-flow/controls'
 import { ref, onMounted, onUnmounted } from 'vue'
 import { useWorkflowStore } from '../store/workflow'
 import axios from 'axios'
-import { Save, Play, Plus, List, Trash2 } from 'lucide-vue-next'
+import {
+  Save, Play, Plus, List, Trash2,
+  PlayCircle, Bot, BookOpen, GitBranch, Square,
+  X, ChevronRight
+} from 'lucide-vue-next'
 
 interface ExecutionLog {
   nodeId: string;
@@ -42,7 +46,6 @@ onEdgeClick((event) => {
 // 键盘事件处理 - 删除选中的节点或边
 const handleKeyDown = (e: KeyboardEvent) => {
   if (e.key === 'Delete' || e.key === 'Backspace') {
-    // 避免在输入框中触发删除
     if ((e.target as HTMLElement).tagName === 'INPUT' || (e.target as HTMLElement).tagName === 'TEXTAREA') {
       return
     }
@@ -59,10 +62,8 @@ const handleKeyDown = (e: KeyboardEvent) => {
 
 // 初始化
 onMounted(async () => {
-  // 添加键盘监听
   window.addEventListener('keydown', handleKeyDown)
 
-  // 加载工作流
   await store.fetchWorkflows()
   const firstWorkflow = store.savedWorkflows[0]
   if (!firstWorkflow) {
@@ -77,13 +78,13 @@ onUnmounted(() => {
   window.removeEventListener('keydown', handleKeyDown)
 })
 
-// 节点类型定义
+// 节点类型定义 - 使用 Lucide 图标名称
 const nodeTypes = [
-  { type: 'input', label: '开始', icon: '▶', color: '#10b981', description: '工作流入口节点' },
-  { type: 'AI_AGENT', label: 'AI 节点', icon: '🤖', color: '#6366f1', description: '调用大模型' },
-  { type: 'KNOWLEDGE_RETRIEVAL', label: '知识检索', icon: '📚', color: '#f59e0b', description: 'RAG 检索' },
-  { type: 'CONDITION', label: '条件分支', icon: '🔀', color: '#ec4899', description: 'IF/ELSE 分支' },
-  { type: 'output', label: '结束', icon: '■', color: '#ef4444', description: '工作流结束' },
+  { type: 'input', label: '开始', icon: 'PlayCircle', color: '#10B981', description: '工作流入口节点' },
+  { type: 'AI_AGENT', label: 'AI 节点', icon: 'Bot', color: '#4776F6', description: '调用大模型' },
+  { type: 'KNOWLEDGE_RETRIEVAL', label: '知识检索', icon: 'BookOpen', color: '#F59E0B', description: 'RAG 检索' },
+  { type: 'CONDITION', label: '条件分支', icon: 'GitBranch', color: '#EC4899', description: 'IF/ELSE 分支' },
+  { type: 'output', label: '结束', icon: 'Square', color: '#EF4444', description: '工作流结束' },
 ]
 
 // 拖拽开始
@@ -108,7 +109,6 @@ const handleDrop = (e: DragEvent) => {
   const nodeType = e.dataTransfer.getData('application/vueflow')
   if (!nodeType) return
 
-  // 获取画布区域的位置
   const canvasArea = document.querySelector('.canvas-area')
   if (!canvasArea) return
 
@@ -118,7 +118,6 @@ const handleDrop = (e: DragEvent) => {
     y: e.clientY - canvasRect.top,
   })
 
-  // 生成新节点
   const newNode = {
     id: `node-${Date.now()}`,
     type: nodeType,
@@ -158,7 +157,6 @@ onConnect((params) => {
 
 onNodeClick(async (event) => {
   selectedNode.value = event.node
-  // 如果点击的是知识检索节点，获取知识库列表
   if (String(event.node.label || '').includes('检索')) {
     await fetchKnowledgeBases()
   }
@@ -192,7 +190,6 @@ const handleSave = async () => {
 }
 
 const handleRun = async () => {
-  // 如果有未保存的修改，先保存
   if (store.nodes.length > 0 && !store.currentWorkflowId) {
     try {
       await store.saveWorkflow()
@@ -210,12 +207,10 @@ const handleRun = async () => {
   isRunning.value = true
   runLogs.value = []
 
-  // 关闭之前的 SSE 连接
   if (eventSource) {
     eventSource.close()
   }
 
-  // 建立 SSE 连接
   const sseUrl = `http://localhost:3001/workflows/${store.currentWorkflowId}/run-stream`
   eventSource = new EventSource(sseUrl)
 
@@ -267,7 +262,6 @@ const handleRun = async () => {
   }
 }
 
-// 组件卸载时关闭 SSE
 onUnmounted(() => {
   if (eventSource) {
     eventSource.close()
@@ -291,6 +285,23 @@ const handleDeleteWorkflow = async (e: Event, id: string) => {
   if (confirm('确定要删除这个工作流吗？')) {
     await store.deleteWorkflow(id)
   }
+}
+
+const closeSidebar = () => {
+  selectedNode.value = null
+  selectedEdge.value = null
+}
+
+// 获取图标组件
+const getIconComponent = (iconName: string) => {
+  const icons: Record<string, any> = {
+    PlayCircle,
+    Bot,
+    BookOpen,
+    GitBranch,
+    Square,
+  }
+  return icons[iconName] || Square
 }
 </script>
 
@@ -316,30 +327,32 @@ const handleDeleteWorkflow = async (e: Event, id: string) => {
             <List :size="16" />
             工作流列表
           </button>
-          <div v-if="showWorkflowList" class="workflow-dropdown">
-            <div class="dropdown-header">已保存的工作流</div>
-            <div
-              v-for="wf in store.savedWorkflows"
-              :key="wf.id"
-              class="dropdown-item"
-              :class="{ active: store.currentWorkflowId === wf.id }"
-              @click="handleLoadWorkflow(wf)"
-            >
-              <span class="wf-name">{{ wf.name }}</span>
-              <button class="delete-wf-btn" @click="handleDeleteWorkflow($event, wf.id)">
-                <Trash2 :size="14" />
-              </button>
+          <transition name="dropdown">
+            <div v-if="showWorkflowList" class="workflow-dropdown">
+              <div class="dropdown-header">已保存的工作流</div>
+              <div
+                v-for="wf in store.savedWorkflows"
+                :key="wf.id"
+                class="dropdown-item"
+                :class="{ active: store.currentWorkflowId === wf.id }"
+                @click="handleLoadWorkflow(wf)"
+              >
+                <span class="wf-name">{{ wf.name }}</span>
+                <button class="delete-wf-btn" @click="handleDeleteWorkflow($event, wf.id)">
+                  <Trash2 :size="14" />
+                </button>
+              </div>
+              <div v-if="store.savedWorkflows.length === 0" class="dropdown-empty">
+                暂无已保存的工作流
+              </div>
+              <div class="dropdown-footer">
+                <button class="new-wf-btn" @click="handleNewWorkflow">
+                  <Plus :size="14" />
+                  新建工作流
+                </button>
+              </div>
             </div>
-            <div v-if="store.savedWorkflows.length === 0" class="dropdown-empty">
-              暂无已保存的工作流
-            </div>
-            <div class="dropdown-footer">
-              <button class="new-wf-btn" @click="handleNewWorkflow">
-                <Plus :size="14" />
-                新建工作流
-              </button>
-            </div>
-          </div>
+          </transition>
         </div>
 
         <button class="tool-btn primary" @click="handleSave" :disabled="isSaving">
@@ -355,24 +368,44 @@ const handleDeleteWorkflow = async (e: Event, id: string) => {
     </div>
 
     <div class="canvas-area">
-      <!-- 左侧节点面板 -->
+      <!-- 左侧节点面板 - 固定侧边栏 -->
       <div class="node-palette">
-        <div class="palette-header">节点列表</div>
-        <div class="palette-nodes">
+        <div class="palette-section">
+          <div class="palette-section-title">输入节点</div>
           <div
-            v-for="node in nodeTypes"
+            v-for="node in nodeTypes.filter(n => n.type === 'input' || n.type === 'output')"
             :key="node.type"
             class="palette-node"
-            :style="{ borderColor: node.color }"
+            :style="{ borderLeftColor: node.color }"
             draggable="true"
             @dragstart="handleDragStart($event, node.type)"
             @dragend="handleDragEnd"
           >
-            <span class="node-icon" :style="{ background: node.color }">{{ node.icon }}</span>
+            <component :is="getIconComponent(node.icon)" :size="16" :style="{ color: node.color }" />
             <span class="node-label">{{ node.label }}</span>
           </div>
         </div>
-        <div class="palette-hint">拖拽到画布创建节点</div>
+
+        <div class="palette-section">
+          <div class="palette-section-title">处理节点</div>
+          <div
+            v-for="node in nodeTypes.filter(n => n.type === 'AI_AGENT' || n.type === 'KNOWLEDGE_RETRIEVAL' || n.type === 'CONDITION')"
+            :key="node.type"
+            class="palette-node"
+            :style="{ borderLeftColor: node.color }"
+            draggable="true"
+            @dragstart="handleDragStart($event, node.type)"
+            @dragend="handleDragEnd"
+          >
+            <component :is="getIconComponent(node.icon)" :size="16" :style="{ color: node.color }" />
+            <span class="node-label">{{ node.label }}</span>
+          </div>
+        </div>
+
+        <div class="palette-footer">
+          <ChevronRight :size="12" />
+          <span>拖拽到画布创建节点</span>
+        </div>
       </div>
 
       <!-- Vue Flow 画布 -->
@@ -386,20 +419,25 @@ const handleDeleteWorkflow = async (e: Event, id: string) => {
           v-model:edges="store.edges"
           fit-view-on-init
           class="custom-flow"
-          :default-edge-options="{ type: 'smoothstep' }"
+          :default-edge-options="{ type: 'smoothstep', style: { stroke: '#9CA3AF', strokeWidth: 2 } }"
         >
-          <Background pattern-color="#ccc" :gap="20" />
+          <Background pattern-color="#E5E7EB" :gap="20" />
           <Controls />
         </VueFlow>
       </div>
     </div>
 
-    <!-- 侧边属性栏 - Glassmorphism -->
+    <!-- 右侧属性面板 -->
     <transition name="slide">
-      <div v-if="selectedNode || selectedEdge" class="sidebar glass">
+      <div v-if="selectedNode || selectedEdge" class="sidebar">
         <header class="sidebar-header">
-          <h3>{{ selectedEdge ? '连线配置' : '节点配置' }}</h3>
-          <span class="node-id">{{ selectedEdge ? `#${selectedEdge.source} → ${selectedEdge.target}` : `#${selectedNode?.id}` }}</span>
+          <div class="sidebar-title">
+            <h3>{{ selectedEdge ? '连线配置' : '节点配置' }}</h3>
+            <span class="node-id">{{ selectedEdge ? `#${selectedEdge.source} → ${selectedEdge.target}` : `#${selectedNode?.id}` }}</span>
+          </div>
+          <button class="close-btn" @click="closeSidebar">
+            <X :size="18" />
+          </button>
         </header>
 
         <div class="sidebar-content">
@@ -409,7 +447,7 @@ const handleDeleteWorkflow = async (e: Event, id: string) => {
             <label>显示名称</label>
             <input v-model="selectedNode.label" placeholder="输入节点名称..." />
           </div>
-          
+
           <div v-if="String(selectedNode.label || '').includes('AI')" class="form-group">
             <label>Prompt 引导词</label>
             <textarea v-model="selectedNode.data.prompt" rows="8" placeholder="在此输入 AI 处理逻辑..."></textarea>
@@ -418,7 +456,7 @@ const handleDeleteWorkflow = async (e: Event, id: string) => {
 
           <div v-if="String(selectedNode.label || '').includes('AI')" class="form-group">
             <label>AI 模型</label>
-            <select v-model="selectedNode.data.model" class="kb-select">
+            <select v-model="selectedNode.data.model" class="form-select">
               <option value="deepseek-ai/DeepSeek-V3">DeepSeek V3</option>
               <option value="deepseek-ai/DeepSeek-R1">DeepSeek R1</option>
               <option value="Qwen/Qwen2.5-7B-Instruct">Qwen 2.5 7B</option>
@@ -442,13 +480,13 @@ const handleDeleteWorkflow = async (e: Event, id: string) => {
 
           <div v-if="String(selectedNode.label || '').includes('检索')" class="form-group">
             <label>关联知识库</label>
-            <select v-model="selectedNode.data.kbId" class="kb-select">
+            <select v-model="selectedNode.data.kbId" class="form-select">
               <option value="" disabled>选择知识库</option>
               <option v-for="kb in knowledgeBases" :key="kb.id" :value="kb.id">
                 {{ kb.name }} ({{ kb.documents?.length || 0 }} 文档)
               </option>
             </select>
-            <label>查询语句 (Query)</label>
+            <label style="margin-top: 12px;">查询语句 (Query)</label>
             <input v-model="selectedNode.data.query" placeholder="要搜索的内容..." />
           </div>
 
@@ -463,7 +501,7 @@ const handleDeleteWorkflow = async (e: Event, id: string) => {
           <template v-if="selectedEdge">
           <div class="form-group">
             <label>连线条件</label>
-            <select v-model="selectedEdge.condition" class="kb-select">
+            <select v-model="selectedEdge.condition" class="form-select">
               <option value="">无条件 (默认)</option>
               <option value="true">条件为 true 时执行</option>
               <option value="false">条件为 false 时执行</option>
@@ -472,18 +510,14 @@ const handleDeleteWorkflow = async (e: Event, id: string) => {
           </div>
           </template>
         </div>
-
-        <footer class="sidebar-footer">
-          <button @click="selectedNode = null; selectedEdge = null" class="secondary-btn">关闭面板</button>
-        </footer>
       </div>
     </transition>
 
-    <!-- 底部运行日志 - Premium Dark -->
+    <!-- 底部运行日志 -->
     <div class="log-panel" :class="{ open: runLogs.length > 0 }">
       <div class="log-header">
         <div class="log-title">
-          <span class="pulse-icon"></span>
+          <span class="pulse-icon" :class="{ running: isRunning }"></span>
           运行日志
         </div>
         <button class="clear-btn" @click="runLogs = []">清空</button>
@@ -500,12 +534,6 @@ const handleDeleteWorkflow = async (e: Event, id: string) => {
       </div>
     </div>
 
-    <div class="toolbar glass">
-      <button class="run-btn" @click="handleRun" :disabled="isRunning">
-        {{ isRunning ? '正在执行' : '运行工作流' }}
-      </button>
-    </div>
-
     <!-- 点击空白处关闭下拉框 -->
     <div v-if="showWorkflowList" class="overlay" @click="showWorkflowList = false"></div>
   </div>
@@ -516,416 +544,115 @@ const handleDeleteWorkflow = async (e: Event, id: string) => {
   height: 100%;
   width: 100%;
   display: flex;
+  flex-direction: column;
   position: relative;
   overflow: hidden;
-  background: #f8f9fa;
+  background: var(--bg-app);
 }
 
 .canvas-area {
   flex-grow: 1;
-  height: 100%;
+  height: calc(100% - 68px);
   display: flex;
-  gap: 16px;
-  padding-left: 80px;
+  margin-top: 68px;
+  position: relative;
 }
 
 .custom-flow {
-  background: white;
+  background: var(--bg-surface);
 }
 
-/* 节点面板 */
+/* 节点面板 - 固定侧边栏 */
 .node-palette {
-  position: absolute;
-  left: 20px;
-  top: 90px;
-  width: 70px;
-  background: rgba(255, 255, 255, 0.95);
-  border-radius: 12px;
-  box-shadow: var(--shadow-md);
-  border: 1px solid var(--border-subtle);
-  padding: 12px 8px;
-  z-index: 100;
+  position: fixed;
+  left: 0;
+  top: 56px;
+  width: 200px;
+  height: calc(100% - 56px);
+  background: var(--bg-surface);
+  border-right: 1px solid var(--border-subtle);
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  z-index: 100;
+  overflow-y: auto;
 }
 
-.palette-header {
-  font-size: 10px;
-  font-weight: 700;
+.palette-section {
+  padding: 16px 12px 8px;
+}
+
+.palette-section-title {
+  font-size: 11px;
+  font-weight: 600;
   color: var(--text-muted);
-  text-align: center;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  padding-bottom: 8px;
-  border-bottom: 1px solid var(--border-subtle);
-}
-
-.palette-nodes {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+  margin-bottom: 8px;
+  padding-left: 4px;
 }
 
 .palette-node {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: 4px;
-  padding: 8px 4px;
-  border-radius: 8px;
-  border: 2px solid transparent;
-  background: #f8f9fa;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  border-left: 3px solid transparent;
+  background: var(--bg-hover);
   cursor: grab;
-  transition: all 0.2s;
+  transition: all var(--transition-fast);
+  margin-bottom: 4px;
 }
 
 .palette-node:hover {
-  background: white;
-  box-shadow: var(--shadow-sm);
-  transform: translateY(-2px);
+  background: var(--bg-active);
+  transform: translateX(2px);
 }
 
 .palette-node:active {
   cursor: grabbing;
-  transform: scale(0.95);
-}
-
-.node-icon {
-  width: 28px;
-  height: 28px;
-  border-radius: 6px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 14px;
-  color: white;
+  transform: scale(0.98);
 }
 
 .node-label {
-  font-size: 10px;
-  font-weight: 600;
+  font-size: 13px;
+  font-weight: 500;
   color: var(--text-main);
-  text-align: center;
 }
 
-.palette-hint {
-  font-size: 9px;
-  color: var(--text-muted);
-  text-align: center;
-  padding-top: 8px;
+.palette-footer {
+  margin-top: auto;
+  padding: 12px 16px;
   border-top: 1px solid var(--border-subtle);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--text-disabled);
+  background: var(--bg-hover);
 }
 
 .flow-wrapper {
   flex: 1;
   height: 100%;
+  margin-left: 200px;
   position: relative;
-}
-
-.sidebar {
-  width: 340px;
-  position: absolute;
-  top: 20px;
-  right: 20px;
-  bottom: 20px;
-  border-radius: 16px;
-  display: flex;
-  flex-direction: column;
-  box-shadow: var(--shadow-lg);
-  z-index: 1001;
-  border: 1px solid var(--border-subtle);
-  background: rgba(255, 255, 255, 0.85);
-  backdrop-filter: blur(10px);
-}
-
-.sidebar-header {
-  padding: 24px;
-  border-bottom: 1px solid var(--border-subtle);
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.sidebar-header h3 {
-  font-size: 1.1rem;
-  font-weight: 600;
-  color: var(--text-main);
-  margin: 0;
-}
-
-.node-id {
-  font-size: 12px;
-  color: var(--text-muted);
-  background: var(--primary-light);
-  padding: 2px 8px;
-  border-radius: 4px;
-}
-
-.sidebar-content {
-  flex: 1;
-  padding: 24px;
-  overflow-y: auto;
-}
-
-.form-group {
-  margin-bottom: 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.form-group label {
-  display: block;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text-muted);
-}
-
-.hint {
-  font-size: 11px;
-  color: var(--text-muted);
-}
-
-input, textarea {
-  width: 100%;
-  padding: 10px 12px;
-  border: 1px solid var(--border-subtle);
-  border-radius: 8px;
-  font-size: 14px;
-  transition: all 0.2s;
-  background: white;
-}
-
-input:focus, textarea:focus {
-  outline: none;
-  border-color: var(--primary);
-  box-shadow: 0 0 0 3px rgba(110, 86, 207, 0.1);
-}
-
-.kb-select {
-  width: 100%;
-  padding: 10px 12px;
-  border: 1px solid var(--border-subtle);
-  border-radius: 8px;
-  font-size: 14px;
-  background: white;
-  color: var(--text-main);
-  cursor: pointer;
-}
-
-.kb-select:focus {
-  outline: none;
-  border-color: var(--primary);
-  box-shadow: 0 0 0 3px rgba(110, 86, 207, 0.1);
-}
-
-.temp-slider {
-  width: 100%;
-  height: 6px;
-  border-radius: 3px;
-  background: #e5e7eb;
-  appearance: none;
-  cursor: pointer;
-}
-
-.temp-slider::-webkit-slider-thumb {
-  appearance: none;
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  background: var(--primary);
-  cursor: pointer;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-}
-
-.temp-slider::-moz-range-thumb {
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  background: var(--primary);
-  cursor: pointer;
-  border: none;
-}
-
-.sidebar-footer {
-  padding: 20px 24px;
-  border-top: 1px solid var(--border-subtle);
-}
-
-.secondary-btn {
-  width: 100%;
-  background: white;
-  border: 1px solid var(--border-subtle);
-  padding: 10px;
-  border-radius: 8px;
-  color: var(--text-main);
-  font-weight: 500;
-  cursor: pointer;
-}
-
-.slide-enter-active, .slide-leave-active {
-  transition: transform 0.3s ease, opacity 0.3s ease;
-}
-.slide-enter-from, .slide-leave-to {
-  transform: translateX(20px);
-  opacity: 0;
-}
-
-.log-panel {
-  position: absolute;
-  bottom: -300px;
-  left: 20px;
-  right: 20px;
-  height: 280px;
-  background: #111;
-  color: #eee;
-  border-radius: 16px 16px 0 0;
-  box-shadow: 0 -10px 25px rgba(0,0,0,0.15);
-  transition: bottom 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-  z-index: 1000;
-  display: flex;
-  flex-direction: column;
-}
-
-.log-panel.open {
-  bottom: 0px;
-}
-
-.log-header {
-  padding: 12px 20px;
-  background: #1a1a1a;
-  border-radius: 16px 16px 0 0;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  border-bottom: 1px solid #333;
-}
-
-.log-title {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-weight: 600;
-  font-size: 14px;
-}
-
-.pulse-icon {
-  width: 8px;
-  height: 8px;
-  background: #6e56cf;
-  border-radius: 50%;
-  box-shadow: 0 0 10px #6e56cf;
-}
-
-.clear-btn {
-  background: transparent;
-  border: none;
-  color: #888;
-  font-size: 12px;
-  cursor: pointer;
-}
-
-.log-content {
-  flex: 1;
-  overflow-y: auto;
-  padding: 16px 20px;
-}
-
-.log-item {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  padding: 8px 0;
-  border-bottom: 1px solid #222;
-}
-
-.log-status {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-}
-
-.log-status.COMPLETED { background: #10b981; box-shadow: 0 0 8px #10b981; }
-.log-status.FAILED { background: #ef4444; box-shadow: 0 0 8px #ef4444; }
-.log-status.RUNNING { background: #3b82f6; box-shadow: 0 0 8px #3b82f6; }
-
-.log-info {
-  flex: 1;
-  display: flex;
-  gap: 12px;
-}
-
-.log-node {
-  font-weight: 700;
-  color: #ccc;
-  font-size: 13px;
-}
-
-.log-msg {
-  color: #888;
-  font-size: 13px;
-  font-family: monospace;
-}
-
-.log-time {
-  font-size: 11px;
-  color: #555;
-}
-
-.toolbar {
-  position: absolute;
-  top: 20px;
-  left: 20px;
-  padding: 6px;
-  border-radius: 12px;
-  z-index: 10;
-  background: rgba(255, 255, 255, 0.5);
-  backdrop-filter: blur(8px);
-}
-
-.run-btn {
-  background: var(--primary);
-  color: white;
-  padding: 10px 20px;
-  border-radius: 10px;
-  font-weight: 600;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  border: none;
-  cursor: pointer;
-  box-shadow: var(--shadow-md);
-  transition: all 0.2s;
-}
-
-.run-btn:hover:not(:disabled) {
-  background: var(--primary-hover);
-  transform: translateY(-1px);
-}
-
-.run-btn:disabled {
-  opacity: 0.7;
-  cursor: not-allowed;
 }
 
 /* 顶部工具栏 */
 .top-toolbar {
-  position: absolute;
-  top: 20px;
-  left: 20px;
-  right: 20px;
+  position: fixed;
+  top: 56px;
+  left: 200px;
+  right: 0;
   height: 56px;
-  background: rgba(255, 255, 255, 0.9);
-  backdrop-filter: blur(10px);
-  border-radius: 12px;
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border-subtle);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 16px;
+  padding: 0 20px;
   z-index: 100;
-  box-shadow: var(--shadow-md);
-  border: 1px solid var(--border-subtle);
 }
 
 .toolbar-left,
@@ -937,23 +664,26 @@ input:focus, textarea:focus {
 
 .workflow-name-input {
   background: transparent;
-  border: none;
-  font-size: 16px;
+  border: 1px solid transparent;
+  font-size: 15px;
   font-weight: 600;
   color: var(--text-main);
   padding: 8px 12px;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   min-width: 200px;
+  transition: all var(--transition-fast);
 }
 
 .workflow-name-input:hover:not(:disabled) {
-  background: var(--primary-light);
+  background: var(--bg-hover);
+  border-color: var(--border-subtle);
 }
 
 .workflow-name-input:focus {
   outline: none;
-  background: white;
-  box-shadow: 0 0 0 2px var(--primary);
+  background: var(--bg-surface);
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--primary-light);
 }
 
 .workflow-name-input:disabled {
@@ -965,19 +695,20 @@ input:focus, textarea:focus {
   align-items: center;
   gap: 6px;
   padding: 8px 14px;
-  border: 1px solid var(--border-subtle);
-  background: white;
-  border-radius: 8px;
+  border: 1px solid var(--border-default);
+  background: var(--bg-surface);
+  border-radius: var(--radius-md);
   font-size: 13px;
   font-weight: 500;
-  color: var(--text-main);
+  color: var(--text-secondary);
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all var(--transition-fast);
 }
 
 .tool-btn:hover {
   border-color: var(--primary);
   color: var(--primary);
+  background: var(--primary-light);
 }
 
 .tool-btn.primary {
@@ -988,16 +719,18 @@ input:focus, textarea:focus {
 
 .tool-btn.primary:hover {
   background: var(--primary-hover);
+  border-color: var(--primary-hover);
 }
 
 .tool-btn.success {
-  background: #10b981;
+  background: var(--success);
   color: white;
-  border-color: #10b981;
+  border-color: var(--success);
 }
 
 .tool-btn.success:hover {
   background: #059669;
+  border-color: #059669;
 }
 
 .tool-btn:disabled {
@@ -1015,8 +748,8 @@ input:focus, textarea:focus {
   top: calc(100% + 8px);
   right: 0;
   width: 280px;
-  background: white;
-  border-radius: 12px;
+  background: var(--bg-surface);
+  border-radius: var(--radius-lg);
   box-shadow: var(--shadow-lg);
   border: 1px solid var(--border-subtle);
   z-index: 1001;
@@ -1028,7 +761,7 @@ input:focus, textarea:focus {
   font-size: 12px;
   font-weight: 600;
   color: var(--text-muted);
-  background: #f8f9fa;
+  background: var(--bg-hover);
   border-bottom: 1px solid var(--border-subtle);
 }
 
@@ -1038,11 +771,11 @@ input:focus, textarea:focus {
   justify-content: space-between;
   padding: 12px 16px;
   cursor: pointer;
-  transition: background 0.2s;
+  transition: background var(--transition-fast);
 }
 
 .dropdown-item:hover {
-  background: #f4f4f7;
+  background: var(--bg-hover);
 }
 
 .dropdown-item.active {
@@ -1058,15 +791,16 @@ input:focus, textarea:focus {
 .delete-wf-btn {
   background: transparent;
   border: none;
-  color: #ef4444;
+  color: var(--error);
   cursor: pointer;
   padding: 4px;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   opacity: 0.6;
+  transition: all var(--transition-fast);
 }
 
 .delete-wf-btn:hover {
-  background: #fee2e2;
+  background: var(--error-light);
   opacity: 1;
 }
 
@@ -1092,15 +826,326 @@ input:focus, textarea:focus {
   background: var(--primary-light);
   color: var(--primary);
   border: none;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
+  transition: all var(--transition-fast);
 }
 
 .new-wf-btn:hover {
   background: var(--primary);
   color: white;
+}
+
+/* 右侧属性面板 */
+.sidebar {
+  position: fixed;
+  top: 56px;
+  right: 0;
+  width: 360px;
+  height: calc(100% - 56px);
+  background: var(--bg-surface);
+  border-left: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  z-index: 200;
+  box-shadow: var(--shadow-lg);
+}
+
+.sidebar-header {
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--border-subtle);
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.sidebar-title h3 {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-main);
+  margin: 0 0 4px 0;
+}
+
+.node-id {
+  font-size: 12px;
+  color: var(--text-muted);
+  background: var(--bg-hover);
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  font-family: monospace;
+}
+
+.close-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: var(--radius-sm);
+  transition: all var(--transition-fast);
+}
+
+.close-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-main);
+}
+
+.sidebar-content {
+  flex: 1;
+  padding: 24px;
+  overflow-y: auto;
+}
+
+.form-group {
+  margin-bottom: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.form-group label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.hint {
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+input, textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  font-size: 14px;
+  font-family: inherit;
+  transition: all var(--transition-fast);
+  background: var(--bg-surface);
+  color: var(--text-main);
+}
+
+input:focus, textarea:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--primary-light);
+}
+
+.form-select {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  font-size: 14px;
+  background: var(--bg-surface);
+  color: var(--text-main);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.form-select:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--primary-light);
+}
+
+.temp-slider {
+  width: 100%;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--bg-hover);
+  appearance: none;
+  cursor: pointer;
+  padding: 0;
+  border: none;
+}
+
+.temp-slider::-webkit-slider-thumb {
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--primary);
+  cursor: pointer;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+}
+
+.temp-slider::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--primary);
+  cursor: pointer;
+  border: none;
+}
+
+/* 过渡动画 */
+.slide-enter-active,
+.slide-leave-active {
+  transition: transform 0.25s ease, opacity 0.25s ease;
+}
+
+.slide-enter-from,
+.slide-leave-to {
+  transform: translateX(20px);
+  opacity: 0;
+}
+
+.dropdown-enter-active,
+.dropdown-leave-active {
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+.dropdown-enter-from,
+.dropdown-leave-to {
+  transform: translateY(-8px);
+  opacity: 0;
+}
+
+/* 运行日志面板 */
+.log-panel {
+  position: fixed;
+  bottom: -300px;
+  left: 200px;
+  right: 0;
+  height: 280px;
+  background: #1a1a1a;
+  color: #eee;
+  border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.15);
+  transition: bottom 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 500;
+  display: flex;
+  flex-direction: column;
+}
+
+.log-panel.open {
+  bottom: 0;
+}
+
+.log-header {
+  padding: 14px 20px;
+  background: #222;
+  border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid #333;
+}
+
+.log-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 600;
+  font-size: 14px;
+  color: #fff;
+}
+
+.pulse-icon {
+  width: 8px;
+  height: 8px;
+  background: var(--success);
+  border-radius: 50%;
+  box-shadow: 0 0 8px var(--success);
+}
+
+.pulse-icon.running {
+  background: var(--primary);
+  box-shadow: 0 0 8px var(--primary);
+  animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.clear-btn {
+  background: transparent;
+  border: none;
+  color: #888;
+  font-size: 12px;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  transition: all var(--transition-fast);
+}
+
+.clear-btn:hover {
+  background: #333;
+  color: #fff;
+}
+
+.log-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 20px;
+}
+
+.log-item {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 10px 0;
+  border-bottom: 1px solid #222;
+}
+
+.log-status {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.log-status.COMPLETED {
+  background: var(--success);
+  box-shadow: 0 0 8px var(--success);
+}
+
+.log-status.FAILED {
+  background: var(--error);
+  box-shadow: 0 0 8px var(--error);
+}
+
+.log-status.RUNNING {
+  background: var(--info);
+  box-shadow: 0 0 8px var(--info);
+  animation: pulse 1s infinite;
+}
+
+.log-info {
+  flex: 1;
+  display: flex;
+  gap: 12px;
+  min-width: 0;
+}
+
+.log-node {
+  font-weight: 600;
+  color: #ccc;
+  font-size: 13px;
+  flex-shrink: 0;
+}
+
+.log-msg {
+  color: #888;
+  font-size: 13px;
+  font-family: 'SF Mono', Monaco, monospace;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.log-time {
+  font-size: 11px;
+  color: #555;
+  flex-shrink: 0;
 }
 
 .overlay {
