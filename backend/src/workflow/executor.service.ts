@@ -19,8 +19,8 @@ export type EventCallback = (event: WorkflowEvent) => void;
 export class ExecutorService {
     private readonly logger = new Logger(ExecutorService.name);
     private readonly openai = new OpenAI({
-        apiKey: process.env.OPENAI_API_KEY || 'mock-key',
-        baseURL: process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1',
+        apiKey: process.env.DEEPSEEK_API_KEY || 'mock-key',
+        baseURL: process.env.DEEPSEEK_BASE_URL || 'https://api.siliconflow.cn/v1',
     });
 
     constructor(private readonly knowledgeService: KnowledgeService) { }
