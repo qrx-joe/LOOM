@@ -134,9 +134,9 @@ const handleDrop = (e: DragEvent) => {
 const getDefaultNodeData = (type: string): any => {
   switch (type) {
     case 'AI_AGENT':
-      return { prompt: '基于上下文回答问题：\n{{START_INPUT}}', model: 'gpt-3.5-turbo', temperature: 0.7 }
+      return { prompt: '基于上下文回答问题：\n{{START_INPUT}}', model: 'deepseek-ai/DeepSeek-V3', temperature: 0.7 }
     case 'KNOWLEDGE_RETRIEVAL':
-      return { kbId: '', query: '' }
+      return { kbId: '', query: '{{START_INPUT}}' }
     case 'CONDITION':
       return { expression: '' }
     default:
@@ -419,11 +419,11 @@ const handleDeleteWorkflow = async (e: Event, id: string) => {
           <div v-if="String(selectedNode.label || '').includes('AI')" class="form-group">
             <label>AI 模型</label>
             <select v-model="selectedNode.data.model" class="kb-select">
-              <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
-              <option value="gpt-4">GPT-4</option>
-              <option value="gpt-4-turbo">GPT-4 Turbo</option>
-              <option value="gpt-4o">GPT-4o</option>
-              <option value="gpt-4o-mini">GPT-4o Mini</option>
+              <option value="deepseek-ai/DeepSeek-V3">DeepSeek V3</option>
+              <option value="deepseek-ai/DeepSeek-R1">DeepSeek R1</option>
+              <option value="Qwen/Qwen2.5-7B-Instruct">Qwen 2.5 7B</option>
+              <option value="Qwen/Qwen2.5-14B-Instruct">Qwen 2.5 14B</option>
+              <option value="THUDM/glm-4-9b-chat">GLM-4 9B</option>
             </select>
           </div>
 

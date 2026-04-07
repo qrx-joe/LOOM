@@ -236,8 +236,9 @@ export class ExecutorService {
 
         try {
             // 流式调用
+            const model = config.model || process.env.LLM_MODEL || 'deepseek-ai/DeepSeek-V3';
             const stream = await this.openai.chat.completions.create({
-                model: config.model || 'gpt-3.5-turbo',
+                model,
                 messages: [{ role: 'user', content: prompt }],
                 temperature: config.temperature ?? 0.7,
                 stream: true,
