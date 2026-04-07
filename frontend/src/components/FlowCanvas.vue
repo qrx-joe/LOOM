@@ -8,7 +8,7 @@ import axios from 'axios'
 import {
   Save, Play, Plus, List, Trash2,
   PlayCircle, Bot, BookOpen, GitBranch, Square,
-  X, ChevronRight
+  X, ChevronRight, ArrowLeft, FileCode
 } from 'lucide-vue-next'
 
 interface ExecutionLog {
@@ -35,6 +35,7 @@ const selectedEdge = ref<any>(null)
 const showWorkflowList = ref(false)
 const isEditing = ref(false)
 const knowledgeBases = ref<KnowledgeBase[]>([])
+const currentView = ref<'editor' | 'list'>('editor')
 const draggedNodeType = ref<string | null>(null)
 
 // 监听边的点击
@@ -206,6 +207,7 @@ const handleRun = async () => {
 
   isRunning.value = true
   runLogs.value = []
+  currentView.value = 'editor'
 
   if (eventSource) {
     eventSource.close()
@@ -273,11 +275,13 @@ const handleNewWorkflow = () => {
   store.createNewWorkflow()
   isEditing.value = true
   showWorkflowList.value = false
+  currentView.value = 'editor'
 }
 
 const handleLoadWorkflow = (wf: any) => {
   store.loadWorkflow(wf)
   showWorkflowList.value = false
+  currentView.value = 'editor'
 }
 
 const handleDeleteWorkflow = async (e: Event, id: string) => {
@@ -310,60 +314,114 @@ const getIconComponent = (iconName: string) => {
     <!-- 顶部工具栏 -->
     <div class="top-toolbar">
       <div class="toolbar-left">
-        <input
-          v-model="store.workflowName"
-          class="workflow-name-input"
-          placeholder="工作流名称..."
-          :disabled="!isEditing"
-        />
-        <button v-if="!isEditing" @click="isEditing = true" class="tool-btn">
-          编辑名称
+        <button v-if="currentView === 'list'" @click="currentView = 'editor'" class="tool-btn">
+          <ArrowLeft :size="16" />
+          返回编辑
         </button>
+        <template v-else>
+          <input
+            v-model="store.workflowName"
+            class="workflow-name-input"
+            placeholder="工作流名称..."
+            :disabled="!isEditing"
+          />
+          <button v-if="!isEditing" @click="isEditing = true" class="tool-btn">
+            编辑名称
+          </button>
+        </template>
       </div>
 
       <div class="toolbar-right">
-        <div class="workflow-list-wrapper">
-          <button class="tool-btn" @click="showWorkflowList = !showWorkflowList">
-            <List :size="16" />
-            工作流列表
+        <template v-if="currentView === 'editor'">
+          <div class="workflow-list-wrapper">
+            <button class="tool-btn" @click="showWorkflowList = !showWorkflowList">
+              <List :size="16" />
+              工作流列表
+            </button>
+            <transition name="dropdown">
+              <div v-if="showWorkflowList" class="workflow-dropdown">
+                <div class="dropdown-header">已保存的工作流</div>
+                <div
+                  v-for="wf in store.savedWorkflows"
+                  :key="wf.id"
+                  class="dropdown-item"
+                  :class="{ active: store.currentWorkflowId === wf.id }"
+                  @click="handleLoadWorkflow(wf)"
+                >
+                  <span class="wf-name">{{ wf.name }}</span>
+                  <button class="delete-wf-btn" @click="handleDeleteWorkflow($event, wf.id)">
+                    <Trash2 :size="14" />
+                  </button>
+                </div>
+                <div v-if="store.savedWorkflows.length === 0" class="dropdown-empty">
+                  暂无已保存的工作流
+                </div>
+                <div class="dropdown-footer">
+                  <button class="new-wf-btn" @click="currentView = 'list'">
+                    <List :size="14" />
+                    查看全部
+                  </button>
+                  <button class="new-wf-btn" @click="handleNewWorkflow">
+                    <Plus :size="14" />
+                    新建工作流
+                  </button>
+                </div>
+              </div>
+            </transition>
+          </div>
+
+          <button class="tool-btn primary" @click="handleSave" :disabled="isSaving">
+            <Save :size="16" />
+            {{ isSaving ? '保存中...' : '保存' }}
           </button>
-          <transition name="dropdown">
-            <div v-if="showWorkflowList" class="workflow-dropdown">
-              <div class="dropdown-header">已保存的工作流</div>
-              <div
-                v-for="wf in store.savedWorkflows"
-                :key="wf.id"
-                class="dropdown-item"
-                :class="{ active: store.currentWorkflowId === wf.id }"
-                @click="handleLoadWorkflow(wf)"
-              >
-                <span class="wf-name">{{ wf.name }}</span>
-                <button class="delete-wf-btn" @click="handleDeleteWorkflow($event, wf.id)">
-                  <Trash2 :size="14" />
-                </button>
-              </div>
-              <div v-if="store.savedWorkflows.length === 0" class="dropdown-empty">
-                暂无已保存的工作流
-              </div>
-              <div class="dropdown-footer">
-                <button class="new-wf-btn" @click="handleNewWorkflow">
-                  <Plus :size="14" />
-                  新建工作流
-                </button>
-              </div>
-            </div>
-          </transition>
+
+          <button class="tool-btn success" @click="handleRun" :disabled="isRunning || store.nodes.length === 0">
+            <Play :size="16" />
+            {{ isRunning ? '执行中...' : '运行' }}
+          </button>
+        </template>
+        <template v-else>
+          <button class="tool-btn primary" @click="handleNewWorkflow">
+            <Plus :size="16" />
+            新建工作流
+          </button>
+        </template>
+      </div>
+    </div>
+
+    <!-- 工作流列表视图 -->
+    <div v-if="currentView === 'list'" class="workflow-list-view">
+      <div class="list-header">
+        <h2>我的工作流</h2>
+        <p class="list-subtitle">已创建 {{ store.savedWorkflows.length }} 个工作流</p>
+      </div>
+      <div class="workflow-cards">
+        <div
+          v-for="wf in store.savedWorkflows"
+          :key="wf.id"
+          class="workflow-card"
+          :class="{ active: store.currentWorkflowId === wf.id }"
+          @click="handleLoadWorkflow(wf); currentView = 'editor'"
+        >
+          <div class="card-icon">
+            <FileCode :size="28" />
+          </div>
+          <div class="card-content">
+            <h3>{{ wf.name }}</h3>
+            <span class="card-meta">{{ wf.nodes?.length || 0 }} 个节点 · {{ wf.edges?.length || 0 }} 条连线</span>
+          </div>
+          <button class="card-action" @click.stop="handleDeleteWorkflow($event, wf.id)">
+            <Trash2 :size="16" />
+          </button>
         </div>
-
-        <button class="tool-btn primary" @click="handleSave" :disabled="isSaving">
-          <Save :size="16" />
-          {{ isSaving ? '保存中...' : '保存' }}
-        </button>
-
-        <button class="tool-btn success" @click="handleRun" :disabled="isRunning || store.nodes.length === 0">
-          <Play :size="16" />
-          {{ isRunning ? '执行中...' : '运行' }}
-        </button>
+        <div v-if="store.savedWorkflows.length === 0" class="empty-list">
+          <FileCode :size="48" />
+          <p>还没有创建任何工作流</p>
+          <button class="tool-btn primary" @click="handleNewWorkflow">
+            <Plus :size="16" />
+            创建第一个工作流
+          </button>
+        </div>
       </div>
     </div>
 
@@ -1155,5 +1213,119 @@ input:focus, textarea:focus {
   right: 0;
   bottom: 0;
   z-index: 999;
+}
+
+/* 工作流列表视图 */
+.workflow-list-view {
+  position: absolute;
+  top: 56px;
+  left: 200px;
+  right: 0;
+  bottom: 0;
+  padding: 48px;
+  background: var(--bg-app);
+  overflow-y: auto;
+}
+
+.list-header {
+  margin-bottom: 40px;
+}
+
+.list-header h2 {
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: var(--text-main);
+  margin: 0 0 8px 0;
+}
+
+.list-subtitle {
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+.workflow-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 20px;
+}
+
+.workflow-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 20px 24px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.workflow-card:hover {
+  border-color: var(--primary);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
+}
+
+.workflow-card.active {
+  background: var(--primary-light);
+  border-color: var(--primary);
+}
+
+.card-icon {
+  width: 56px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-hover);
+  border-radius: var(--radius-md);
+  color: var(--primary);
+}
+
+.card-content {
+  flex: 1;
+}
+
+.card-content h3 {
+  font-size: 16px;
+  font-weight: 600;
+  margin: 0 0 4px 0;
+  color: var(--text-main);
+}
+
+.card-meta {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.card-action {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  padding: 8px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.card-action:hover {
+  background: var(--error-light);
+  color: var(--error);
+}
+
+.empty-list {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 80px 40px;
+  color: var(--text-muted);
+}
+
+.empty-list p {
+  margin: 16px 0 24px;
+  font-size: 15px;
 }
 </style>

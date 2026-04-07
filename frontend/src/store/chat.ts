@@ -16,9 +16,11 @@ export const useChatStore = defineStore('chat', () => {
         try {
             const resp = await axios.get('http://localhost:3001/workflows');
             workflows.value = resp.data;
+            console.log('Workflows fetched:', resp.data);
             // 自动选择第一个工作流
             if (resp.data.length > 0 && !currentWorkflowId.value) {
                 currentWorkflowId.value = resp.data[0].id;
+                console.log('Auto-selected workflow:', resp.data[0].id);
             }
         } catch (err) {
             console.error('Fetch workflows failed', err);
@@ -26,8 +28,10 @@ export const useChatStore = defineStore('chat', () => {
     };
 
     const createSession = async (workflowId: string) => {
+        console.log('Creating session for workflow:', workflowId);
         try {
             const resp = await axios.post('http://localhost:3001/chat/sessions', { workflowId });
+            console.log('Session created:', resp.data);
             currentSessionId.value = resp.data.id;
             currentWorkflowId.value = workflowId;
             messages.value = [];

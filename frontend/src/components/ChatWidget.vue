@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { ref, watch, onMounted } from 'vue'
 import { useChatStore } from '../store/chat'
 import { Send, MessageSquare, X, Sparkles, User } from 'lucide-vue-next'
 
@@ -7,10 +7,20 @@ const chatStore = useChatStore()
 const userInput = ref('')
 const isOpen = ref(false)
 
-const handleSend = () => {
+const handleSend = async () => {
   if (!userInput.value.trim() || chatStore.isLoading) return
   const content = userInput.value
   userInput.value = ''
+  
+  // 如果没有会话，先创建
+  if (!chatStore.currentSessionId) {
+    if (!chatStore.currentWorkflowId) {
+      alert('请先选择一个工作流')
+      return
+    }
+    await chatStore.createSession(chatStore.currentWorkflowId)
+  }
+  
   chatStore.sendMessageStream(content)
 }
 
@@ -19,6 +29,11 @@ watch(isOpen, async (open) => {
   if (open) {
     await chatStore.fetchWorkflows()
   }
+})
+
+// 组件挂载时也获取工作流列表
+onMounted(async () => {
+  await chatStore.fetchWorkflows()
 })
 
 const startNewChat = async () => {
@@ -106,9 +121,8 @@ const startNewChat = async () => {
               v-model="userInput" 
               placeholder="输入你的问题..." 
               @keyup.enter="handleSend"
-              :disabled="!chatStore.currentSessionId"
             />
-            <button @click="handleSend" class="send-btn" :disabled="!chatStore.currentSessionId || chatStore.isLoading || !userInput.trim()">
+            <button @click="handleSend" class="send-btn" :disabled="chatStore.isLoading || !userInput.trim()">
               <Send :size="18" />
             </button>
           </div>
