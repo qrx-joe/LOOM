@@ -13,9 +13,9 @@ import { SeederModule } from './seeder/seeder.module';
     ConfigModule.forRoot({ isGlobal: true }),
     TypeOrmModule.forRoot({
       type: 'sqlite',
-      database: 'mini-coze.db',
+      database: process.env.DATABASE_PATH || 'mini-coze.db',
       autoLoadEntities: true,
-      synchronize: true, // 仅限开发环境
+      synchronize: process.env.NODE_ENV !== 'production',
     }),
     WorkflowModule,
     KnowledgeModule,
