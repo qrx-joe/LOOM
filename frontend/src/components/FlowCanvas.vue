@@ -239,8 +239,9 @@ const handleBack = () => {
     <!-- 顶部工具栏 -->
     <header class="editor-header">
       <div class="header-left">
-        <button class="back-btn" @click="handleBack">
+        <button class="back-btn" @click="handleBack" title="返回列表">
           <ArrowLeft :size="18" />
+          <span class="back-text">返回</span>
         </button>
         <input
           v-model="store.workflowName"
@@ -410,21 +411,36 @@ const handleBack = () => {
 }
 
 .back-btn {
-  width: 36px;
   height: 36px;
+  padding: 0 12px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: transparent;
-  border: none;
+  gap: 6px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
   color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 500;
   cursor: pointer;
+  transition: all var(--transition-fast);
 }
 
 .back-btn:hover {
   background: var(--bg-hover);
-  color: var(--text-main);
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.back-text {
+  display: none;
+}
+
+@media (min-width: 768px) {
+  .back-text {
+    display: inline;
+  }
 }
 
 .workflow-name-input {
