@@ -79,6 +79,19 @@ const handleKeyDown = (e: KeyboardEvent) => {
   }
 }
 
+// 删除选中的节点或边
+const deleteSelected = () => {
+  if (selectedNode.value) {
+    removeNodes(selectedNode.value.id)
+    store.saveHistory()
+    selectedNode.value = null
+  } else if (selectedEdge.value) {
+    removeEdges(selectedEdge.value.id)
+    store.saveHistory()
+    selectedEdge.value = null
+  }
+}
+
 // 初始化
 onMounted(async () => {
   window.addEventListener('keydown', handleKeyDown)
@@ -127,8 +140,8 @@ const flowNodeTypes = {
 const handleDragStart = (e: DragEvent, nodeType: string) => {
   draggedNodeType.value = nodeType
   if (e.dataTransfer) {
-    e.dataTransfer.effectAllowed = 'move'
-    e.dataTransfer.setData('application/vueflow', nodeType)
+    e.dataTransfer.effectAllowed = 'copy'
+    e.dataTransfer.setData('text/plain', nodeType)
   }
 }
 
@@ -142,16 +155,13 @@ const handleDrop = (e: DragEvent) => {
   e.preventDefault()
   if (!e.dataTransfer) return
 
-  const nodeType = e.dataTransfer.getData('application/vueflow')
+  const nodeType = e.dataTransfer.getData('text/plain')
   if (!nodeType) return
 
-  const flowWrapper = document.querySelector('.flow-wrapper')
-  if (!flowWrapper) return
-
-  const wrapperRect = flowWrapper.getBoundingClientRect()
+  // 使用 clientX/clientY 让 VueFlow 的 project 函数处理转换
   const position = project({
-    x: e.clientX - wrapperRect.left,
-    y: e.clientY - wrapperRect.top,
+    x: e.clientX,
+    y: e.clientY,
   })
 
   const newNode = {
@@ -382,6 +392,17 @@ const getIconComponent = (iconName: string) => {
             <Redo2 :size="16" />
           </button>
 
+          <!-- 删除选中节点/边按钮 -->
+          <button
+            class="tool-btn danger"
+            @click="deleteSelected"
+            :disabled="!selectedNode && !selectedEdge"
+            title="删除选中节点或连线 (Delete)"
+          >
+            <Trash2 :size="16" />
+            删除
+          </button>
+
           <div class="workflow-list-wrapper">
             <button class="tool-btn" @click="showWorkflowList = !showWorkflowList">
               <List :size="16" />
@@ -541,9 +562,14 @@ const getIconComponent = (iconName: string) => {
             <h3>{{ selectedEdge ? '连线配置' : '节点配置' }}</h3>
             <span class="node-id">{{ selectedEdge ? `#${selectedEdge.source} -> ${selectedEdge.target}` : `#${selectedNode?.id}` }}</span>
           </div>
-          <button class="close-btn" @click="closeSidebar">
-            <X :size="18" />
-          </button>
+          <div class="sidebar-actions">
+            <button class="delete-btn" @click="deleteSelected" title="删除节点">
+              <Trash2 :size="16" />
+            </button>
+            <button class="close-btn" @click="closeSidebar">
+              <X :size="18" />
+            </button>
+          </div>
         </header>
 
         <div class="sidebar-content">
@@ -844,6 +870,17 @@ const getIconComponent = (iconName: string) => {
   border-color: #059669;
 }
 
+.tool-btn.danger {
+  background: var(--bg-surface);
+  color: var(--error);
+  border-color: var(--error);
+}
+
+.tool-btn.danger:hover {
+  background: var(--error);
+  color: white;
+}
+
 .tool-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
@@ -1001,6 +1038,27 @@ const getIconComponent = (iconName: string) => {
 .close-btn:hover {
   background: var(--bg-hover);
   color: var(--text-main);
+}
+
+.sidebar-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.delete-btn {
+  background: transparent;
+  border: none;
+  color: var(--error);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: var(--radius-sm);
+  transition: all var(--transition-fast);
+}
+
+.delete-btn:hover {
+  background: var(--error-light);
+  color: var(--error);
 }
 
 .sidebar-content {
