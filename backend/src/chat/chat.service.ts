@@ -166,9 +166,26 @@ export class ChatService {
         const lastLog = logs.reverse().find(l => l.status === 'COMPLETED');
         let assistantReply = '对不起，我没法理解这个请求。';
         if (lastLog && lastLog.output) {
-            assistantReply = typeof lastLog.output === 'object'
-                ? (lastLog.output.text || JSON.stringify(lastLog.output))
-                : String(lastLog.output);
+            if (typeof lastLog.output === 'object' && lastLog.output !== null) {
+                // 优先使用 text 字段，这是 AI 节点的预期输出格式
+                if (lastLog.output.text) {
+                    assistantReply = lastLog.output.text;
+                } else if (lastLog.output.content) {
+                    assistantReply = lastLog.output.content;
+                } else if (lastLog.output.fragments) {
+                    // 知识检索节点返回 fragments，取第一个片段的内容
+                    const frag = lastLog.output.fragments[0];
+                    assistantReply = frag?.content || '未找到相关内容';
+                } else {
+                    // 兜底：检查是否有其他有效字段
+                    const keys = Object.keys(lastLog.output).filter(k => k !== '_context');
+                    if (keys.length > 0) {
+                        assistantReply = String(lastLog.output[keys[0]]);
+                    }
+                }
+            } else {
+                assistantReply = String(lastLog.output);
+            }
         }
 
         // 7. 发送完成事件

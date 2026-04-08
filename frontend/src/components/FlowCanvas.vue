@@ -2,7 +2,7 @@
 import { VueFlow, useVueFlow } from '@vue-flow/core'
 import { Background } from '@vue-flow/background'
 import { Controls } from '@vue-flow/controls'
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted, markRaw } from 'vue'
 import { useWorkflowStore } from '../store/workflow'
 import axios from 'axios'
 import {
@@ -10,6 +10,7 @@ import {
   PlayCircle, Bot, BookOpen, GitBranch, Square,
   X, ChevronRight, ArrowLeft, FileCode
 } from 'lucide-vue-next'
+import CustomNodes from './CustomNodes.vue'
 
 interface ExecutionLog {
   nodeId: string;
@@ -87,6 +88,13 @@ const nodeTypes = [
   { type: 'CONDITION', label: '条件分支', icon: 'GitBranch', color: '#EC4899', description: 'IF/ELSE 分支' },
   { type: 'output', label: '结束', icon: 'Square', color: '#EF4444', description: '工作流结束' },
 ]
+
+// Vue Flow 自定义节点类型（用于渲染）
+const flowNodeTypes = {
+  AI_AGENT: markRaw(CustomNodes),
+  KNOWLEDGE_RETRIEVAL: markRaw(CustomNodes),
+  CONDITION: markRaw(CustomNodes),
+}
 
 // 拖拽开始
 const handleDragStart = (e: DragEvent, nodeType: string) => {
@@ -475,6 +483,7 @@ const getIconComponent = (iconName: string) => {
         <VueFlow
           v-model:nodes="store.nodes"
           v-model:edges="store.edges"
+          :node-types="flowNodeTypes"
           fit-view-on-init
           class="custom-flow"
           :default-edge-options="{ type: 'smoothstep', style: { stroke: '#9CA3AF', strokeWidth: 2 } }"

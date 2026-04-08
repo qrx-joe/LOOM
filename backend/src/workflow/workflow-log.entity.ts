@@ -40,6 +40,6 @@ export class WorkflowLog {
     @CreateDateColumn()
     startedAt: Date;
 
-    @Column({ type: 'datetime', nullable: true })
+    @Column({ type: 'timestamptz', nullable: true })
     completedAt: Date;
 }

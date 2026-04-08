@@ -1,5 +1,6 @@
-import { Injectable, Logger, Inject } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { Repository } from 'typeorm';
+import { InjectRepository } from '@nestjs/typeorm';
 import { OpenAI } from 'openai';
 import { WorkflowDefinition, NodeData, ExecutionLog, NodeType } from './interfaces/workflow.interface';
 import { KnowledgeService } from '../knowledge/knowledge.service';
@@ -27,7 +28,7 @@ export class ExecutorService {
 
     constructor(
         private readonly knowledgeService: KnowledgeService,
-        @Inject('WORKFLOW_LOG_REPOSITORY')
+        @InjectRepository(WorkflowLog)
         private readonly workflowLogRepo: Repository<WorkflowLog>,
     ) { }
 
@@ -232,10 +233,19 @@ export class ExecutorService {
     }
 
     private resolveInputs(node: NodeData, nodeResults: Map<string, any>): any {
-        // 简单的变量映射逻辑：从结果池中提取所需变量
-        // 例如：node.config.promptTemplates = "Hello {{prevNodeId.output}}"
-        // 这里的实现视具体 Workflow 协议而定
-        return { ...node.config, _context: Object.fromEntries(nodeResults) };
+        // 构建节点的输入：使用 config 中的字段，并注入必要的上下文变量
+        // 注意：不要把整个 _context 注入到输入中，避免污染节点输出
+        const result: any = { ...node.config };
+
+        // 注入上下文中的简单值（排除嵌套对象，避免循环引用）
+        const context = Object.fromEntries(nodeResults);
+        for (const [key, value] of Object.entries(context)) {
+            if (typeof value !== 'object' || value === null) {
+                result[key] = value;
+            }
+        }
+
+        return result;
     }
 
     private async executeNode(node: NodeData, input: any, onToken?: (token: string) => void): Promise<any> {
@@ -248,7 +258,8 @@ export class ExecutorService {
             case 'input':
             case 'START':
             case NodeType.START:
-                return input;
+                // INPUT/START 节点：直接返回原始输入，这是用户发送的内容
+                return { input: input.input || input };
             case 'AI_AGENT':
             case NodeType.AI_AGENT:
                 return this.handleAIRequest(node, config, input, onToken);
