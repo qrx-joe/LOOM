@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, nextTick } from 'vue'
 import { useWorkflowStore } from '../store/workflow'
-import { Plus, FileCode, Trash2, Play, Clock } from 'lucide-vue-next'
+import { Plus, FileCode, Trash2, Play, Clock, Pencil, Check, X } from 'lucide-vue-next'
 
 const emit = defineEmits<{
   (e: 'select', workflow: any): void
@@ -9,6 +9,9 @@ const emit = defineEmits<{
 
 const store = useWorkflowStore()
 const isCreating = ref(false)
+const editingId = ref<string | null>(null)
+const editingName = ref('')
+const editInputRef = ref<HTMLInputElement | null>(null)
 
 onMounted(async () => {
   await store.fetchWorkflows()
@@ -22,16 +25,40 @@ const handleCreateWorkflow = () => {
 }
 
 const handleSelectWorkflow = (wf: any) => {
+  if (editingId.value === wf.id) return
   store.loadWorkflow(wf)
   emit('select', wf)
 }
 
 const handleDeleteWorkflow = async (id: string) => {
-  console.log('handleDeleteWorkflow called with id:', id)
   if (confirm('确定要删除这个工作流吗？')) {
-    console.log('Confirmed delete for workflow:', id)
     await store.deleteWorkflow(id)
   }
+}
+
+const startEdit = (e: Event, wf: any) => {
+  e.stopPropagation()
+  editingId.value = wf.id
+  editingName.value = wf.name
+  nextTick(() => {
+    editInputRef.value?.focus()
+    editInputRef.value?.select()
+  })
+}
+
+const cancelEdit = (e: Event) => {
+  e.stopPropagation()
+  editingId.value = null
+  editingName.value = ''
+}
+
+const saveEdit = async (e: Event, wf: any) => {
+  e.stopPropagation()
+  if (editingName.value.trim() && editingName.value !== wf.name) {
+    await store.updateWorkflowName(wf.id, editingName.value.trim())
+  }
+  editingId.value = null
+  editingName.value = ''
 }
 
 const formatDate = (dateStr?: string) => {
@@ -76,7 +103,7 @@ const formatDate = (dateStr?: string) => {
         v-for="wf in store.savedWorkflows"
         :key="wf.id"
         class="workflow-card"
-        :class="{ active: store.currentWorkflowId === wf.id }"
+        :class="{ active: store.currentWorkflowId === wf.id, editing: editingId === wf.id }"
         @click="handleSelectWorkflow(wf)"
       >
         <div class="card-header">
@@ -84,31 +111,55 @@ const formatDate = (dateStr?: string) => {
             <FileCode :size="20" />
           </div>
           <div class="card-actions">
-            <button class="action-btn" @click="(e) => { e.stopPropagation(); handleDeleteWorkflow(wf.id); }" title="删除">
+            <button class="action-btn" @click="(e) => startEdit(e, wf)" title="重命名">
+              <Pencil :size="16" />
+            </button>
+            <button class="action-btn delete" @click="(e) => { e.stopPropagation(); handleDeleteWorkflow(wf.id); }" title="删除">
               <Trash2 :size="16" />
             </button>
           </div>
         </div>
 
         <div class="card-body">
-          <h3 class="card-title">{{ wf.name }}</h3>
-          <div class="card-meta">
-            <span class="meta-item">
-              <Clock :size="12" />
-              {{ formatDate(wf.createdAt) }}
-            </span>
+          <div v-if="editingId === wf.id" class="edit-name-form" @click.stop>
+            <input
+              ref="editInputRef"
+              v-model="editingName"
+              type="text"
+              class="edit-name-input"
+              placeholder="输入工作流名称"
+              @keydown.enter="saveEdit($event, wf)"
+              @keydown.escape="cancelEdit($event)"
+            />
+            <div class="edit-name-actions">
+              <button class="edit-action-btn save" @click="saveEdit($event, wf)" title="保存">
+                <Check :size="14" />
+              </button>
+              <button class="edit-action-btn cancel" @click="cancelEdit($event)" title="取消">
+                <X :size="14" />
+              </button>
+            </div>
           </div>
-          <div class="card-stats">
-            <span class="stat">{{ wf.nodes?.length || 0 }} 节点</span>
-            <span class="stat-dot"></span>
-            <span class="stat">{{ wf.edges?.length || 0 }} 连线</span>
-          </div>
+          <template v-else>
+            <h3 class="card-title">{{ wf.name }}</h3>
+            <div class="card-meta">
+              <span class="meta-item">
+                <Clock :size="12" />
+                {{ formatDate(wf.createdAt) }}
+              </span>
+            </div>
+            <div class="card-stats">
+              <span class="stat">{{ wf.nodes?.length || 0 }} 节点</span>
+              <span class="stat-dot"></span>
+              <span class="stat">{{ wf.edges?.length || 0 }} 连线</span>
+            </div>
+          </template>
         </div>
 
-        <div class="card-footer">
+        <div v-if="editingId !== wf.id" class="card-footer">
           <button class="edit-btn" @click.stop="handleSelectWorkflow(wf)">
             <Play :size="14" />
-            编辑
+            编辑工作流
           </button>
         </div>
       </div>
@@ -291,12 +342,76 @@ const formatDate = (dateStr?: string) => {
 
 .action-btn:hover {
   background: var(--bg-hover);
+  color: var(--text-main);
+}
+
+.action-btn.delete:hover {
   color: var(--error);
 }
 
 /* 卡片内容 */
 .card-body {
   flex: 1;
+}
+
+/* 编辑名称表单 */
+.edit-name-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.edit-name-input {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid var(--primary);
+  border-radius: var(--radius-md);
+  font-size: 14px;
+  background: var(--bg-app);
+  color: var(--text-main);
+  outline: none;
+}
+
+.edit-name-input:focus {
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+}
+
+.edit-name-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.edit-action-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 6px 12px;
+  border: none;
+  border-radius: var(--radius-md);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.edit-action-btn.save {
+  background: var(--primary);
+  color: white;
+}
+
+.edit-action-btn.save:hover {
+  background: var(--primary-hover);
+}
+
+.edit-action-btn.cancel {
+  background: var(--bg-hover);
+  color: var(--text-secondary);
+}
+
+.edit-action-btn.cancel:hover {
+  background: var(--border-default);
 }
 
 .card-title {

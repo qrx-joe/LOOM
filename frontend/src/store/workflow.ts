@@ -209,6 +209,21 @@ export const useWorkflowStore = defineStore('workflow', () => {
         }
     };
 
+    // 更新工作流名称
+    const updateWorkflowName = async (id: string, name: string) => {
+        try {
+            await axios.put(`http://localhost:3001/workflows/${id}`, { name });
+            await fetchWorkflows();
+            // 如果是当前编辑的工作流，更新本地名称
+            if (currentWorkflowId.value === id) {
+                workflowName.value = name;
+            }
+        } catch (err) {
+            console.error('Failed to update workflow name', err);
+            throw err;
+        }
+    };
+
     return {
         nodes,
         edges,
@@ -223,6 +238,7 @@ export const useWorkflowStore = defineStore('workflow', () => {
         saveWorkflow,
         runWorkflow,
         deleteWorkflow,
+        updateWorkflowName,
         saveHistory,
         undo,
         redo,
