@@ -137,19 +137,14 @@ const flowNodeTypes = {
 
 // 点击添加节点
 const handleAddNode = (nodeType: string) => {
-  // 计算一个合理的位置 - 放在画布中央或现有节点旁边
-  const existingNodes = store.nodes
-  let position = { x: 300, y: 200 }
+  // 总是放在画布中央附近（偏移避免重叠）
+  const baseX = 100
+  const baseY = 150
+  const offset = (store.nodes.length % 10) * 30
 
-  if (existingNodes.length > 0) {
-    // 找到最右边的节点，放在其右边
-    const rightmostNode = existingNodes.reduce((prev, curr) =>
-      (prev.position.x > curr.position.x) ? prev : curr
-    )
-    position = {
-      x: rightmostNode.position.x + 250,
-      y: rightmostNode.position.y
-    }
+  const position = {
+    x: baseX + offset,
+    y: baseY + offset,
   }
 
   const newNode = {
