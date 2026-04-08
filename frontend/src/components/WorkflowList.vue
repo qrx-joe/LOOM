@@ -26,9 +26,10 @@ const handleSelectWorkflow = (wf: any) => {
   emit('select', wf)
 }
 
-const handleDeleteWorkflow = async (e: Event, id: string) => {
-  e.stopPropagation()
+const handleDeleteWorkflow = async (id: string) => {
+  console.log('handleDeleteWorkflow called with id:', id)
   if (confirm('确定要删除这个工作流吗？')) {
+    console.log('Confirmed delete for workflow:', id)
     await store.deleteWorkflow(id)
   }
 }
@@ -83,7 +84,7 @@ const formatDate = (dateStr?: string) => {
             <FileCode :size="20" />
           </div>
           <div class="card-actions">
-            <button class="action-btn" @click.stop="handleDeleteWorkflow($event, wf.id)" title="删除">
+            <button class="action-btn" @click="(e) => { e.stopPropagation(); handleDeleteWorkflow(wf.id); }" title="删除">
               <Trash2 :size="16" />
             </button>
           </div>

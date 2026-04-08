@@ -195,8 +195,10 @@ export const useWorkflowStore = defineStore('workflow', () => {
 
     // 删除工作流
     const deleteWorkflow = async (id: string) => {
+        console.log('Deleting workflow:', id);
         try {
-            await axios.delete(`http://localhost:3001/workflows/${id}`);
+            const response = await axios.delete(`http://localhost:3001/workflows/${id}`);
+            console.log('Delete response:', response);
             if (currentWorkflowId.value === id) {
                 createNewWorkflow();
             }
