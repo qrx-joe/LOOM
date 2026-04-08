@@ -2,7 +2,7 @@ import { Controller, Post, Body, Get, Param, Query, Res } from '@nestjs/common';
 import type { Response } from 'express';
 import { ChatService } from './chat.service';
 
-@Controller('chat')
+@Controller('agent')
 export class ChatController {
     constructor(private readonly chatService: ChatService) { }
 

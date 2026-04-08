@@ -30,7 +30,7 @@ export const useChatStore = defineStore('chat', () => {
     const createSession = async (workflowId: string) => {
         console.log('Creating session for workflow:', workflowId);
         try {
-            const resp = await axios.post('http://localhost:3001/chat/sessions', { workflowId });
+            const resp = await axios.post('http://localhost:3001/agent/sessions', { workflowId });
             console.log('Session created:', resp.data);
             currentSessionId.value = resp.data.id;
             currentWorkflowId.value = workflowId;
@@ -49,7 +49,7 @@ export const useChatStore = defineStore('chat', () => {
         messages.value.push({ role: 'user', content, createdAt: new Date() });
 
         // 创建 SSE 连接
-        const sseUrl = `http://localhost:3001/chat/sessions/${currentSessionId.value}/messages/stream?content=${encodeURIComponent(content)}`;
+        const sseUrl = `http://localhost:3001/agent/sessions/${currentSessionId.value}/messages/stream?content=${encodeURIComponent(content)}`;
         eventSource = new EventSource(sseUrl);
 
         // 添加一个临时的 assistant 消息用于流式更新
@@ -111,7 +111,7 @@ export const useChatStore = defineStore('chat', () => {
         messages.value.push({ role: 'user', content, createdAt: new Date() });
 
         try {
-            const resp = await axios.post(`http://localhost:3001/chat/sessions/${currentSessionId.value}/messages`, { content });
+            const resp = await axios.post(`http://localhost:3001/agent/sessions/${currentSessionId.value}/messages`, { content });
             messages.value.push(resp.data);
         } catch (err) {
             console.error('Send message failed', err);
@@ -122,7 +122,7 @@ export const useChatStore = defineStore('chat', () => {
 
     const fetchMessages = async (sessionId: string) => {
         try {
-            const resp = await axios.get(`http://localhost:3001/chat/sessions/${sessionId}/messages`);
+            const resp = await axios.get(`http://localhost:3001/agent/sessions/${sessionId}/messages`);
             messages.value = resp.data;
             currentSessionId.value = sessionId;
         } catch (err) {
