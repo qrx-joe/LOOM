@@ -107,12 +107,20 @@ const nodeTypes = [
 ]
 
 // Vue Flow 自定义节点类型（用于渲染）
+// 支持 input/output (Vue Flow 内置) 和 START/END/INPUT/OUTPUT (后端存储的 legacy 类型)
 const flowNodeTypes = {
+  // Vue Flow 内置类型
   input: markRaw(CustomNodes),
   output: markRaw(CustomNodes),
+  // 自定义节点类型
   AI_AGENT: markRaw(CustomNodes),
   KNOWLEDGE_RETRIEVAL: markRaw(CustomNodes),
   CONDITION: markRaw(CustomNodes),
+  // 兼容后端 legacy 类型
+  START: markRaw(CustomNodes),
+  END: markRaw(CustomNodes),
+  INPUT: markRaw(CustomNodes),
+  OUTPUT: markRaw(CustomNodes),
 }
 
 // 拖拽开始
@@ -137,13 +145,13 @@ const handleDrop = (e: DragEvent) => {
   const nodeType = e.dataTransfer.getData('application/vueflow')
   if (!nodeType) return
 
-  const canvasArea = document.querySelector('.canvas-area')
-  if (!canvasArea) return
+  const flowWrapper = document.querySelector('.flow-wrapper')
+  if (!flowWrapper) return
 
-  const canvasRect = canvasArea.getBoundingClientRect()
+  const wrapperRect = flowWrapper.getBoundingClientRect()
   const position = project({
-    x: e.clientX - canvasRect.left,
-    y: e.clientY - canvasRect.top,
+    x: e.clientX - wrapperRect.left,
+    y: e.clientY - wrapperRect.top,
   })
 
   const newNode = {
@@ -508,11 +516,7 @@ const getIconComponent = (iconName: string) => {
       </div>
 
       <!-- Vue Flow 画布 -->
-      <div
-        class="flow-wrapper"
-        @drop="handleDrop"
-        @dragover="handleDragOver"
-      >
+      <div class="flow-wrapper">
         <VueFlow
           v-model:nodes="store.nodes"
           v-model:edges="store.edges"
@@ -520,6 +524,8 @@ const getIconComponent = (iconName: string) => {
           fit-view-on-init
           class="custom-flow"
           :default-edge-options="{ type: 'smoothstep', style: { stroke: '#9CA3AF', strokeWidth: 2 } }"
+          @drop="handleDrop"
+          @dragover="handleDragOver"
         >
           <Background pattern-color="#E5E7EB" :gap="20" />
           <Controls />

@@ -256,9 +256,9 @@ export class ExecutorService {
         const nodeType = node.type as string;
         switch (nodeType) {
             case 'input':
-            case 'START':
-            case NodeType.START:
-                // INPUT/START 节点：直接返回原始输入，这是用户发送的内容
+            case 'INPUT':
+            case NodeType.INPUT:
+                // INPUT 节点：直接返回原始输入，这是用户发送的内容
                 return { input: input.input || input };
             case 'AI_AGENT':
             case NodeType.AI_AGENT:
@@ -272,8 +272,8 @@ export class ExecutorService {
             case NodeType.CONDITION:
                 return this.handleCondition(node, config, input);
             case 'output':
-            case 'END':
-            case NodeType.END:
+            case 'OUTPUT':
+            case NodeType.OUTPUT:
                 return input;
             default:
                 // 未知类型节点默认透传

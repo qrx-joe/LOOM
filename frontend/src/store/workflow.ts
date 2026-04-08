@@ -66,9 +66,11 @@ export const useWorkflowStore = defineStore('workflow', () => {
     const undo = () => {
         if (historyIndex.value > 0) {
             historyIndex.value--;
-            const state = history.value[historyIndex.value];
-            nodes.value = JSON.parse(JSON.stringify(state.nodes));
-            edges.value = JSON.parse(JSON.stringify(state.edges));
+            const state = history.value[historyIndex.value]
+            if (state) {
+                nodes.value = JSON.parse(JSON.stringify(state.nodes));
+                edges.value = JSON.parse(JSON.stringify(state.edges));
+            }
         }
     };
 
@@ -76,9 +78,11 @@ export const useWorkflowStore = defineStore('workflow', () => {
     const redo = () => {
         if (historyIndex.value < history.value.length - 1) {
             historyIndex.value++;
-            const state = history.value[historyIndex.value];
-            nodes.value = JSON.parse(JSON.stringify(state.nodes));
-            edges.value = JSON.parse(JSON.stringify(state.edges));
+            const state = history.value[historyIndex.value]
+            if (state) {
+                nodes.value = JSON.parse(JSON.stringify(state.nodes));
+                edges.value = JSON.parse(JSON.stringify(state.edges));
+            }
         }
     };
 

@@ -3,13 +3,8 @@ import { Handle, Position } from '@vue-flow/core'
 import { Bot, BookOpen, GitBranch, PlayCircle, Square } from 'lucide-vue-next'
 import type { NodeProps } from '@vue-flow/core'
 
-type InputNodeData = {
-  nodeType: 'input'
-}
-
-type OutputNodeData = {
-  nodeType: 'output'
-}
+// 禁用继承 attrs，让 Vue Flow 的事件监听器能正确传递
+defineOptions({ inheritAttrs: false })
 
 type AiNodeData = {
   nodeType: 'AI_AGENT'
@@ -29,83 +24,78 @@ type ConditionNodeData = {
   expression?: string
 }
 
-type CustomNodeData = InputNodeData | OutputNodeData | AiNodeData | KnowledgeNodeData | ConditionNodeData
+type CustomNodeData = AiNodeData | KnowledgeNodeData | ConditionNodeData
 
 interface Props extends NodeProps<CustomNodeData> {
   label?: string
 }
 
 const props = defineProps<Props>()
+
+// input 和 output 是 Vue Flow 内置类型，使用 props.type 判断
+// 也兼容 START/END/INPUT/OUTPUT (后端 legacy 类型)
+const isInputNode = () => ['input', 'START', 'INPUT'].includes(props.type || '')
+const isOutputNode = () => ['output', 'END', 'OUTPUT'].includes(props.type || '')
 </script>
 
 <template>
   <!-- Input Node -->
-  <template v-if="data?.nodeType === 'input'">
-    <div class="custom-node input-node">
-      <div class="node-header">
-        <PlayCircle :size="14" />
-        <span>{{ label || '开始' }}</span>
-      </div>
-      <Handle type="source" :position="Position.Right" />
+  <div v-if="isInputNode()" class="custom-node input-node" v-bind="$attrs">
+    <div class="node-header">
+      <PlayCircle :size="14" />
+      <span>{{ label || '开始' }}</span>
     </div>
-  </template>
+    <Handle type="source" :position="Position.Right" />
+  </div>
 
   <!-- Output Node -->
-  <template v-else-if="data?.nodeType === 'output'">
-    <div class="custom-node output-node">
-      <div class="node-header">
-        <Square :size="14" />
-        <span>{{ label || '结束' }}</span>
-      </div>
-      <Handle type="target" :position="Position.Left" />
+  <div v-else-if="isOutputNode()" class="custom-node output-node" v-bind="$attrs">
+    <div class="node-header">
+      <Square :size="14" />
+      <span>{{ label || '结束' }}</span>
     </div>
-  </template>
+    <Handle type="target" :position="Position.Left" />
+  </div>
 
   <!-- AI Agent Node -->
-  <template v-else-if="data?.nodeType === 'AI_AGENT'">
-    <div class="custom-node ai-node">
-      <div class="node-header">
-        <Bot :size="14" />
-        <span>{{ label || 'AI 节点' }}</span>
-      </div>
-      <div class="node-body">
-        <span class="model-tag">{{ data?.model?.split('/').pop() || 'DeepSeek V3' }}</span>
-      </div>
-      <Handle type="target" :position="Position.Left" />
-      <Handle type="source" :position="Position.Right" />
+  <div v-else-if="data?.nodeType === 'AI_AGENT'" class="custom-node ai-node" v-bind="$attrs">
+    <div class="node-header">
+      <Bot :size="14" />
+      <span>{{ label || 'AI 节点' }}</span>
     </div>
-  </template>
+    <div class="node-body">
+      <span class="model-tag">{{ data?.model?.split('/').pop() || 'DeepSeek V3' }}</span>
+    </div>
+    <Handle type="target" :position="Position.Left" />
+    <Handle type="source" :position="Position.Right" />
+  </div>
 
   <!-- Knowledge Retrieval Node -->
-  <template v-else-if="data?.nodeType === 'KNOWLEDGE_RETRIEVAL'">
-    <div class="custom-node knowledge-node">
-      <div class="node-header">
-        <BookOpen :size="14" />
-        <span>{{ label || '知识检索' }}</span>
-      </div>
-      <div class="node-body">
-        <span class="kb-tag">{{ data?.kbId ? '已配置' : '未配置' }}</span>
-      </div>
-      <Handle type="target" :position="Position.Left" />
-      <Handle type="source" :position="Position.Right" />
+  <div v-else-if="data?.nodeType === 'KNOWLEDGE_RETRIEVAL'" class="custom-node knowledge-node" v-bind="$attrs">
+    <div class="node-header">
+      <BookOpen :size="14" />
+      <span>{{ label || '知识检索' }}</span>
     </div>
-  </template>
+    <div class="node-body">
+      <span class="kb-tag">{{ data?.kbId ? '已配置' : '未配置' }}</span>
+    </div>
+    <Handle type="target" :position="Position.Left" />
+    <Handle type="source" :position="Position.Right" />
+  </div>
 
   <!-- Condition Node -->
-  <template v-else-if="data?.nodeType === 'CONDITION'">
-    <div class="custom-node condition-node">
-      <div class="node-header">
-        <GitBranch :size="14" />
-        <span>{{ label || '条件分支' }}</span>
-      </div>
-      <div class="node-body">
-        <span class="expression">{{ data?.expression || '无条件' }}</span>
-      </div>
-      <Handle type="target" :position="Position.Left" />
-      <Handle type="source" :position="Position.Right" id="true" />
-      <Handle type="source" :position="Position.Right" id="false" />
+  <div v-else-if="data?.nodeType === 'CONDITION'" class="custom-node condition-node" v-bind="$attrs">
+    <div class="node-header">
+      <GitBranch :size="14" />
+      <span>{{ label || '条件分支' }}</span>
     </div>
-  </template>
+    <div class="node-body">
+      <span class="expression">{{ data?.expression || '无条件' }}</span>
+    </div>
+    <Handle type="target" :position="Position.Left" />
+    <Handle type="source" :position="Position.Right" id="true" />
+    <Handle type="source" :position="Position.Right" id="false" />
+  </div>
 </template>
 
 <style scoped>

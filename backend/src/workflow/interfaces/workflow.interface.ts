@@ -1,9 +1,9 @@
 export enum NodeType {
-    START = 'START',
+    INPUT = 'INPUT',
     AI_AGENT = 'AI_AGENT',
     CONDITION = 'CONDITION',
     KNOWLEDGE_RETRIEVAL = 'KNOWLEDGE_RETRIEVAL',
-    END = 'END',
+    OUTPUT = 'OUTPUT',
 }
 
 export class NodeData {
