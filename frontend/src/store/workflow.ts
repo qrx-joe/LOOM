@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
 import axios from 'axios';
+import { getWorkflowUrl } from '../config/api';
 
 export interface WorkflowNode {
     id: string;
@@ -33,6 +34,7 @@ export const useWorkflowStore = defineStore('workflow', () => {
     const workflowName = ref('未命名工作流');
     const currentWorkflowId = ref<string | null>(null);
     const savedWorkflows = ref<Workflow[]>([]);
+    const hasUnsavedChanges = ref(false);
 
     // 历史记录（撤销/重做）
     const MAX_HISTORY = 50;
@@ -60,6 +62,9 @@ export const useWorkflowStore = defineStore('workflow', () => {
         } else {
             historyIndex.value++;
         }
+
+        // 标记有未保存的修改
+        hasUnsavedChanges.value = true;
     };
 
     // 撤销
@@ -93,7 +98,7 @@ export const useWorkflowStore = defineStore('workflow', () => {
     // 加载所有已保存的工作流
     const fetchWorkflows = async () => {
         try {
-            const resp = await axios.get('http://localhost:3001/workflows');
+            const resp = await axios.get(getWorkflowUrl());
             savedWorkflows.value = resp.data;
         } catch (err) {
             console.error('Failed to fetch workflows', err);
@@ -116,6 +121,8 @@ export const useWorkflowStore = defineStore('workflow', () => {
             edges: JSON.parse(JSON.stringify(edges.value)),
         }];
         historyIndex.value = 0;
+        // 加载的是已保存的数据
+        hasUnsavedChanges.value = false;
     };
 
     // 创建空白工作流
@@ -138,6 +145,8 @@ export const useWorkflowStore = defineStore('workflow', () => {
             edges: JSON.parse(JSON.stringify(edges.value)),
         }];
         historyIndex.value = 0;
+        // 新建的工作流还未保存
+        hasUnsavedChanges.value = true;
     };
 
     // 保存工作流（创建或更新）
@@ -158,14 +167,16 @@ export const useWorkflowStore = defineStore('workflow', () => {
             let resp;
             if (currentWorkflowId.value) {
                 // 更新已有工作流
-                resp = await axios.put(`http://localhost:3001/workflows/${currentWorkflowId.value}`, payload);
+                resp = await axios.put(getWorkflowUrl(currentWorkflowId.value), payload);
             } else {
                 // 创建新工作流
-                resp = await axios.post('http://localhost:3001/workflows', payload);
+                resp = await axios.post(getWorkflowUrl(), payload);
                 currentWorkflowId.value = resp.data.id;
             }
             // 刷新列表
             await fetchWorkflows();
+            // 清除未保存标记
+            hasUnsavedChanges.value = false;
             return resp.data;
         } catch (err) {
             console.error('Failed to save workflow', err);
@@ -185,7 +196,7 @@ export const useWorkflowStore = defineStore('workflow', () => {
         }
 
         try {
-            const resp = await axios.post(`http://localhost:3001/workflows/${currentWorkflowId.value}/run`);
+            const resp = await axios.post(`${getWorkflowUrl(currentWorkflowId.value)}/run`);
             return resp.data;
         } catch (err) {
             console.error('Failed to run workflow', err);
@@ -197,7 +208,7 @@ export const useWorkflowStore = defineStore('workflow', () => {
     const deleteWorkflow = async (id: string) => {
         console.log('Deleting workflow:', id);
         try {
-            const response = await axios.delete(`http://localhost:3001/workflows/${id}`);
+            const response = await axios.delete(getWorkflowUrl(id));
             console.log('Delete response:', response);
             if (currentWorkflowId.value === id) {
                 createNewWorkflow();
@@ -212,7 +223,7 @@ export const useWorkflowStore = defineStore('workflow', () => {
     // 更新工作流名称
     const updateWorkflowName = async (id: string, name: string) => {
         try {
-            await axios.put(`http://localhost:3001/workflows/${id}`, { name });
+            await axios.put(getWorkflowUrl(id), { name });
             await fetchWorkflows();
             // 如果是当前编辑的工作流，更新本地名称
             if (currentWorkflowId.value === id) {
@@ -230,6 +241,7 @@ export const useWorkflowStore = defineStore('workflow', () => {
         workflowName,
         currentWorkflowId,
         savedWorkflows,
+        hasUnsavedChanges,
         history,
         historyIndex,
         fetchWorkflows,

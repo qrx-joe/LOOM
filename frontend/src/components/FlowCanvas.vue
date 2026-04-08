@@ -4,6 +4,8 @@ import { Background } from '@vue-flow/background'
 import { Controls } from '@vue-flow/controls'
 import { ref, onMounted, onUnmounted, markRaw, computed } from 'vue'
 import { useWorkflowStore } from '../store/workflow'
+import { getWorkflowRunStreamUrl, getKnowledgeBasesUrl } from '../config/api'
+import axios from 'axios'
 import {
   Save, Play, Trash2,
   PlayCircle, Bot, BookOpen, GitBranch, Square,
@@ -16,7 +18,7 @@ const emit = defineEmits<{
 }>()
 
 const store = useWorkflowStore()
-const { onConnect, onNodeClick, onEdgeClick, project, onNodesChange, onEdgesChange } = useVueFlow()
+const { onConnect, onNodeClick, onEdgeClick, project, onNodesChange } = useVueFlow()
 
 const selectedNode = ref<any>(null)
 const selectedEdge = ref<any>(null)
@@ -24,6 +26,17 @@ const isSaving = ref(false)
 const isRunning = ref(false)
 const runLogs = ref<any[]>([])
 const showLogPanel = ref(false)
+const knowledgeBases = ref<{ id: string; name: string }[]>([])
+
+// 获取知识库列表
+const fetchKnowledgeBases = async () => {
+  try {
+    const resp = await axios.get(getKnowledgeBasesUrl())
+    knowledgeBases.value = resp.data || []
+  } catch (err) {
+    console.error('Failed to fetch knowledge bases', err)
+  }
+}
 
 // 直接使用 computed 绑定 store 数据，确保撤销/重做同步
 const localNodes = computed({
@@ -90,11 +103,6 @@ onNodesChange((changes) => {
   }
 })
 
-// 监听边变化
-onEdgesChange(() => {
-  // 边的变化通常由连接操作处理
-})
-
 // 键盘事件
 const handleKeyDown = (e: KeyboardEvent) => {
   if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
@@ -131,6 +139,7 @@ const deleteSelected = () => {
 // 初始化
 onMounted(async () => {
   window.addEventListener('keydown', handleKeyDown)
+  fetchKnowledgeBases()
 })
 
 onUnmounted(() => {
@@ -157,27 +166,24 @@ const getDefaultNodeData = (type: string): any => {
   }
 }
 
-// 拖放处理
-const onDragStart = (e: DragEvent, nodeType: string) => {
-  if (e.dataTransfer) {
-    e.dataTransfer.setData('application/node-type', nodeType)
-    e.dataTransfer.effectAllowed = 'copy'
-  }
-}
-
-const onDrop = (e: DragEvent) => {
-  e.preventDefault()
-  const nodeType = e.dataTransfer?.getData('application/node-type')
-  if (!nodeType) return
-
+// 点击添加节点
+const handleAddNode = (nodeType: string) => {
+  // 计算画布中央位置
   const canvas = document.querySelector('.flow-canvas')
-  if (!canvas) return
+  let position = { x: 300, y: 200 }
 
-  const rect = canvas.getBoundingClientRect()
-  const position = project({
-    x: e.clientX - rect.left,
-    y: e.clientY - rect.top,
-  })
+  if (canvas) {
+    const rect = canvas.getBoundingClientRect()
+    const center = project({
+      x: rect.width / 2,
+      y: rect.height / 2,
+    })
+    // 添加随机偏移避免重叠
+    position = {
+      x: center.x + (Math.random() - 0.5) * 100,
+      y: center.y + (Math.random() - 0.5) * 100,
+    }
+  }
 
   const newNode = {
     id: `node-${Date.now()}`,
@@ -190,13 +196,6 @@ const onDrop = (e: DragEvent) => {
   store.nodes = [...store.nodes, newNode]
   store.saveHistory()
   selectedNode.value = newNode
-}
-
-const onDragOver = (e: DragEvent) => {
-  e.preventDefault()
-  if (e.dataTransfer) {
-    e.dataTransfer.dropEffect = 'copy'
-  }
 }
 
 // 保存
@@ -214,6 +213,13 @@ const handleSave = async () => {
 
 // 运行（先保存再运行）
 const handleRun = async () => {
+  // 验证工作流
+  const validation = validateWorkflow()
+  if (!validation.valid) {
+    alert('工作流验证失败：\n' + validation.errors.join('\n'))
+    return
+  }
+
   // 先保存
   isSaving.value = true
   try {
@@ -234,7 +240,7 @@ const handleRun = async () => {
   runLogs.value = []
   showLogPanel.value = true
 
-  const sseUrl = `http://localhost:3001/workflows/${store.currentWorkflowId}/run-stream`
+  const sseUrl = getWorkflowRunStreamUrl(store.currentWorkflowId)
   const eventSource = new EventSource(sseUrl)
 
   eventSource.onmessage = (event) => {
@@ -259,8 +265,97 @@ const onPropertyChange = () => {
   store.saveHistory()
 }
 
+// 工作流验证
+const validateWorkflow = (): { valid: boolean; errors: string[] } => {
+  const errors: string[] = []
+  const nodes = store.nodes
+  const edges = store.edges
+
+  // 检查节点数量
+  if (nodes.length === 0) {
+    errors.push('工作流没有任何节点')
+    return { valid: false, errors }
+  }
+
+  // 检查开始节点
+  const inputNodes = nodes.filter(n => n.type === 'input' || n.type === 'START' || n.type === 'INPUT')
+  if (inputNodes.length === 0) {
+    errors.push('缺少开始节点')
+  } else if (inputNodes.length > 1) {
+    errors.push('只能有一个开始节点')
+  }
+
+  // 检查结束节点
+  const outputNodes = nodes.filter(n => n.type === 'output' || n.type === 'END' || n.type === 'OUTPUT')
+  if (outputNodes.length === 0) {
+    errors.push('缺少结束节点')
+  } else if (outputNodes.length > 1) {
+    errors.push('只能有一个结束节点')
+  }
+
+  // 检查孤立节点（没有连接的节点）
+  const connectedNodeIds = new Set<string>()
+  edges.forEach(edge => {
+    connectedNodeIds.add(edge.source)
+    connectedNodeIds.add(edge.target)
+  })
+
+  const isolatedNodes = nodes.filter(n => !connectedNodeIds.has(n.id))
+  if (isolatedNodes.length > 0) {
+    errors.push(`存在 ${isolatedNodes.length} 个孤立节点（未连接）`)
+  }
+
+  // 检查 AI 节点是否有 prompt
+  const aiNodes = nodes.filter(n => n.type === 'AI_AGENT' || n.data?.nodeType === 'AI_AGENT')
+  aiNodes.forEach(node => {
+    if (!node.data?.prompt) {
+      errors.push(`节点"${node.label}"缺少 Prompt 配置`)
+    }
+  })
+
+  // 检查知识检索节点是否选择了知识库
+  const knowledgeNodes = nodes.filter(n => n.type === 'KNOWLEDGE_RETRIEVAL' || n.data?.nodeType === 'KNOWLEDGE_RETRIEVAL')
+  knowledgeNodes.forEach(node => {
+    if (!node.data?.kbId) {
+      errors.push(`节点"${node.label}"未选择知识库`)
+    }
+  })
+
+  return { valid: errors.length === 0, errors }
+}
+
+// 日志相关函数
+const formatLogTime = (timestamp?: number) => {
+  if (!timestamp) return ''
+  const date = new Date(timestamp)
+  return date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+}
+
+const formatLogMessage = (log: any) => {
+  if (log.data?.error) return `错误: ${log.data.error}`
+  if (log.data?.output) {
+    const output = log.data.output
+    if (typeof output === 'string') return output.slice(0, 200)
+    return JSON.stringify(output).slice(0, 200)
+  }
+  return ''
+}
+
+const getLogClass = (log: any) => {
+  if (log.type === 'workflow_complete') {
+    return log.data?.status === 'error' ? 'log-error' : 'log-success'
+  }
+  if (log.data?.error) return 'log-error'
+  return ''
+}
+
 // 返回列表
 const handleBack = () => {
+  if (store.hasUnsavedChanges) {
+    if (!confirm('有未保存的修改，确定要离开吗？')) {
+      return
+    }
+  }
   emit('back')
 }
 </script>
@@ -278,6 +373,7 @@ const handleBack = () => {
           v-model="store.workflowName"
           class="workflow-name-input"
           placeholder="工作流名称..."
+          @change="store.hasUnsavedChanges = true"
         />
       </div>
 
@@ -316,14 +412,13 @@ const handleBack = () => {
       <!-- 左侧节点面板 -->
       <aside class="node-palette">
         <div class="palette-title">节点</div>
+        <div class="palette-hint">点击添加到画布</div>
         <div
           v-for="node in nodeTypes"
           :key="node.type"
           class="palette-item"
           :style="{ borderLeftColor: node.color }"
-          draggable="true"
-          @dragstart="onDragStart($event, node.type)"
-          @dragover="onDragOver"
+          @click="handleAddNode(node.type)"
         >
           <component :is="getIconComponent(node.icon)" :size="16" :style="{ color: node.color }" />
           <span>{{ node.label }}</span>
@@ -331,7 +426,7 @@ const handleBack = () => {
       </aside>
 
       <!-- 画布 -->
-      <main class="flow-canvas" @drop="onDrop" @dragover="onDragOver">
+      <main class="flow-canvas">
         <VueFlow
           v-model:nodes="localNodes"
           v-model:edges="localEdges"
@@ -378,6 +473,15 @@ const handleBack = () => {
             </template>
             <template v-if="selectedNode.type === 'KNOWLEDGE_RETRIEVAL' || selectedNode.data?.nodeType === 'KNOWLEDGE_RETRIEVAL'">
               <div class="form-group">
+                <label>知识库</label>
+                <select v-model="selectedNode.data.kbId" @change="onPropertyChange">
+                  <option value="">请选择知识库</option>
+                  <option v-for="kb in knowledgeBases" :key="kb.id" :value="kb.id">
+                    {{ kb.name }}
+                  </option>
+                </select>
+              </div>
+              <div class="form-group">
                 <label>查询模板</label>
                 <input v-model="selectedNode.data.query" @change="onPropertyChange" placeholder="{{START_INPUT}}" />
               </div>
@@ -407,12 +511,22 @@ const handleBack = () => {
     <div class="log-panel" :class="{ open: showLogPanel }">
       <div class="log-header">
         <span>运行日志</span>
-        <button @click="showLogPanel = false">×</button>
+        <div class="log-actions">
+          <button class="log-clear-btn" @click="runLogs = []" :disabled="runLogs.length === 0">
+            清空
+          </button>
+          <button class="log-close-btn" @click="showLogPanel = false">×</button>
+        </div>
       </div>
       <div class="log-content">
-        <div v-for="(log, i) in runLogs" :key="i" class="log-item">
+        <div v-if="runLogs.length === 0" class="log-empty">
+          暂无日志
+        </div>
+        <div v-for="(log, i) in runLogs" :key="i" class="log-item" :class="getLogClass(log)">
+          <span class="log-time">{{ formatLogTime(log.timestamp) }}</span>
+          <span class="log-node">{{ log.nodeId || 'workflow' }}</span>
           <span class="log-type">{{ log.type }}</span>
-          <span class="log-msg">{{ log.data?.output || log.data?.error || '' }}</span>
+          <span class="log-msg">{{ formatLogMessage(log) }}</span>
         </div>
       </div>
     </div>
@@ -570,6 +684,13 @@ const handleBack = () => {
   font-weight: 600;
   color: var(--text-muted);
   text-transform: uppercase;
+  margin-bottom: 4px;
+  padding-left: 4px;
+}
+
+.palette-hint {
+  font-size: 11px;
+  color: var(--text-muted);
   margin-bottom: 12px;
   padding-left: 4px;
 }
@@ -585,17 +706,13 @@ const handleBack = () => {
   margin-bottom: 8px;
   font-size: 13px;
   color: var(--text-main);
-  cursor: grab;
+  cursor: pointer;
   transition: all 0.15s;
 }
 
 .palette-item:hover {
   background: var(--bg-active);
   transform: translateX(2px);
-}
-
-.palette-item:active {
-  cursor: grabbing;
 }
 
 /* 画布 */
@@ -715,10 +832,10 @@ const handleBack = () => {
 /* 日志面板 */
 .log-panel {
   position: fixed;
-  bottom: -300px;
+  bottom: -320px;
   left: 180px;
   right: 0;
-  height: 280px;
+  height: 300px;
   background: #1a1a1a;
   color: #eee;
   transition: bottom 0.3s;
@@ -739,30 +856,103 @@ const handleBack = () => {
   font-weight: 500;
 }
 
-.log-header button {
+.log-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.log-clear-btn {
+  background: transparent;
+  border: 1px solid #444;
+  color: #888;
+  font-size: 12px;
+  padding: 4px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.log-clear-btn:hover:not(:disabled) {
+  border-color: #666;
+  color: #fff;
+}
+
+.log-clear-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.log-close-btn {
   background: transparent;
   border: none;
   color: #888;
   font-size: 18px;
   cursor: pointer;
+  padding: 0 4px;
+}
+
+.log-close-btn:hover {
+  color: #fff;
 }
 
 .log-content {
   padding: 12px 16px;
   overflow-y: auto;
-  max-height: 240px;
+  max-height: 256px;
+}
+
+.log-empty {
+  color: #666;
+  text-align: center;
+  padding: 40px;
+  font-size: 13px;
 }
 
 .log-item {
-  display: flex;
+  display: grid;
+  grid-template-columns: 70px 100px 120px 1fr;
   gap: 12px;
   padding: 8px 0;
   border-bottom: 1px solid #333;
   font-size: 12px;
+  align-items: start;
+}
+
+.log-item.log-error {
+  background: rgba(239, 68, 68, 0.1);
+  margin: 0 -16px;
+  padding: 8px 16px;
+}
+
+.log-item.log-success {
+  background: rgba(16, 185, 129, 0.1);
+  margin: 0 -16px;
+  padding: 8px 16px;
+}
+
+.log-time {
+  color: #666;
+  font-family: monospace;
+}
+
+.log-node {
+  color: #4776F6;
 }
 
 .log-type {
   color: #888;
   font-weight: 500;
+}
+
+.log-msg {
+  color: #ccc;
+  word-break: break-word;
+}
+
+.log-error .log-type {
+  color: #EF4444;
+}
+
+.log-success .log-type {
+  color: #10B981;
 }
 </style>
