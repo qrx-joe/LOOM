@@ -518,6 +518,7 @@ const handleBack = () => {
   flex: 1;
   display: flex;
   overflow: hidden;
+  position: relative;
 }
 
 /* 节点面板 */
@@ -583,6 +584,10 @@ const handleBack = () => {
 
 /* 属性面板 */
 .property-panel {
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
   width: 280px;
   background: var(--bg-surface);
   border-left: 1px solid var(--border-subtle);
@@ -590,6 +595,7 @@ const handleBack = () => {
   flex-direction: column;
   transform: translateX(100%);
   transition: transform 0.2s;
+  z-index: 100;
 }
 
 .property-panel.open {
