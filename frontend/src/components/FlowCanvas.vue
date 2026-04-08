@@ -4,40 +4,52 @@ import { Background } from '@vue-flow/background'
 import { Controls } from '@vue-flow/controls'
 import { ref, onMounted, onUnmounted, markRaw } from 'vue'
 import { useWorkflowStore } from '../store/workflow'
-import axios from 'axios'
 import {
-  Save, Play, Plus, List, Trash2,
+  Save, Play, Trash2,
   PlayCircle, Bot, BookOpen, GitBranch, Square,
-  X, ChevronRight, ArrowLeft, FileCode,
-  Undo2, Redo2
+  ArrowLeft
 } from 'lucide-vue-next'
 import CustomNodes from './CustomNodes.vue'
 
-interface ExecutionLog {
-  nodeId: string;
-  status: 'RUNNING' | 'COMPLETED' | 'FAILED';
-  output?: any;
-  error?: string;
-  startTime: number;
-  endTime?: number;
-}
-
-interface KnowledgeBase {
-  id: string;
-  name: string;
-  description?: string;
-  documents?: any[];
-}
+const emit = defineEmits<{
+  (e: 'back'): void
+}>()
 
 const store = useWorkflowStore()
-const { onConnect, addEdges, onNodeClick, onEdgeClick, addNodes, removeNodes, removeEdges } = useVueFlow()
+const { onConnect, onNodeClick, onEdgeClick, project } = useVueFlow()
+
+// 本地响应式变量，直接和 VueFlow 绑定
+const localNodes = ref<any[]>([])
+const localEdges = ref<any[]>([])
 
 const selectedNode = ref<any>(null)
 const selectedEdge = ref<any>(null)
-const showWorkflowList = ref(false)
-const isEditing = ref(false)
-const knowledgeBases = ref<KnowledgeBase[]>([])
-const currentView = ref<'editor' | 'list'>('editor')
+const isSaving = ref(false)
+const isRunning = ref(false)
+const runLogs = ref<any[]>([])
+const showLogPanel = ref(false)
+
+// 节点类型定义
+const nodeTypes = [
+  { type: 'input', label: '开始', icon: 'PlayCircle', color: '#10B981' },
+  { type: 'AI_AGENT', label: 'AI 节点', icon: 'Bot', color: '#4776F6' },
+  { type: 'KNOWLEDGE_RETRIEVAL', label: '知识检索', icon: 'BookOpen', color: '#F59E0B' },
+  { type: 'CONDITION', label: '条件分支', icon: 'GitBranch', color: '#EC4899' },
+  { type: 'output', label: '结束', icon: 'Square', color: '#EF4444' },
+]
+
+// Vue Flow 节点类型映射
+const flowNodeTypes = {
+  input: markRaw(CustomNodes),
+  output: markRaw(CustomNodes),
+  AI_AGENT: markRaw(CustomNodes),
+  KNOWLEDGE_RETRIEVAL: markRaw(CustomNodes),
+  CONDITION: markRaw(CustomNodes),
+  START: markRaw(CustomNodes),
+  END: markRaw(CustomNodes),
+  INPUT: markRaw(CustomNodes),
+  OUTPUT: markRaw(CustomNodes),
+}
 
 // 监听边的点击
 onEdgeClick((event) => {
@@ -45,47 +57,50 @@ onEdgeClick((event) => {
   selectedNode.value = null
 })
 
-// 键盘事件处理 - 删除选中的节点或边、撤销/重做
+// 监听节点点击
+onNodeClick((event) => {
+  selectedNode.value = event.node
+  selectedEdge.value = null
+})
+
+// 监听连接
+onConnect((params) => {
+  const newEdge = { ...params, id: `edge-${Date.now()}` }
+  localEdges.value = [...localEdges.value, newEdge]
+  store.edges = [...localEdges.value]
+  store.saveHistory()
+})
+
+// 键盘事件
 const handleKeyDown = (e: KeyboardEvent) => {
-  // 撤销: Ctrl+Z / Cmd+Z
   if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
     e.preventDefault()
     store.undo()
     return
   }
-
-  // 重做: Ctrl+Y / Cmd+Y 或 Ctrl+Shift+Z
   if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) {
     e.preventDefault()
     store.redo()
     return
   }
-
   if (e.key === 'Delete' || e.key === 'Backspace') {
     if ((e.target as HTMLElement).tagName === 'INPUT' || (e.target as HTMLElement).tagName === 'TEXTAREA') {
       return
     }
-
-    if (selectedNode.value) {
-      removeNodes(selectedNode.value.id)
-      store.saveHistory()
-      selectedNode.value = null
-    } else if (selectedEdge.value) {
-      removeEdges(selectedEdge.value.id)
-      store.saveHistory()
-      selectedEdge.value = null
-    }
+    deleteSelected()
   }
 }
 
-// 删除选中的节点或边
+// 删除选中
 const deleteSelected = () => {
   if (selectedNode.value) {
-    removeNodes(selectedNode.value.id)
+    localNodes.value = localNodes.value.filter(n => n.id !== selectedNode.value.id)
+    store.nodes = [...localNodes.value]
     store.saveHistory()
     selectedNode.value = null
   } else if (selectedEdge.value) {
-    removeEdges(selectedEdge.value.id)
+    localEdges.value = localEdges.value.filter(e => e.id !== selectedEdge.value.id)
+    store.edges = [...localEdges.value]
     store.saveHistory()
     selectedEdge.value = null
   }
@@ -94,58 +109,58 @@ const deleteSelected = () => {
 // 初始化
 onMounted(async () => {
   window.addEventListener('keydown', handleKeyDown)
-
-  await store.fetchWorkflows()
-  const firstWorkflow = store.savedWorkflows[0]
-  if (!firstWorkflow) {
-    store.createNewWorkflow()
-    isEditing.value = true
-  } else {
-    store.loadWorkflow(firstWorkflow)
-  }
+  // 等待父组件加载工作流数据
+  setTimeout(() => {
+    localNodes.value = [...store.nodes]
+    localEdges.value = [...store.edges]
+  }, 100)
 })
 
 onUnmounted(() => {
   window.removeEventListener('keydown', handleKeyDown)
 })
 
-// 节点类型定义 - 使用 Lucide 图标名称
-const nodeTypes = [
-  { type: 'input', label: '开始', icon: 'PlayCircle', color: '#10B981', description: '工作流入口节点' },
-  { type: 'AI_AGENT', label: 'AI 节点', icon: 'Bot', color: '#4776F6', description: '调用大模型' },
-  { type: 'KNOWLEDGE_RETRIEVAL', label: '知识检索', icon: 'BookOpen', color: '#F59E0B', description: 'RAG 检索' },
-  { type: 'CONDITION', label: '条件分支', icon: 'GitBranch', color: '#EC4899', description: 'IF/ELSE 分支' },
-  { type: 'output', label: '结束', icon: 'Square', color: '#EF4444', description: '工作流结束' },
-]
-
-// Vue Flow 自定义节点类型（用于渲染）
-// 支持 input/output (Vue Flow 内置) 和 START/END/INPUT/OUTPUT (后端存储的 legacy 类型)
-const flowNodeTypes = {
-  // Vue Flow 内置类型
-  input: markRaw(CustomNodes),
-  output: markRaw(CustomNodes),
-  // 自定义节点类型
-  AI_AGENT: markRaw(CustomNodes),
-  KNOWLEDGE_RETRIEVAL: markRaw(CustomNodes),
-  CONDITION: markRaw(CustomNodes),
-  // 兼容后端 legacy 类型
-  START: markRaw(CustomNodes),
-  END: markRaw(CustomNodes),
-  INPUT: markRaw(CustomNodes),
-  OUTPUT: markRaw(CustomNodes),
+// 获取图标组件
+const getIconComponent = (iconName: string) => {
+  const icons: Record<string, any> = { PlayCircle, Bot, BookOpen, GitBranch, Square }
+  return icons[iconName] || Square
 }
 
-// 点击添加节点
-const handleAddNode = (nodeType: string) => {
-  // 总是放在画布中央附近（偏移避免重叠）
-  const baseX = 100
-  const baseY = 150
-  const offset = (store.nodes.length % 10) * 30
-
-  const position = {
-    x: baseX + offset,
-    y: baseY + offset,
+// 获取节点默认数据
+const getDefaultNodeData = (type: string): any => {
+  switch (type) {
+    case 'AI_AGENT':
+      return { nodeType: 'AI_AGENT', prompt: '基于上下文回答问题：\n{{START_INPUT}}', model: 'deepseek-ai/DeepSeek-V3', temperature: 0.7 }
+    case 'KNOWLEDGE_RETRIEVAL':
+      return { nodeType: 'KNOWLEDGE_RETRIEVAL', kbId: '', query: '{{START_INPUT}}' }
+    case 'CONDITION':
+      return { nodeType: 'CONDITION', expression: '' }
+    default:
+      return {}
   }
+}
+
+// 拖放处理
+const onDragStart = (e: DragEvent, nodeType: string) => {
+  if (e.dataTransfer) {
+    e.dataTransfer.setData('application/node-type', nodeType)
+    e.dataTransfer.effectAllowed = 'copy'
+  }
+}
+
+const onDrop = (e: DragEvent) => {
+  e.preventDefault()
+  const nodeType = e.dataTransfer?.getData('application/node-type')
+  if (!nodeType) return
+
+  const canvas = document.querySelector('.flow-canvas')
+  if (!canvas) return
+
+  const rect = canvas.getBoundingClientRect()
+  const position = project({
+    x: e.clientX - rect.left,
+    y: e.clientY - rect.top,
+  })
 
   const newNode = {
     id: `node-${Date.now()}`,
@@ -155,59 +170,27 @@ const handleAddNode = (nodeType: string) => {
     data: getDefaultNodeData(nodeType),
   }
 
-  addNodes(newNode)
+  localNodes.value = [...localNodes.value, newNode]
+  store.nodes = [...localNodes.value]
   store.saveHistory()
   selectedNode.value = newNode
-  selectedEdge.value = null
 }
 
-// 获取节点默认数据
-const getDefaultNodeData = (type: string): any => {
-  switch (type) {
-    case 'AI_AGENT':
-      return { prompt: '基于上下文回答问题：\n{{START_INPUT}}', model: 'deepseek-ai/DeepSeek-V3', temperature: 0.7 }
-    case 'KNOWLEDGE_RETRIEVAL':
-      return { kbId: '', query: '{{START_INPUT}}' }
-    case 'CONDITION':
-      return { expression: '' }
-    default:
-      return {}
+const onDragOver = (e: DragEvent) => {
+  e.preventDefault()
+  if (e.dataTransfer) {
+    e.dataTransfer.dropEffect = 'copy'
   }
 }
 
-onConnect((params) => {
-  addEdges({ ...params, id: `edge-${Date.now()}` })
-  store.saveHistory()
-})
-
-onNodeClick(async (event) => {
-  selectedNode.value = event.node
-  if (event.node.data?.nodeType === 'KNOWLEDGE_RETRIEVAL') {
-    await fetchKnowledgeBases()
-  }
-})
-
-// 获取知识库列表
-const fetchKnowledgeBases = async () => {
-  try {
-    const resp = await axios.get('http://localhost:3001/knowledge/bases')
-    knowledgeBases.value = resp.data
-  } catch (err) {
-    console.error('Failed to fetch knowledge bases:', err)
-  }
-}
-
-const runLogs = ref<ExecutionLog[]>([])
-const isRunning = ref(false)
-const isSaving = ref(false)
-const showLogPanel = ref(false)
-let eventSource: EventSource | null = null
-
+// 保存
 const handleSave = async () => {
   isSaving.value = true
   try {
+    store.nodes = [...localNodes.value]
+    store.edges = [...localEdges.value]
     await store.saveWorkflow()
-    alert('工作流已保存')
+    alert('保存成功')
   } catch (e) {
     alert('保存失败')
   } finally {
@@ -215,647 +198,283 @@ const handleSave = async () => {
   }
 }
 
+// 运行
 const handleRun = async () => {
-  if (store.nodes.length > 0 && !store.currentWorkflowId) {
-    try {
-      await store.saveWorkflow()
-    } catch (e: any) {
-      alert(e.message || '保存失败')
-      return
-    }
-  }
-
   if (!store.currentWorkflowId) {
     alert('请先保存工作流')
     return
   }
-
-  showLogPanel.value = true
   isRunning.value = true
   runLogs.value = []
-  currentView.value = 'editor'
-
-  if (eventSource) {
-    eventSource.close()
-  }
+  showLogPanel.value = true
 
   const sseUrl = `http://localhost:3001/workflows/${store.currentWorkflowId}/run-stream`
-  eventSource = new EventSource(sseUrl)
+  const eventSource = new EventSource(sseUrl)
 
   eventSource.onmessage = (event) => {
     try {
       const data = JSON.parse(event.data)
-
-      switch (data.type) {
-        case 'node_start':
-          runLogs.value.push({
-            nodeId: data.nodeId,
-            status: 'RUNNING',
-            startTime: data.timestamp,
-          })
-          break
-
-        case 'node_complete':
-          const runningLog = runLogs.value.find(l => l.nodeId === data.nodeId && l.status === 'RUNNING')
-          if (runningLog) {
-            runningLog.status = 'COMPLETED'
-            runningLog.output = data.data.output
-            runningLog.endTime = data.timestamp
-          }
-          break
-
-        case 'node_error':
-          const errorLog = runLogs.value.find(l => l.nodeId === data.nodeId && l.status === 'RUNNING')
-          if (errorLog) {
-            errorLog.status = 'FAILED'
-            errorLog.error = data.data.error
-            errorLog.endTime = data.timestamp
-          }
-          break
-
-        case 'workflow_complete':
-          isRunning.value = false
-          break
+      if (data.type === 'workflow_complete') {
+        isRunning.value = false
+      } else {
+        runLogs.value.push(data)
       }
-    } catch (e) {
-      console.error('Failed to parse SSE event:', e)
-    }
+    } catch (e) {}
   }
 
-  eventSource.onerror = (error) => {
-    console.error('SSE error:', error)
+  eventSource.onerror = () => {
     isRunning.value = false
-    eventSource?.close()
-    eventSource = null
-  }
-}
-
-onUnmounted(() => {
-  if (eventSource) {
     eventSource.close()
-    eventSource = null
-  }
-})
-
-const handleNewWorkflow = () => {
-  store.createNewWorkflow()
-  isEditing.value = true
-  showWorkflowList.value = false
-  currentView.value = 'editor'
-}
-
-const handleLoadWorkflow = (wf: any) => {
-  store.loadWorkflow(wf)
-  showWorkflowList.value = false
-  currentView.value = 'editor'
-}
-
-const handleDeleteWorkflow = async (e: Event, id: string) => {
-  e.stopPropagation()
-  if (confirm('确定要删除这个工作流吗？')) {
-    await store.deleteWorkflow(id)
   }
 }
 
-const closeSidebar = () => {
-  selectedNode.value = null
-  selectedEdge.value = null
-}
-
-// 获取图标组件
-const getIconComponent = (iconName: string) => {
-  const icons: Record<string, any> = {
-    PlayCircle,
-    Bot,
-    BookOpen,
-    GitBranch,
-    Square,
-  }
-  return icons[iconName] || Square
+// 返回列表
+const handleBack = () => {
+  emit('back')
 }
 </script>
 
 <template>
-  <div class="flow-container">
+  <div class="flow-editor">
     <!-- 顶部工具栏 -->
-    <div class="top-toolbar">
-      <div class="toolbar-left">
-        <button v-if="currentView === 'list'" @click="currentView = 'editor'" class="tool-btn">
-          <ArrowLeft :size="16" />
-          返回编辑
+    <header class="editor-header">
+      <div class="header-left">
+        <button class="back-btn" @click="handleBack">
+          <ArrowLeft :size="18" />
         </button>
-        <template v-else>
-          <input
-            v-model="store.workflowName"
-            class="workflow-name-input"
-            placeholder="工作流名称..."
-            :disabled="!isEditing"
-          />
-          <button v-if="!isEditing" @click="isEditing = true" class="tool-btn">
-            编辑名称
-          </button>
-        </template>
+        <input
+          v-model="store.workflowName"
+          class="workflow-name-input"
+          placeholder="工作流名称..."
+        />
       </div>
 
-      <div class="toolbar-right">
-        <template v-if="currentView === 'editor'">
-          <!-- 撤销/重做按钮 -->
-          <button class="tool-btn" @click="store.undo()" :disabled="!store.canUndo()" title="撤销 (Ctrl+Z)">
-            <Undo2 :size="16" />
-          </button>
-          <button class="tool-btn" @click="store.redo()" :disabled="!store.canRedo()" title="重做 (Ctrl+Y)">
-            <Redo2 :size="16" />
-          </button>
-
-          <!-- 删除选中节点/边按钮 -->
-          <button
-            class="tool-btn danger"
-            @click="deleteSelected"
-            :disabled="!selectedNode && !selectedEdge"
-            title="删除选中节点或连线 (Delete)"
-          >
-            <Trash2 :size="16" />
-            删除
-          </button>
-
-          <div class="workflow-list-wrapper">
-            <button class="tool-btn" @click="showWorkflowList = !showWorkflowList">
-              <List :size="16" />
-              工作流列表
-            </button>
-            <transition name="dropdown">
-              <div v-if="showWorkflowList" class="workflow-dropdown">
-                <div class="dropdown-header">已保存的工作流</div>
-                <div
-                  v-for="wf in store.savedWorkflows"
-                  :key="wf.id"
-                  class="dropdown-item"
-                  :class="{ active: store.currentWorkflowId === wf.id }"
-                  @click="handleLoadWorkflow(wf)"
-                >
-                  <span class="wf-name">{{ wf.name }}</span>
-                  <button class="delete-wf-btn" @click="handleDeleteWorkflow($event, wf.id)">
-                    <Trash2 :size="14" />
-                  </button>
-                </div>
-                <div v-if="store.savedWorkflows.length === 0" class="dropdown-empty">
-                  暂无已保存的工作流
-                </div>
-                <div class="dropdown-footer">
-                  <button class="new-wf-btn" @click="currentView = 'list'">
-                    <List :size="14" />
-                    查看全部
-                  </button>
-                  <button class="new-wf-btn" @click="handleNewWorkflow">
-                    <Plus :size="14" />
-                    新建工作流
-                  </button>
-                </div>
-              </div>
-            </transition>
-          </div>
-
-          <button class="tool-btn primary" @click="handleSave" :disabled="isSaving">
-            <Save :size="16" />
-            {{ isSaving ? '保存中...' : '保存' }}
-          </button>
-
-          <button class="tool-btn success" @click="handleRun" :disabled="isRunning || store.nodes.length === 0">
-            <Play :size="16" />
-            {{ isRunning ? '执行中...' : '运行' }}
-          </button>
-        </template>
-        <template v-else>
-          <button class="tool-btn primary" @click="handleNewWorkflow">
-            <Plus :size="16" />
-            新建工作流
-          </button>
-        </template>
-      </div>
-    </div>
-
-    <!-- 工作流列表视图 -->
-    <div v-if="currentView === 'list'" class="workflow-list-view">
-      <div class="list-header">
-        <h2>我的工作流</h2>
-        <p class="list-subtitle">已创建 {{ store.savedWorkflows.length }} 个工作流</p>
-      </div>
-      <div class="workflow-cards">
-        <div
-          v-for="wf in store.savedWorkflows"
-          :key="wf.id"
-          class="workflow-card"
-          :class="{ active: store.currentWorkflowId === wf.id }"
-          @click="handleLoadWorkflow(wf); currentView = 'editor'"
+      <div class="header-center">
+        <button class="tool-btn" @click="store.undo()" :disabled="!store.canUndo()" title="撤销">
+          <span class="btn-icon">↩</span>
+        </button>
+        <button class="tool-btn" @click="store.redo()" :disabled="!store.canRedo()" title="重做">
+          <span class="btn-icon">↪</span>
+        </button>
+        <button
+          class="tool-btn"
+          :class="{ danger: selectedNode || selectedEdge }"
+          @click="deleteSelected"
+          :disabled="!selectedNode && !selectedEdge"
+          title="删除"
         >
-          <div class="card-icon">
-            <FileCode :size="28" />
-          </div>
-          <div class="card-content">
-            <h3>{{ wf.name }}</h3>
-            <span class="card-meta">{{ wf.nodes?.length || 0 }} 个节点 · {{ wf.edges?.length || 0 }} 条连线</span>
-          </div>
-          <button class="card-action" @click.stop="handleDeleteWorkflow($event, wf.id)">
-            <Trash2 :size="16" />
-          </button>
-        </div>
-        <div v-if="store.savedWorkflows.length === 0" class="empty-list">
-          <FileCode :size="48" />
-          <p>还没有创建任何工作流</p>
-          <button class="tool-btn primary" @click="handleNewWorkflow">
-            <Plus :size="16" />
-            创建第一个工作流
-          </button>
-        </div>
-      </div>
-    </div>
-
-    <div class="canvas-area">
-      <!-- 左侧节点面板 - 固定侧边栏 -->
-      <div class="node-palette">
-        <div class="palette-section">
-          <div class="palette-section-title">输入节点</div>
-          <div
-            v-for="node in nodeTypes.filter(n => n.type === 'input' || n.type === 'output')"
-            :key="node.type"
-            class="palette-node"
-            :style="{ borderLeftColor: node.color }"
-            @click="handleAddNode(node.type)"
-          >
-            <component :is="getIconComponent(node.icon)" :size="16" :style="{ color: node.color }" />
-            <span class="node-label">{{ node.label }}</span>
-          </div>
-        </div>
-
-        <div class="palette-section">
-          <div class="palette-section-title">处理节点</div>
-          <div
-            v-for="node in nodeTypes.filter(n => n.type === 'AI_AGENT' || n.type === 'KNOWLEDGE_RETRIEVAL' || n.type === 'CONDITION')"
-            :key="node.type"
-            class="palette-node"
-            :style="{ borderLeftColor: node.color }"
-            @click="handleAddNode(node.type)"
-          >
-            <component :is="getIconComponent(node.icon)" :size="16" :style="{ color: node.color }" />
-            <span class="node-label">{{ node.label }}</span>
-          </div>
-        </div>
-
-        <div class="palette-footer">
-          <ChevronRight :size="12" />
-          <span>拖拽到画布创建节点</span>
-        </div>
+          <Trash2 :size="16" />
+        </button>
       </div>
 
-      <!-- Vue Flow 画布 -->
-      <div class="flow-wrapper" ref="flowWrapperRef">
+      <div class="header-right">
+        <button class="tool-btn" @click="handleSave" :disabled="isSaving">
+          <Save :size="16" />
+          {{ isSaving ? '保存中...' : '保存' }}
+        </button>
+        <button class="tool-btn primary" @click="handleRun" :disabled="isRunning">
+          <Play :size="16" />
+          {{ isRunning ? '运行中...' : '运行' }}
+        </button>
+      </div>
+    </header>
+
+    <!-- 主体区域 -->
+    <div class="editor-body">
+      <!-- 左侧节点面板 -->
+      <aside class="node-palette">
+        <div class="palette-title">节点</div>
+        <div
+          v-for="node in nodeTypes"
+          :key="node.type"
+          class="palette-item"
+          :style="{ borderLeftColor: node.color }"
+          draggable="true"
+          @dragstart="onDragStart($event, node.type)"
+          @dragover="onDragOver"
+        >
+          <component :is="getIconComponent(node.icon)" :size="16" :style="{ color: node.color }" />
+          <span>{{ node.label }}</span>
+        </div>
+      </aside>
+
+      <!-- 画布 -->
+      <main class="flow-canvas" @drop="onDrop" @dragover="onDragOver">
         <VueFlow
-          v-model:nodes="store.nodes"
-          v-model:edges="store.edges"
+          v-model:nodes="localNodes"
+          v-model:edges="localEdges"
           :node-types="flowNodeTypes"
           fit-view-on-init
-          class="custom-flow"
           :default-edge-options="{ type: 'smoothstep', style: { stroke: '#9CA3AF', strokeWidth: 2 } }"
+          class="vue-flow"
         >
           <Background pattern-color="#E5E7EB" :gap="20" />
           <Controls />
         </VueFlow>
-      </div>
-    </div>
+      </main>
 
-    <!-- 右侧属性面板 -->
-    <transition name="slide">
-      <div v-if="selectedNode || selectedEdge" class="sidebar">
-        <header class="sidebar-header">
-          <div class="sidebar-title">
-            <h3>{{ selectedEdge ? '连线配置' : '节点配置' }}</h3>
-            <span class="node-id">{{ selectedEdge ? `#${selectedEdge.source} -> ${selectedEdge.target}` : `#${selectedNode?.id}` }}</span>
-          </div>
-          <div class="sidebar-actions">
-            <button class="delete-btn" @click="deleteSelected" title="删除节点">
-              <Trash2 :size="16" />
-            </button>
-            <button class="close-btn" @click="closeSidebar">
-              <X :size="18" />
-            </button>
-          </div>
-        </header>
-
-        <div class="sidebar-content">
-          <!-- 节点配置 -->
-          <template v-if="selectedNode">
-          <div class="form-group">
-            <label>显示名称</label>
-            <input v-model="selectedNode.label" placeholder="输入节点名称..." />
-          </div>
-
-          <div v-if="selectedNode?.data?.nodeType === 'AI_AGENT'" class="form-group">
-            <label>Prompt 引导词</label>
-            <textarea v-model="selectedNode.data.prompt" rows="8" placeholder="在此输入 AI 处理逻辑..."></textarea>
-            <p v-pre class="hint">支持使用 {{nodeId.output}} 引用其他节点输出</p>
-          </div>
-
-          <div v-if="selectedNode?.data?.nodeType === 'AI_AGENT'" class="form-group">
-            <label>AI 模型</label>
-            <select v-model="selectedNode.data.model" class="form-select">
-              <option value="deepseek-ai/DeepSeek-V3">DeepSeek V3</option>
-              <option value="deepseek-ai/DeepSeek-R1">DeepSeek R1</option>
-              <option value="Qwen/Qwen2.5-7B-Instruct">Qwen 2.5 7B</option>
-              <option value="Qwen/Qwen2.5-14B-Instruct">Qwen 2.5 14B</option>
-              <option value="THUDM/glm-4-9b-chat">GLM-4 9B</option>
-            </select>
-          </div>
-
-          <div v-if="selectedNode?.data?.nodeType === 'AI_AGENT'" class="form-group">
-            <label>Temperature: {{ selectedNode.data.temperature }}</label>
-            <input
-              type="range"
-              v-model="selectedNode.data.temperature"
-              min="0"
-              max="2"
-              step="0.1"
-              class="temp-slider"
-            />
-            <p class="hint">较低的值更确定性，较高的值更有创造性</p>
-          </div>
-
-          <div v-if="selectedNode?.data?.nodeType === 'KNOWLEDGE_RETRIEVAL'" class="form-group">
-            <label>关联知识库</label>
-            <select v-model="selectedNode.data.kbId" class="form-select">
-              <option value="" disabled>选择知识库</option>
-              <option v-for="kb in knowledgeBases" :key="kb.id" :value="kb.id">
-                {{ kb.name }} ({{ kb.documents?.length || 0 }} 文档)
-              </option>
-            </select>
-            <label style="margin-top: 12px;">查询语句 (Query)</label>
-            <input v-model="selectedNode.data.query" placeholder="要搜索的内容..." />
-          </div>
-
-          <div v-if="selectedNode?.data?.nodeType === 'CONDITION'" class="form-group">
-            <label>条件表达式</label>
-            <input v-model="selectedNode.data.expression" placeholder="例如: score > 10" />
-            <p v-pre class="hint">支持格式: {{field}} > N, {{field}} < N, {{field}} == "value"</p>
-          </div>
-          </template>
-
-          <!-- 边配置 -->
-          <template v-if="selectedEdge">
-          <div class="form-group">
-            <label>连线条件</label>
-            <select v-model="selectedEdge.condition" class="form-select">
-              <option value="">无条件 (默认)</option>
-              <option value="true">条件为 true 时执行</option>
-              <option value="false">条件为 false 时执行</option>
-            </select>
-            <p class="hint">只有条件节点后的连线需要设置条件</p>
-          </div>
-          </template>
-        </div>
-      </div>
-    </transition>
-
-    <!-- 底部运行日志 -->
-    <div class="log-panel" :class="{ open: showLogPanel }">
-      <div class="log-header">
-        <div class="log-title">
-          <span class="pulse-icon" :class="{ running: isRunning }"></span>
-          运行日志
-        </div>
-        <div class="log-actions">
-          <button class="clear-btn" @click="runLogs = []">清空</button>
-          <button class="clear-btn" @click="showLogPanel = false">
-            <X :size="14" />
+      <!-- 右侧属性面板 -->
+      <aside class="property-panel" :class="{ open: selectedNode || selectedEdge }">
+        <div class="panel-header">
+          <h3>{{ selectedEdge ? '连线配置' : '节点配置' }}</h3>
+          <button class="close-btn" @click="selectedNode = null; selectedEdge = null">
+            ×
           </button>
         </div>
+        <div class="panel-content">
+          <template v-if="selectedNode">
+            <div class="form-group">
+              <label>名称</label>
+              <input v-model="selectedNode.label" />
+            </div>
+            <template v-if="selectedNode.type === 'AI_AGENT' || selectedNode.data?.nodeType === 'AI_AGENT'">
+              <div class="form-group">
+                <label>Prompt</label>
+                <textarea v-model="selectedNode.data.prompt" rows="6"></textarea>
+              </div>
+              <div class="form-group">
+                <label>模型</label>
+                <select v-model="selectedNode.data.model">
+                  <option value="deepseek-ai/DeepSeek-V3">DeepSeek V3</option>
+                  <option value="deepseek-ai/DeepSeek-R1">DeepSeek R1</option>
+                </select>
+              </div>
+            </template>
+            <template v-if="selectedNode.type === 'KNOWLEDGE_RETRIEVAL' || selectedNode.data?.nodeType === 'KNOWLEDGE_RETRIEVAL'">
+              <div class="form-group">
+                <label>查询</label>
+                <input v-model="selectedNode.data.query" />
+              </div>
+            </template>
+            <template v-if="selectedNode.type === 'CONDITION' || selectedNode.data?.nodeType === 'CONDITION'">
+              <div class="form-group">
+                <label>条件</label>
+                <input v-model="selectedNode.data.expression" placeholder="e.g. score > 10" />
+              </div>
+            </template>
+          </template>
+          <template v-if="selectedEdge">
+            <div class="form-group">
+              <label>条件</label>
+              <select v-model="selectedEdge.condition">
+                <option value="">无条件</option>
+                <option value="true">为 true 时</option>
+                <option value="false">为 false 时</option>
+              </select>
+            </div>
+          </template>
+        </div>
+      </aside>
+    </div>
+
+    <!-- 日志面板 -->
+    <div class="log-panel" :class="{ open: showLogPanel }">
+      <div class="log-header">
+        <span>运行日志</span>
+        <button @click="showLogPanel = false">×</button>
       </div>
       <div class="log-content">
-        <div v-for="log in runLogs" :key="log.nodeId" class="log-item">
-          <div class="log-status" :class="log.status"></div>
-          <div class="log-info">
-            <span class="log-node">Node {{ log.nodeId }}</span>
-            <span class="log-msg">{{ log.output || log.error }}</span>
-          </div>
-          <div class="log-time">{{ new Date(log.startTime).toLocaleTimeString() }}</div>
+        <div v-for="(log, i) in runLogs" :key="i" class="log-item">
+          <span class="log-type">{{ log.type }}</span>
+          <span class="log-msg">{{ log.data?.output || log.data?.error || '' }}</span>
         </div>
       </div>
     </div>
-
-    <!-- 点击空白处关闭下拉框 -->
-    <div v-if="showWorkflowList" class="overlay" @click="showWorkflowList = false"></div>
   </div>
 </template>
 
 <style scoped>
-.flow-container {
-  height: 100%;
-  width: 100%;
+.flow-editor {
+  height: 100vh;
   display: flex;
   flex-direction: column;
-  position: relative;
-  overflow: hidden;
   background: var(--bg-app);
 }
 
-.canvas-area {
-  flex-grow: 1;
-  height: calc(100% - 68px);
-  display: flex;
-  margin-top: 68px;
-  position: relative;
-}
-
-.custom-flow {
-  background: var(--bg-surface);
-}
-
-/* 节点面板 - 固定侧边栏 */
-.node-palette {
-  position: fixed;
-  left: 0;
-  top: 56px;
-  width: 200px;
-  height: calc(100% - 56px);
-  background: var(--bg-surface);
-  border-right: 1px solid var(--border-subtle);
-  display: flex;
-  flex-direction: column;
-  z-index: 100;
-  overflow-y: auto;
-}
-
-.palette-section {
-  padding: 16px 12px 8px;
-}
-
-.palette-section-title {
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  margin-bottom: 8px;
-  padding-left: 4px;
-}
-
-.palette-node {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 12px;
-  border-radius: var(--radius-md);
-  border-left: 3px solid transparent;
-  background: var(--bg-hover);
-  cursor: grab;
-  transition: all var(--transition-fast);
-  margin-bottom: 4px;
-}
-
-.palette-node:hover {
-  background: var(--bg-active);
-  transform: translateX(2px);
-}
-
-.palette-node:active {
-  cursor: grabbing;
-  transform: scale(0.98);
-}
-
-.node-label {
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--text-main);
-}
-
-.palette-footer {
-  margin-top: auto;
-  padding: 12px 16px;
-  border-top: 1px solid var(--border-subtle);
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 11px;
-  color: var(--text-disabled);
-  background: var(--bg-hover);
-}
-
-.flow-wrapper {
-  flex: 1;
-  height: 100%;
-  margin-left: 200px;
-  position: relative;
-  background: var(--bg-surface);
-  overflow: hidden;
-}
-
-.custom-flow {
-  width: 100%;
-  height: 100%;
-  background: var(--bg-surface);
-}
-
-/* 顶部工具栏 */
-.top-toolbar {
-  position: fixed;
-  top: 56px;
-  left: 200px;
-  right: 0;
+/* 顶部头部 */
+.editor-header {
   height: 56px;
   background: var(--bg-surface);
   border-bottom: 1px solid var(--border-subtle);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 20px;
-  z-index: 100;
+  padding: 0 16px;
+  flex-shrink: 0;
 }
 
-.toolbar-left,
-.toolbar-right {
+.header-left {
   display: flex;
   align-items: center;
   gap: 12px;
 }
 
-.workflow-name-input {
+.back-btn {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   background: transparent;
-  border: 1px solid transparent;
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--text-main);
-  padding: 8px 12px;
+  border: none;
   border-radius: var(--radius-md);
-  min-width: 200px;
-  transition: all var(--transition-fast);
+  color: var(--text-secondary);
+  cursor: pointer;
 }
 
-.workflow-name-input:hover:not(:disabled) {
+.back-btn:hover {
   background: var(--bg-hover);
-  border-color: var(--border-subtle);
+  color: var(--text-main);
+}
+
+.workflow-name-input {
+  padding: 8px 12px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  font-size: 15px;
+  font-weight: 500;
+  background: transparent;
+  min-width: 200px;
+}
+
+.workflow-name-input:hover {
+  background: var(--bg-hover);
 }
 
 .workflow-name-input:focus {
   outline: none;
-  background: var(--bg-surface);
   border-color: var(--primary);
-  box-shadow: 0 0 0 3px var(--primary-light);
+  background: var(--bg-surface);
 }
 
-.workflow-name-input:disabled {
-  color: var(--text-muted);
+.header-center {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .tool-btn {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 8px 14px;
+  padding: 8px 12px;
   border: 1px solid var(--border-default);
   background: var(--bg-surface);
   border-radius: var(--radius-md);
   font-size: 13px;
-  font-weight: 500;
   color: var(--text-secondary);
   cursor: pointer;
-  transition: all var(--transition-fast);
 }
 
 .tool-btn:hover {
   border-color: var(--primary);
   color: var(--primary);
-  background: var(--primary-light);
-}
-
-.tool-btn.primary {
-  background: var(--primary);
-  color: white;
-  border-color: var(--primary);
-}
-
-.tool-btn.primary:hover {
-  background: var(--primary-hover);
-  border-color: var(--primary-hover);
-}
-
-.tool-btn.success {
-  background: var(--success);
-  color: white;
-  border-color: var(--success);
-}
-
-.tool-btn.success:hover {
-  background: #059669;
-  border-color: #059669;
-}
-
-.tool-btn.danger {
-  background: var(--bg-surface);
-  color: var(--error);
-  border-color: var(--error);
-}
-
-.tool-btn.danger:hover {
-  background: var(--error);
-  color: white;
 }
 
 .tool-btn:disabled {
@@ -863,153 +482,130 @@ const getIconComponent = (iconName: string) => {
   cursor: not-allowed;
 }
 
-/* 工作流下拉列表 */
-.workflow-list-wrapper {
-  position: relative;
-}
-
-.workflow-dropdown {
-  position: absolute;
-  top: calc(100% + 8px);
-  right: 0;
-  width: 280px;
-  background: var(--bg-surface);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-lg);
-  border: 1px solid var(--border-subtle);
-  z-index: 1001;
-  overflow: hidden;
-}
-
-.dropdown-header {
-  padding: 12px 16px;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--text-muted);
-  background: var(--bg-hover);
-  border-bottom: 1px solid var(--border-subtle);
-}
-
-.dropdown-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px 16px;
-  cursor: pointer;
-  transition: background var(--transition-fast);
-}
-
-.dropdown-item:hover {
-  background: var(--bg-hover);
-}
-
-.dropdown-item.active {
-  background: var(--primary-light);
-}
-
-.wf-name {
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--text-main);
-}
-
-.delete-wf-btn {
-  background: transparent;
-  border: none;
+.tool-btn.danger:hover {
+  border-color: var(--error);
   color: var(--error);
-  cursor: pointer;
-  padding: 4px;
-  border-radius: var(--radius-sm);
-  opacity: 0.6;
-  transition: all var(--transition-fast);
 }
 
-.delete-wf-btn:hover {
-  background: var(--error-light);
-  opacity: 1;
-}
-
-.dropdown-empty {
-  padding: 24px;
-  text-align: center;
-  color: var(--text-muted);
-  font-size: 13px;
-}
-
-.dropdown-footer {
-  padding: 12px 16px;
-  border-top: 1px solid var(--border-subtle);
-}
-
-.new-wf-btn {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: 10px;
-  background: var(--primary-light);
-  color: var(--primary);
-  border: none;
-  border-radius: var(--radius-md);
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all var(--transition-fast);
-}
-
-.new-wf-btn:hover {
+.tool-btn.primary {
   background: var(--primary);
+  border-color: var(--primary);
   color: white;
 }
 
-/* 右侧属性面板 */
-.sidebar {
-  position: fixed;
-  top: 56px;
-  right: 0;
-  width: 360px;
-  height: calc(100% - 56px);
+.tool-btn.primary:hover {
+  background: var(--primary-hover);
+}
+
+/* 主体区域 */
+.editor-body {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+}
+
+/* 节点面板 */
+.node-palette {
+  width: 180px;
+  background: var(--bg-surface);
+  border-right: 1px solid var(--border-subtle);
+  padding: 16px 12px;
+  flex-shrink: 0;
+}
+
+.palette-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  margin-bottom: 12px;
+  padding-left: 4px;
+}
+
+.palette-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-left: 3px solid;
+  background: var(--bg-hover);
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+  margin-bottom: 8px;
+  font-size: 13px;
+  color: var(--text-main);
+  cursor: grab;
+  transition: all 0.15s;
+}
+
+.palette-item:hover {
+  background: var(--bg-active);
+  transform: translateX(2px);
+}
+
+.palette-item:active {
+  cursor: grabbing;
+}
+
+/* 画布 */
+.flow-canvas {
+  flex: 1;
+  position: relative;
+}
+
+.vue-flow {
+  width: 100%;
+  height: 100%;
+}
+
+.vue-flow :deep(.vue-flow__node) {
+  cursor: pointer;
+}
+
+.vue-flow :deep(.vue-flow__edge) {
+  cursor: pointer;
+}
+
+/* 属性面板 */
+.property-panel {
+  width: 280px;
   background: var(--bg-surface);
   border-left: 1px solid var(--border-subtle);
   display: flex;
   flex-direction: column;
-  z-index: 200;
-  box-shadow: var(--shadow-lg);
+  transform: translateX(100%);
+  transition: transform 0.2s;
 }
 
-.sidebar-header {
-  padding: 20px 24px;
-  border-bottom: 1px solid var(--border-subtle);
+.property-panel.open {
+  transform: translateX(0);
+}
+
+.panel-header {
   display: flex;
+  align-items: center;
   justify-content: space-between;
-  align-items: flex-start;
+  padding: 16px;
+  border-bottom: 1px solid var(--border-subtle);
 }
 
-.sidebar-title h3 {
-  font-size: 1rem;
+.panel-header h3 {
+  font-size: 14px;
   font-weight: 600;
-  color: var(--text-main);
-  margin: 0 0 4px 0;
-}
-
-.node-id {
-  font-size: 12px;
-  color: var(--text-muted);
-  background: var(--bg-hover);
-  padding: 2px 8px;
-  border-radius: var(--radius-sm);
-  font-family: monospace;
+  margin: 0;
 }
 
 .close-btn {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   background: transparent;
   border: none;
+  font-size: 20px;
   color: var(--text-muted);
   cursor: pointer;
-  padding: 4px;
   border-radius: var(--radius-sm);
-  transition: all var(--transition-fast);
 }
 
 .close-btn:hover {
@@ -1017,157 +613,59 @@ const getIconComponent = (iconName: string) => {
   color: var(--text-main);
 }
 
-.sidebar-actions {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.delete-btn {
-  background: transparent;
-  border: none;
-  color: var(--error);
-  cursor: pointer;
-  padding: 4px;
-  border-radius: var(--radius-sm);
-  transition: all var(--transition-fast);
-}
-
-.delete-btn:hover {
-  background: var(--error-light);
-  color: var(--error);
-}
-
-.sidebar-content {
+.panel-content {
   flex: 1;
-  padding: 24px;
+  padding: 16px;
   overflow-y: auto;
 }
 
 .form-group {
-  margin-bottom: 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+  margin-bottom: 16px;
 }
 
 .form-group label {
   display: block;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text-secondary);
-}
-
-.hint {
   font-size: 12px;
-  color: var(--text-muted);
-  line-height: 1.5;
+  font-weight: 500;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
 }
 
-input, textarea {
+.form-group input,
+.form-group textarea,
+.form-group select {
   width: 100%;
-  padding: 10px 12px;
+  padding: 8px 10px;
   border: 1px solid var(--border-default);
   border-radius: var(--radius-md);
-  font-size: 14px;
-  font-family: inherit;
-  transition: all var(--transition-fast);
+  font-size: 13px;
   background: var(--bg-surface);
   color: var(--text-main);
 }
 
-input:focus, textarea:focus {
+.form-group input:focus,
+.form-group textarea:focus,
+.form-group select:focus {
   outline: none;
   border-color: var(--primary);
-  box-shadow: 0 0 0 3px var(--primary-light);
 }
 
-.form-select {
-  width: 100%;
-  padding: 10px 12px;
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-md);
-  font-size: 14px;
-  background: var(--bg-surface);
-  color: var(--text-main);
-  cursor: pointer;
-  transition: all var(--transition-fast);
+.form-group textarea {
+  resize: vertical;
+  min-height: 80px;
 }
 
-.form-select:focus {
-  outline: none;
-  border-color: var(--primary);
-  box-shadow: 0 0 0 3px var(--primary-light);
-}
-
-.temp-slider {
-  width: 100%;
-  height: 6px;
-  border-radius: 3px;
-  background: var(--bg-hover);
-  appearance: none;
-  cursor: pointer;
-  padding: 0;
-  border: none;
-}
-
-.temp-slider::-webkit-slider-thumb {
-  appearance: none;
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  background: var(--primary);
-  cursor: pointer;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
-}
-
-.temp-slider::-moz-range-thumb {
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  background: var(--primary);
-  cursor: pointer;
-  border: none;
-}
-
-/* 过渡动画 */
-.slide-enter-active,
-.slide-leave-active {
-  transition: transform 0.25s ease, opacity 0.25s ease;
-}
-
-.slide-enter-from,
-.slide-leave-to {
-  transform: translateX(20px);
-  opacity: 0;
-}
-
-.dropdown-enter-active,
-.dropdown-leave-active {
-  transition: transform 0.2s ease, opacity 0.2s ease;
-}
-
-.dropdown-enter-from,
-.dropdown-leave-to {
-  transform: translateY(-8px);
-  opacity: 0;
-}
-
-/* 运行日志面板 */
+/* 日志面板 */
 .log-panel {
   position: fixed;
   bottom: -300px;
-  left: 200px;
+  left: 180px;
   right: 0;
   height: 280px;
   background: #1a1a1a;
   color: #eee;
-  border-radius: var(--radius-xl) var(--radius-xl) 0 0;
-  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.15);
-  transition: bottom 0.35s cubic-bezier(0.4, 0, 0.2, 1);
-  z-index: 500;
-  display: flex;
-  flex-direction: column;
+  transition: bottom 0.3s;
+  z-index: 100;
 }
 
 .log-panel.open {
@@ -1175,254 +673,39 @@ input:focus, textarea:focus {
 }
 
 .log-header {
-  padding: 14px 20px;
-  background: #222;
-  border-radius: var(--radius-xl) var(--radius-xl) 0 0;
   display: flex;
+  align-items: center;
   justify-content: space-between;
-  align-items: center;
-  border-bottom: 1px solid #333;
+  padding: 12px 16px;
+  background: #222;
+  font-size: 13px;
+  font-weight: 500;
 }
 
-.log-title {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-weight: 600;
-  font-size: 14px;
-  color: #fff;
-}
-
-.pulse-icon {
-  width: 8px;
-  height: 8px;
-  background: var(--success);
-  border-radius: 50%;
-  box-shadow: 0 0 8px var(--success);
-}
-
-.pulse-icon.running {
-  background: var(--primary);
-  box-shadow: 0 0 8px var(--primary);
-  animation: pulse 1.5s infinite;
-}
-
-@keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
-}
-
-.clear-btn {
+.log-header button {
   background: transparent;
   border: none;
   color: #888;
-  font-size: 12px;
+  font-size: 18px;
   cursor: pointer;
-  padding: 4px 8px;
-  border-radius: var(--radius-sm);
-  transition: all var(--transition-fast);
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.clear-btn:hover {
-  background: #333;
-  color: #fff;
-}
-
-.log-actions {
-  display: flex;
-  align-items: center;
-  gap: 4px;
 }
 
 .log-content {
-  flex: 1;
+  padding: 12px 16px;
   overflow-y: auto;
-  padding: 16px 20px;
+  max-height: 240px;
 }
 
 .log-item {
   display: flex;
-  align-items: center;
-  gap: 16px;
-  padding: 10px 0;
-  border-bottom: 1px solid #222;
-}
-
-.log-status {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-
-.log-status.COMPLETED {
-  background: var(--success);
-  box-shadow: 0 0 8px var(--success);
-}
-
-.log-status.FAILED {
-  background: var(--error);
-  box-shadow: 0 0 8px var(--error);
-}
-
-.log-status.RUNNING {
-  background: var(--info);
-  box-shadow: 0 0 8px var(--info);
-  animation: pulse 1s infinite;
-}
-
-.log-info {
-  flex: 1;
-  display: flex;
   gap: 12px;
-  min-width: 0;
+  padding: 8px 0;
+  border-bottom: 1px solid #333;
+  font-size: 12px;
 }
 
-.log-node {
-  font-weight: 600;
-  color: #ccc;
-  font-size: 13px;
-  flex-shrink: 0;
-}
-
-.log-msg {
+.log-type {
   color: #888;
-  font-size: 13px;
-  font-family: 'SF Mono', Monaco, monospace;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.log-time {
-  font-size: 11px;
-  color: #555;
-  flex-shrink: 0;
-}
-
-.overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 999;
-}
-
-/* 工作流列表视图 */
-.workflow-list-view {
-  position: absolute;
-  top: 56px;
-  left: 200px;
-  right: 0;
-  bottom: 0;
-  padding: 48px;
-  background: var(--bg-app);
-  overflow-y: auto;
-}
-
-.list-header {
-  margin-bottom: 40px;
-}
-
-.list-header h2 {
-  font-size: 1.8rem;
-  font-weight: 700;
-  color: var(--text-main);
-  margin: 0 0 8px 0;
-}
-
-.list-subtitle {
-  color: var(--text-muted);
-  font-size: 14px;
-}
-
-.workflow-cards {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-  gap: 20px;
-}
-
-.workflow-card {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  padding: 20px 24px;
-  background: var(--bg-surface);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-lg);
-  cursor: pointer;
-  transition: all var(--transition-fast);
-}
-
-.workflow-card:hover {
-  border-color: var(--primary);
-  box-shadow: var(--shadow-md);
-  transform: translateY(-2px);
-}
-
-.workflow-card.active {
-  background: var(--primary-light);
-  border-color: var(--primary);
-}
-
-.card-icon {
-  width: 56px;
-  height: 56px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--bg-hover);
-  border-radius: var(--radius-md);
-  color: var(--primary);
-}
-
-.card-content {
-  flex: 1;
-}
-
-.card-content h3 {
-  font-size: 16px;
-  font-weight: 600;
-  margin: 0 0 4px 0;
-  color: var(--text-main);
-}
-
-.card-meta {
-  font-size: 13px;
-  color: var(--text-muted);
-}
-
-.card-action {
-  background: transparent;
-  border: none;
-  color: var(--text-muted);
-  padding: 8px;
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  transition: all var(--transition-fast);
-}
-
-.card-action:hover {
-  background: var(--error-light);
-  color: var(--error);
-}
-
-.empty-list {
-  grid-column: 1 / -1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 80px 40px;
-  color: var(--text-muted);
-}
-
-.empty-list p {
-  margin: 16px 0 24px;
-  font-size: 15px;
+  font-weight: 500;
 }
 </style>

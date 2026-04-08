@@ -1,10 +1,20 @@
 <script setup lang="ts">
 import { ref } from 'vue'
+import WorkflowList from './components/WorkflowList.vue'
 import FlowCanvas from './components/FlowCanvas.vue'
 import ChatWidget from './components/ChatWidget.vue'
 import KnowledgeBaseManager from './components/KnowledgeBaseManager.vue'
 
 const activeView = ref<'workflow' | 'knowledge'>('workflow')
+const workflowView = ref<'list' | 'editor'>('list')
+
+const handleWorkflowSelect = () => {
+  workflowView.value = 'editor'
+}
+
+const handleWorkflowBack = () => {
+  workflowView.value = 'list'
+}
 </script>
 
 <template>
@@ -44,7 +54,10 @@ const activeView = ref<'workflow' | 'knowledge'>('workflow')
 
     <main class="content-box">
       <div class="view-wrapper">
-        <FlowCanvas v-if="activeView === 'workflow'" />
+        <template v-if="activeView === 'workflow'">
+          <WorkflowList v-if="workflowView === 'list'" @select="handleWorkflowSelect" />
+          <FlowCanvas v-else @back="handleWorkflowBack" />
+        </template>
         <KnowledgeBaseManager v-else />
       </div>
     </main>
