@@ -1,7 +1,15 @@
 <script setup lang="ts">
 import { Handle, Position } from '@vue-flow/core'
-import { Bot, BookOpen, GitBranch } from 'lucide-vue-next'
+import { Bot, BookOpen, GitBranch, PlayCircle, Square } from 'lucide-vue-next'
 import type { NodeProps } from '@vue-flow/core'
+
+type InputNodeData = {
+  nodeType: 'input'
+}
+
+type OutputNodeData = {
+  nodeType: 'output'
+}
 
 type AiNodeData = {
   nodeType: 'AI_AGENT'
@@ -21,7 +29,7 @@ type ConditionNodeData = {
   expression?: string
 }
 
-type CustomNodeData = AiNodeData | KnowledgeNodeData | ConditionNodeData
+type CustomNodeData = InputNodeData | OutputNodeData | AiNodeData | KnowledgeNodeData | ConditionNodeData
 
 interface Props extends NodeProps<CustomNodeData> {
   label?: string
@@ -31,8 +39,30 @@ const props = defineProps<Props>()
 </script>
 
 <template>
+  <!-- Input Node -->
+  <template v-if="data?.nodeType === 'input'">
+    <div class="custom-node input-node">
+      <div class="node-header">
+        <PlayCircle :size="14" />
+        <span>{{ label || '开始' }}</span>
+      </div>
+      <Handle type="source" :position="Position.Right" />
+    </div>
+  </template>
+
+  <!-- Output Node -->
+  <template v-else-if="data?.nodeType === 'output'">
+    <div class="custom-node output-node">
+      <div class="node-header">
+        <Square :size="14" />
+        <span>{{ label || '结束' }}</span>
+      </div>
+      <Handle type="target" :position="Position.Left" />
+    </div>
+  </template>
+
   <!-- AI Agent Node -->
-  <template v-if="data?.nodeType === 'AI_AGENT'">
+  <template v-else-if="data?.nodeType === 'AI_AGENT'">
     <div class="custom-node ai-node">
       <div class="node-header">
         <Bot :size="14" />
@@ -100,6 +130,22 @@ const props = defineProps<Props>()
 
 .node-body {
   padding: 8px 12px;
+}
+
+.input-node {
+  border-left: 3px solid #10B981;
+}
+
+.input-node .node-header {
+  color: #10B981;
+}
+
+.output-node {
+  border-left: 3px solid #EF4444;
+}
+
+.output-node .node-header {
+  color: #EF4444;
 }
 
 .ai-node {

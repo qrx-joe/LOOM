@@ -8,7 +8,8 @@ import axios from 'axios'
 import {
   Save, Play, Plus, List, Trash2,
   PlayCircle, Bot, BookOpen, GitBranch, Square,
-  X, ChevronRight, ArrowLeft, FileCode
+  X, ChevronRight, ArrowLeft, FileCode,
+  Undo2, Redo2
 } from 'lucide-vue-next'
 import CustomNodes from './CustomNodes.vue'
 
@@ -45,8 +46,22 @@ onEdgeClick((event) => {
   selectedNode.value = null
 })
 
-// 键盘事件处理 - 删除选中的节点或边
+// 键盘事件处理 - 删除选中的节点或边、撤销/重做
 const handleKeyDown = (e: KeyboardEvent) => {
+  // 撤销: Ctrl+Z / Cmd+Z
+  if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+    e.preventDefault()
+    store.undo()
+    return
+  }
+
+  // 重做: Ctrl+Y / Cmd+Y 或 Ctrl+Shift+Z
+  if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) {
+    e.preventDefault()
+    store.redo()
+    return
+  }
+
   if (e.key === 'Delete' || e.key === 'Backspace') {
     if ((e.target as HTMLElement).tagName === 'INPUT' || (e.target as HTMLElement).tagName === 'TEXTAREA') {
       return
@@ -54,9 +69,11 @@ const handleKeyDown = (e: KeyboardEvent) => {
 
     if (selectedNode.value) {
       removeNodes(selectedNode.value.id)
+      store.saveHistory()
       selectedNode.value = null
     } else if (selectedEdge.value) {
       removeEdges(selectedEdge.value.id)
+      store.saveHistory()
       selectedEdge.value = null
     }
   }
@@ -91,6 +108,8 @@ const nodeTypes = [
 
 // Vue Flow 自定义节点类型（用于渲染）
 const flowNodeTypes = {
+  input: markRaw(CustomNodes),
+  output: markRaw(CustomNodes),
   AI_AGENT: markRaw(CustomNodes),
   KNOWLEDGE_RETRIEVAL: markRaw(CustomNodes),
   CONDITION: markRaw(CustomNodes),
@@ -136,6 +155,9 @@ const handleDrop = (e: DragEvent) => {
   }
 
   addNodes(newNode)
+  store.saveHistory()
+  selectedNode.value = newNode
+  selectedEdge.value = null
 }
 
 // 获取节点默认数据
@@ -162,11 +184,12 @@ const handleDragOver = (e: DragEvent) => {
 
 onConnect((params) => {
   addEdges({ ...params, id: `edge-${Date.now()}` })
+  store.saveHistory()
 })
 
 onNodeClick(async (event) => {
   selectedNode.value = event.node
-  if (String(event.node.label || '').includes('检索')) {
+  if (event.node.data?.nodeType === 'KNOWLEDGE_RETRIEVAL') {
     await fetchKnowledgeBases()
   }
 })
@@ -184,6 +207,7 @@ const fetchKnowledgeBases = async () => {
 const runLogs = ref<ExecutionLog[]>([])
 const isRunning = ref(false)
 const isSaving = ref(false)
+const showLogPanel = ref(false)
 let eventSource: EventSource | null = null
 
 const handleSave = async () => {
@@ -213,6 +237,7 @@ const handleRun = async () => {
     return
   }
 
+  showLogPanel.value = true
   isRunning.value = true
   runLogs.value = []
   currentView.value = 'editor'
@@ -341,6 +366,14 @@ const getIconComponent = (iconName: string) => {
 
       <div class="toolbar-right">
         <template v-if="currentView === 'editor'">
+          <!-- 撤销/重做按钮 -->
+          <button class="tool-btn" @click="store.undo()" :disabled="!store.canUndo()" title="撤销 (Ctrl+Z)">
+            <Undo2 :size="16" />
+          </button>
+          <button class="tool-btn" @click="store.redo()" :disabled="!store.canRedo()" title="重做 (Ctrl+Y)">
+            <Redo2 :size="16" />
+          </button>
+
           <div class="workflow-list-wrapper">
             <button class="tool-btn" @click="showWorkflowList = !showWorkflowList">
               <List :size="16" />
@@ -515,13 +548,13 @@ const getIconComponent = (iconName: string) => {
             <input v-model="selectedNode.label" placeholder="输入节点名称..." />
           </div>
 
-          <div v-if="String(selectedNode.label || '').includes('AI')" class="form-group">
+          <div v-if="selectedNode?.data?.nodeType === 'AI_AGENT'" class="form-group">
             <label>Prompt 引导词</label>
             <textarea v-model="selectedNode.data.prompt" rows="8" placeholder="在此输入 AI 处理逻辑..."></textarea>
             <p v-pre class="hint">支持使用 {{nodeId.output}} 引用其他节点输出</p>
           </div>
 
-          <div v-if="String(selectedNode.label || '').includes('AI')" class="form-group">
+          <div v-if="selectedNode?.data?.nodeType === 'AI_AGENT'" class="form-group">
             <label>AI 模型</label>
             <select v-model="selectedNode.data.model" class="form-select">
               <option value="deepseek-ai/DeepSeek-V3">DeepSeek V3</option>
@@ -532,7 +565,7 @@ const getIconComponent = (iconName: string) => {
             </select>
           </div>
 
-          <div v-if="String(selectedNode.label || '').includes('AI')" class="form-group">
+          <div v-if="selectedNode?.data?.nodeType === 'AI_AGENT'" class="form-group">
             <label>Temperature: {{ selectedNode.data.temperature }}</label>
             <input
               type="range"
@@ -545,7 +578,7 @@ const getIconComponent = (iconName: string) => {
             <p class="hint">较低的值更确定性，较高的值更有创造性</p>
           </div>
 
-          <div v-if="String(selectedNode.label || '').includes('检索')" class="form-group">
+          <div v-if="selectedNode?.data?.nodeType === 'KNOWLEDGE_RETRIEVAL'" class="form-group">
             <label>关联知识库</label>
             <select v-model="selectedNode.data.kbId" class="form-select">
               <option value="" disabled>选择知识库</option>
@@ -557,7 +590,7 @@ const getIconComponent = (iconName: string) => {
             <input v-model="selectedNode.data.query" placeholder="要搜索的内容..." />
           </div>
 
-          <div v-if="String(selectedNode.label || '').includes('条件')" class="form-group">
+          <div v-if="selectedNode?.data?.nodeType === 'CONDITION'" class="form-group">
             <label>条件表达式</label>
             <input v-model="selectedNode.data.expression" placeholder="例如: score > 10" />
             <p v-pre class="hint">支持格式: {{field}} > N, {{field}} < N, {{field}} == "value"</p>
@@ -581,13 +614,18 @@ const getIconComponent = (iconName: string) => {
     </transition>
 
     <!-- 底部运行日志 -->
-    <div class="log-panel" :class="{ open: runLogs.length > 0 }">
+    <div class="log-panel" :class="{ open: showLogPanel }">
       <div class="log-header">
         <div class="log-title">
           <span class="pulse-icon" :class="{ running: isRunning }"></span>
           运行日志
         </div>
-        <button class="clear-btn" @click="runLogs = []">清空</button>
+        <div class="log-actions">
+          <button class="clear-btn" @click="runLogs = []">清空</button>
+          <button class="clear-btn" @click="showLogPanel = false">
+            <X :size="14" />
+          </button>
+        </div>
       </div>
       <div class="log-content">
         <div v-for="log in runLogs" :key="log.nodeId" class="log-item">
@@ -1142,11 +1180,20 @@ input:focus, textarea:focus {
   padding: 4px 8px;
   border-radius: var(--radius-sm);
   transition: all var(--transition-fast);
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .clear-btn:hover {
   background: #333;
   color: #fff;
+}
+
+.log-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .log-content {

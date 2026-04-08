@@ -34,6 +34,58 @@ export const useWorkflowStore = defineStore('workflow', () => {
     const currentWorkflowId = ref<string | null>(null);
     const savedWorkflows = ref<Workflow[]>([]);
 
+    // 历史记录（撤销/重做）
+    const MAX_HISTORY = 50;
+    const history = ref<{ nodes: WorkflowNode[]; edges: WorkflowEdge[] }[]>([]);
+    const historyIndex = ref(-1);
+
+    // 保存当前状态到历史记录
+    const saveHistory = () => {
+        const currentState = {
+            nodes: JSON.parse(JSON.stringify(nodes.value)),
+            edges: JSON.parse(JSON.stringify(edges.value)),
+        };
+
+        // 如果当前不在历史记录末尾，截断后面的历史
+        if (historyIndex.value < history.value.length - 1) {
+            history.value = history.value.slice(0, historyIndex.value + 1);
+        }
+
+        // 添加新历史
+        history.value.push(currentState);
+
+        // 限制历史记录数量
+        if (history.value.length > MAX_HISTORY) {
+            history.value.shift();
+        } else {
+            historyIndex.value++;
+        }
+    };
+
+    // 撤销
+    const undo = () => {
+        if (historyIndex.value > 0) {
+            historyIndex.value--;
+            const state = history.value[historyIndex.value];
+            nodes.value = JSON.parse(JSON.stringify(state.nodes));
+            edges.value = JSON.parse(JSON.stringify(state.edges));
+        }
+    };
+
+    // 重做
+    const redo = () => {
+        if (historyIndex.value < history.value.length - 1) {
+            historyIndex.value++;
+            const state = history.value[historyIndex.value];
+            nodes.value = JSON.parse(JSON.stringify(state.nodes));
+            edges.value = JSON.parse(JSON.stringify(state.edges));
+        }
+    };
+
+    // 检查是否可以撤销/重做
+    const canUndo = () => historyIndex.value > 0;
+    const canRedo = () => historyIndex.value < history.value.length - 1;
+
     // 加载所有已保存的工作流
     const fetchWorkflows = async () => {
         try {
@@ -54,6 +106,12 @@ export const useWorkflowStore = defineStore('workflow', () => {
             ...edge,
             id: edge.id || `edge-${index}`,
         }));
+        // 初始化历史记录
+        history.value = [{
+            nodes: JSON.parse(JSON.stringify(nodes.value)),
+            edges: JSON.parse(JSON.stringify(edges.value)),
+        }];
+        historyIndex.value = 0;
     };
 
     // 创建空白工作流
@@ -70,6 +128,12 @@ export const useWorkflowStore = defineStore('workflow', () => {
             { id: 'edge-1', source: 'node-1', target: 'node-2', sourceHandle: 'out', targetHandle: 'in' },
             { id: 'edge-2', source: 'node-2', target: 'node-3', sourceHandle: 'out', targetHandle: 'in' },
         ];
+        // 初始化历史记录
+        history.value = [{
+            nodes: JSON.parse(JSON.stringify(nodes.value)),
+            edges: JSON.parse(JSON.stringify(edges.value)),
+        }];
+        historyIndex.value = 0;
     };
 
     // 保存工作流（创建或更新）
@@ -145,11 +209,18 @@ export const useWorkflowStore = defineStore('workflow', () => {
         workflowName,
         currentWorkflowId,
         savedWorkflows,
+        history,
+        historyIndex,
         fetchWorkflows,
         loadWorkflow,
         createNewWorkflow,
         saveWorkflow,
         runWorkflow,
         deleteWorkflow,
+        saveHistory,
+        undo,
+        redo,
+        canUndo,
+        canRedo,
     };
 });
