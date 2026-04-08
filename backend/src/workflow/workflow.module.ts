@@ -6,9 +6,10 @@ import { Workflow } from './workflow.entity';
 import { WorkflowLog } from './workflow-log.entity';
 import { WorkflowService } from './workflow.service';
 import { KnowledgeModule } from '../knowledge/knowledge.module';
+import { Session, Message } from '../chat/chat.entity';
 
 @Module({
-    imports: [TypeOrmModule.forFeature([Workflow, WorkflowLog]), KnowledgeModule],
+    imports: [TypeOrmModule.forFeature([Workflow, WorkflowLog, Session, Message]), KnowledgeModule],
     controllers: [WorkflowController],
     providers: [ExecutorService, WorkflowService],
     exports: [ExecutorService, WorkflowService],

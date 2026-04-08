@@ -33,8 +33,13 @@ export class WorkflowController {
     }
 
     @Delete(':id')
-    remove(@Param('id') id: string) {
-        return this.workflowService.remove(id);
+    async remove(@Param('id') id: string) {
+        try {
+            return await this.workflowService.remove(id);
+        } catch (error) {
+            console.error('Delete workflow error:', error);
+            throw error;
+        }
     }
 
     @Post(':id/run')
