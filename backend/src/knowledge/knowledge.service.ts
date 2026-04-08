@@ -64,6 +64,18 @@ export class KnowledgeService {
         return this.kbRepository.find({ relations: ['documents'] });
     }
 
+    // 获取知识库统计信息
+    async getStats() {
+        const totalBases = await this.kbRepository.count();
+        const totalDocuments = await this.docRepository.count();
+        const totalChunks = await this.chunkRepository.count();
+        return {
+            totalBases,
+            totalDocuments,
+            totalChunks,
+        };
+    }
+
     // 删除知识库及其所有文档
     async deleteBase(id: string) {
         const kb = await this.kbRepository.findOne({

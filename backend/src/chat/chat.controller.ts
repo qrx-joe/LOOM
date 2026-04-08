@@ -6,6 +6,11 @@ import { ChatService } from './chat.service';
 export class ChatController {
     constructor(private readonly chatService: ChatService) { }
 
+    @Get('sessions')
+    getSessions() {
+        return this.chatService.findAllSessions();
+    }
+
     @Post('sessions')
     createSession(@Body() body: { workflowId: string; name?: string }) {
         return this.chatService.createSession(body.workflowId, body.name);

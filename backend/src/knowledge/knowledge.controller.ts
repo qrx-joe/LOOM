@@ -16,6 +16,11 @@ export class KnowledgeController {
         return this.knowledgeService.findAllBases();
     }
 
+    @Get('stats')
+    getStats() {
+        return this.knowledgeService.getStats();
+    }
+
     @Delete('bases/:id')
     deleteBase(@Param('id') id: string) {
         return this.knowledgeService.deleteBase(id);

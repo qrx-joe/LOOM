@@ -17,6 +17,13 @@ export class ChatService {
         private workflowService: WorkflowService,
     ) { }
 
+    findAllSessions() {
+        return this.sessionRepository.find({
+            relations: ['workflow'],
+            order: { createdAt: 'DESC' },
+        });
+    }
+
     async createSession(workflowId: string, name?: string) {
         const workflow = await this.workflowService.findOne(workflowId);
         if (!workflow) throw new Error('Workflow not found');
