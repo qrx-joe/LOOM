@@ -30,7 +30,7 @@ interface KnowledgeBase {
 }
 
 const store = useWorkflowStore()
-const { onConnect, addEdges, onNodeClick, onEdgeClick, addNodes, project, removeNodes, removeEdges } = useVueFlow()
+const { onConnect, addEdges, onNodeClick, onEdgeClick, addNodes, removeNodes, removeEdges } = useVueFlow()
 
 const selectedNode = ref<any>(null)
 const selectedEdge = ref<any>(null)
@@ -38,7 +38,6 @@ const showWorkflowList = ref(false)
 const isEditing = ref(false)
 const knowledgeBases = ref<KnowledgeBase[]>([])
 const currentView = ref<'editor' | 'list'>('editor')
-const draggedNodeType = ref<string | null>(null)
 
 // 监听边的点击
 onEdgeClick((event) => {
@@ -136,33 +135,22 @@ const flowNodeTypes = {
   OUTPUT: markRaw(CustomNodes),
 }
 
-// 拖拽开始
-const handleDragStart = (e: DragEvent, nodeType: string) => {
-  draggedNodeType.value = nodeType
-  if (e.dataTransfer) {
-    e.dataTransfer.effectAllowed = 'copy'
-    e.dataTransfer.setData('text/plain', nodeType)
+// 点击添加节点
+const handleAddNode = (nodeType: string) => {
+  // 计算一个合理的位置 - 放在画布中央或现有节点旁边
+  const existingNodes = store.nodes
+  let position = { x: 300, y: 200 }
+
+  if (existingNodes.length > 0) {
+    // 找到最右边的节点，放在其右边
+    const rightmostNode = existingNodes.reduce((prev, curr) =>
+      (prev.position.x > curr.position.x) ? prev : curr
+    )
+    position = {
+      x: rightmostNode.position.x + 250,
+      y: rightmostNode.position.y
+    }
   }
-}
-
-// 拖拽结束
-const handleDragEnd = () => {
-  draggedNodeType.value = null
-}
-
-// 处理拖拽放置
-const handleDrop = (e: DragEvent) => {
-  e.preventDefault()
-  if (!e.dataTransfer) return
-
-  const nodeType = e.dataTransfer.getData('text/plain')
-  if (!nodeType) return
-
-  // 使用 clientX/clientY 让 VueFlow 的 project 函数处理转换
-  const position = project({
-    x: e.clientX,
-    y: e.clientY,
-  })
 
   const newNode = {
     id: `node-${Date.now()}`,
@@ -189,14 +177,6 @@ const getDefaultNodeData = (type: string): any => {
       return { expression: '' }
     default:
       return {}
-  }
-}
-
-// 处理画布拖拽悬停
-const handleDragOver = (e: DragEvent) => {
-  e.preventDefault()
-  if (e.dataTransfer) {
-    e.dataTransfer.dropEffect = 'move'
   }
 }
 
@@ -505,9 +485,7 @@ const getIconComponent = (iconName: string) => {
             :key="node.type"
             class="palette-node"
             :style="{ borderLeftColor: node.color }"
-            draggable="true"
-            @dragstart="handleDragStart($event, node.type)"
-            @dragend="handleDragEnd"
+            @click="handleAddNode(node.type)"
           >
             <component :is="getIconComponent(node.icon)" :size="16" :style="{ color: node.color }" />
             <span class="node-label">{{ node.label }}</span>
@@ -521,9 +499,7 @@ const getIconComponent = (iconName: string) => {
             :key="node.type"
             class="palette-node"
             :style="{ borderLeftColor: node.color }"
-            draggable="true"
-            @dragstart="handleDragStart($event, node.type)"
-            @dragend="handleDragEnd"
+            @click="handleAddNode(node.type)"
           >
             <component :is="getIconComponent(node.icon)" :size="16" :style="{ color: node.color }" />
             <span class="node-label">{{ node.label }}</span>
@@ -537,7 +513,7 @@ const getIconComponent = (iconName: string) => {
       </div>
 
       <!-- Vue Flow 画布 -->
-      <div class="flow-wrapper">
+      <div class="flow-wrapper" ref="flowWrapperRef">
         <VueFlow
           v-model:nodes="store.nodes"
           v-model:edges="store.edges"
@@ -545,8 +521,6 @@ const getIconComponent = (iconName: string) => {
           fit-view-on-init
           class="custom-flow"
           :default-edge-options="{ type: 'smoothstep', style: { stroke: '#9CA3AF', strokeWidth: 2 } }"
-          @drop="handleDrop"
-          @dragover="handleDragOver"
         >
           <Background pattern-color="#E5E7EB" :gap="20" />
           <Controls />
@@ -774,6 +748,14 @@ const getIconComponent = (iconName: string) => {
   height: 100%;
   margin-left: 200px;
   position: relative;
+  background: var(--bg-surface);
+  overflow: hidden;
+}
+
+.custom-flow {
+  width: 100%;
+  height: 100%;
+  background: var(--bg-surface);
 }
 
 /* 顶部工具栏 */
