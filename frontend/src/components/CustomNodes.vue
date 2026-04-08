@@ -93,8 +93,12 @@ const isOutputNode = () => ['output', 'END', 'OUTPUT'].includes(props.type || ''
       <span class="expression">{{ data?.expression || '无条件' }}</span>
     </div>
     <Handle type="target" :position="Position.Left" />
-    <Handle type="source" :position="Position.Right" id="true" />
-    <Handle type="source" :position="Position.Right" id="false" />
+    <Handle type="source" :position="Position.Bottom" id="true" :style="{ left: '30%' }" />
+    <Handle type="source" :position="Position.Bottom" id="false" :style="{ left: '70%' }" />
+    <div class="handle-labels">
+      <span class="handle-label true-label">True</span>
+      <span class="handle-label false-label">False</span>
+    </div>
   </div>
 </template>
 
@@ -182,5 +186,24 @@ const isOutputNode = () => ['output', 'END', 'OUTPUT'].includes(props.type || ''
   color: #6B7280;
   font-family: monospace;
   font-size: 11px;
+}
+
+.handle-labels {
+  display: flex;
+  justify-content: space-between;
+  padding: 4px 12px 8px;
+}
+
+.handle-label {
+  font-size: 10px;
+  font-weight: 500;
+}
+
+.true-label {
+  color: #10B981;
+}
+
+.false-label {
+  color: #EF4444;
 }
 </style>

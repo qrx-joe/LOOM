@@ -2,7 +2,7 @@
 import { VueFlow, useVueFlow } from '@vue-flow/core'
 import { Background } from '@vue-flow/background'
 import { Controls } from '@vue-flow/controls'
-import { ref, onMounted, onUnmounted, markRaw } from 'vue'
+import { ref, onMounted, onUnmounted, markRaw, computed } from 'vue'
 import { useWorkflowStore } from '../store/workflow'
 import {
   Save, Play, Trash2,
@@ -16,11 +16,7 @@ const emit = defineEmits<{
 }>()
 
 const store = useWorkflowStore()
-const { onConnect, onNodeClick, onEdgeClick, project } = useVueFlow()
-
-// 本地响应式变量，直接和 VueFlow 绑定
-const localNodes = ref<any[]>([])
-const localEdges = ref<any[]>([])
+const { onConnect, onNodeClick, onEdgeClick, project, onNodesChange, onEdgesChange } = useVueFlow()
 
 const selectedNode = ref<any>(null)
 const selectedEdge = ref<any>(null)
@@ -28,6 +24,16 @@ const isSaving = ref(false)
 const isRunning = ref(false)
 const runLogs = ref<any[]>([])
 const showLogPanel = ref(false)
+
+// 直接使用 computed 绑定 store 数据，确保撤销/重做同步
+const localNodes = computed({
+  get: () => store.nodes,
+  set: (val) => { store.nodes = val }
+})
+const localEdges = computed({
+  get: () => store.edges,
+  set: (val) => { store.edges = val }
+})
 
 // 节点类型定义
 const nodeTypes = [
@@ -65,10 +71,28 @@ onNodeClick((event) => {
 
 // 监听连接
 onConnect((params) => {
-  const newEdge = { ...params, id: `edge-${Date.now()}` }
-  localEdges.value = [...localEdges.value, newEdge]
-  store.edges = [...localEdges.value]
+  const newEdge = {
+    id: `edge-${Date.now()}`,
+    source: params.source,
+    target: params.target,
+    sourceHandle: params.sourceHandle || undefined,
+    targetHandle: params.targetHandle || undefined,
+  }
+  store.edges = [...store.edges, newEdge]
   store.saveHistory()
+})
+
+// 监听节点变化（移动等）
+onNodesChange((changes) => {
+  const hasPositionChange = changes.some(c => c.type === 'position' && c.dragging === false)
+  if (hasPositionChange) {
+    store.saveHistory()
+  }
+})
+
+// 监听边变化
+onEdgesChange(() => {
+  // 边的变化通常由连接操作处理
 })
 
 // 键盘事件
@@ -94,13 +118,11 @@ const handleKeyDown = (e: KeyboardEvent) => {
 // 删除选中
 const deleteSelected = () => {
   if (selectedNode.value) {
-    localNodes.value = localNodes.value.filter(n => n.id !== selectedNode.value.id)
-    store.nodes = [...localNodes.value]
+    store.nodes = store.nodes.filter(n => n.id !== selectedNode.value.id)
     store.saveHistory()
     selectedNode.value = null
   } else if (selectedEdge.value) {
-    localEdges.value = localEdges.value.filter(e => e.id !== selectedEdge.value.id)
-    store.edges = [...localEdges.value]
+    store.edges = store.edges.filter(e => e.id !== selectedEdge.value.id)
     store.saveHistory()
     selectedEdge.value = null
   }
@@ -109,11 +131,6 @@ const deleteSelected = () => {
 // 初始化
 onMounted(async () => {
   window.addEventListener('keydown', handleKeyDown)
-  // 等待父组件加载工作流数据
-  setTimeout(() => {
-    localNodes.value = [...store.nodes]
-    localEdges.value = [...store.edges]
-  }, 100)
 })
 
 onUnmounted(() => {
@@ -170,8 +187,7 @@ const onDrop = (e: DragEvent) => {
     data: getDefaultNodeData(nodeType),
   }
 
-  localNodes.value = [...localNodes.value, newNode]
-  store.nodes = [...localNodes.value]
+  store.nodes = [...store.nodes, newNode]
   store.saveHistory()
   selectedNode.value = newNode
 }
@@ -187,8 +203,6 @@ const onDragOver = (e: DragEvent) => {
 const handleSave = async () => {
   isSaving.value = true
   try {
-    store.nodes = [...localNodes.value]
-    store.edges = [...localEdges.value]
     await store.saveWorkflow()
     alert('保存成功')
   } catch (e) {
@@ -198,12 +212,24 @@ const handleSave = async () => {
   }
 }
 
-// 运行
+// 运行（先保存再运行）
 const handleRun = async () => {
+  // 先保存
+  isSaving.value = true
+  try {
+    await store.saveWorkflow()
+  } catch (e) {
+    alert('保存失败，无法运行')
+    isSaving.value = false
+    return
+  }
+  isSaving.value = false
+
   if (!store.currentWorkflowId) {
     alert('请先保存工作流')
     return
   }
+
   isRunning.value = true
   runLogs.value = []
   showLogPanel.value = true
@@ -226,6 +252,11 @@ const handleRun = async () => {
     isRunning.value = false
     eventSource.close()
   }
+}
+
+// 属性修改时保存历史
+const onPropertyChange = () => {
+  store.saveHistory()
 }
 
 // 返回列表
@@ -326,38 +357,42 @@ const handleBack = () => {
           <template v-if="selectedNode">
             <div class="form-group">
               <label>名称</label>
-              <input v-model="selectedNode.label" />
+              <input v-model="selectedNode.label" @change="onPropertyChange" />
             </div>
             <template v-if="selectedNode.type === 'AI_AGENT' || selectedNode.data?.nodeType === 'AI_AGENT'">
               <div class="form-group">
                 <label>Prompt</label>
-                <textarea v-model="selectedNode.data.prompt" rows="6"></textarea>
+                <textarea v-model="selectedNode.data.prompt" rows="6" @change="onPropertyChange"></textarea>
               </div>
               <div class="form-group">
                 <label>模型</label>
-                <select v-model="selectedNode.data.model">
+                <select v-model="selectedNode.data.model" @change="onPropertyChange">
                   <option value="deepseek-ai/DeepSeek-V3">DeepSeek V3</option>
                   <option value="deepseek-ai/DeepSeek-R1">DeepSeek R1</option>
                 </select>
               </div>
+              <div class="form-group">
+                <label>温度</label>
+                <input type="number" v-model="selectedNode.data.temperature" min="0" max="2" step="0.1" @change="onPropertyChange" />
+              </div>
             </template>
             <template v-if="selectedNode.type === 'KNOWLEDGE_RETRIEVAL' || selectedNode.data?.nodeType === 'KNOWLEDGE_RETRIEVAL'">
               <div class="form-group">
-                <label>查询</label>
-                <input v-model="selectedNode.data.query" />
+                <label>查询模板</label>
+                <input v-model="selectedNode.data.query" @change="onPropertyChange" placeholder="{{START_INPUT}}" />
               </div>
             </template>
             <template v-if="selectedNode.type === 'CONDITION' || selectedNode.data?.nodeType === 'CONDITION'">
               <div class="form-group">
-                <label>条件</label>
-                <input v-model="selectedNode.data.expression" placeholder="e.g. score > 10" />
+                <label>条件表达式</label>
+                <input v-model="selectedNode.data.expression" placeholder="e.g. score > 10" @change="onPropertyChange" />
               </div>
             </template>
           </template>
           <template v-if="selectedEdge">
             <div class="form-group">
               <label>条件</label>
-              <select v-model="selectedEdge.condition">
+              <select v-model="selectedEdge.condition" @change="onPropertyChange">
                 <option value="">无条件</option>
                 <option value="true">为 true 时</option>
                 <option value="false">为 false 时</option>
