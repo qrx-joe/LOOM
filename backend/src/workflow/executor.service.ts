@@ -3,7 +3,8 @@ import { Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 import { OpenAI } from 'openai';
 import { WorkflowDefinition, NodeData, ExecutionLog, NodeType } from './interfaces/workflow.interface';
-import { KnowledgeService } from '../knowledge/knowledge.service';
+import { SearchService } from '../knowledge/services/search.service';
+import { DEFAULT_SEARCH_CONFIG } from '../knowledge/interfaces';
 import { WorkflowLog, WorkflowLogStatus } from './workflow-log.entity';
 
 // SSE 事件类型
@@ -27,7 +28,7 @@ export class ExecutorService {
     });
 
     constructor(
-        private readonly knowledgeService: KnowledgeService,
+        private readonly searchService: SearchService,
         @InjectRepository(WorkflowLog)
         private readonly workflowLogRepo: Repository<WorkflowLog>,
     ) { }
@@ -341,10 +342,10 @@ export class ExecutorService {
             return { fragments: [], error: 'Missing query' };
         }
 
-        const results = await this.knowledgeService.search(kbId, query);
+        const searchResult = await this.searchService.search(kbId, query, DEFAULT_SEARCH_CONFIG);
         return {
-            fragments: results.map(r => ({
-                id: r.id,
+            fragments: searchResult.results.map(r => ({
+                id: r.chunkId,
                 content: r.content,
                 score: r.score,
                 documentName: r.documentName,

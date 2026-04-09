@@ -12,7 +12,7 @@ export class KnowledgeDocument {
   @Column()
   name: string;
 
-  @Column()
+  @Column({ nullable: true })
   filePath: string;
 
   @Column({ nullable: true })

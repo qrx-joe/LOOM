@@ -39,6 +39,11 @@ const fetchKbs = async () => {
   try {
     const resp = await axios.get(getKnowledgeBasesUrl())
     kbs.value = resp.data
+    // 更新 selectedKb 的引用
+    if (selectedKb.value) {
+      const updated = kbs.value.find(kb => kb.id === selectedKb.value!.id)
+      selectedKb.value = updated || null
+    }
     // 初始化文档状态
     for (const kb of kbs.value) {
       for (const doc of kb.documents || []) {
@@ -53,6 +58,10 @@ const fetchKbs = async () => {
   } catch (err) {
     console.error('Fetch KBs failed', err)
   }
+}
+
+const selectKb = (kb: KnowledgeBase) => {
+  selectedKb.value = kb
 }
 
 const createKb = async () => {
@@ -79,7 +88,6 @@ const handleUpload = async (kbId: string, event: any) => {
       headers: { 'Content-Type': 'multipart/form-data' }
     })
 
-    // 添加新文档到状态
     const newDoc = resp.data as Document
     documentStatuses.value.set(newDoc.id, {
       status: 'pending',
@@ -92,7 +100,7 @@ const handleUpload = async (kbId: string, event: any) => {
     alert(err.response?.data?.message || '上传失败')
   } finally {
     isLoading.value = false
-    event.target.value = '' // 重置文件输入
+    event.target.value = ''
   }
 }
 
@@ -121,7 +129,7 @@ const pollDocumentStatuses = async () => {
       documentStatuses.value.set(docId, { status, progress, error: errorMessage })
 
       if (status === 'completed' || status === 'failed') {
-        await fetchKbs() // 刷新知识库列表
+        await fetchKbs()
       }
     } catch (err) {
       console.error(`Failed to poll status for doc ${docId}`, err)
@@ -214,13 +222,14 @@ onUnmounted(() => {
     </header>
 
     <div class="kb-main">
+      <!-- 知识库卡片网格 -->
       <div class="kb-grid">
         <div
           v-for="kb in kbs"
           :key="kb.id"
           class="kb-card"
           :class="{ active: selectedKb?.id === kb.id }"
-          @click="selectedKb = kb"
+          @click="selectKb(kb)"
         >
           <div class="kb-card-header">
             <div class="kb-icon"><BookOpen :size="24" /></div>
@@ -229,9 +238,8 @@ onUnmounted(() => {
               <span class="kb-tag">{{ kb.documents?.length || 0 }} Docs</span>
             </div>
           </div>
-
           <div class="kb-card-actions">
-            <label class="upload-btn">
+            <label class="upload-btn" @click.stop>
               <Upload :size="16" />
               上传文档
               <input
@@ -248,51 +256,51 @@ onUnmounted(() => {
         </div>
       </div>
 
-      <transition name="fade">
-        <div v-if="selectedKb" class="kb-detail-panel">
-          <header class="detail-header">
-            <h2>文档详情 - {{ selectedKb.name }}</h2>
-            <p v-if="(selectedKb.documents?.length || 0) > 0">共 {{ selectedKb.documents?.length || 0 }} 个文档</p>
-          </header>
+      <!-- 文档详情面板 -->
+      <div v-if="selectedKb" class="kb-detail-panel">
+        <header class="detail-header">
+          <h2>文档详情 - {{ selectedKb.name }}</h2>
+          <p v-if="(selectedKb.documents?.length || 0) > 0">共 {{ selectedKb.documents?.length || 0 }} 个文档</p>
+        </header>
 
-          <div class="doc-list">
-            <div v-if="selectedKb.documents?.length === 0" class="empty-state">
-              <div class="empty-icon"><FolderOpen :size="48" /></div>
-              <p>暂无文档，支持 PDF、Word 和纯文本格式。</p>
+        <div class="doc-list">
+          <div v-if="!selectedKb.documents || selectedKb.documents.length === 0" class="empty-state">
+            <div class="empty-icon"><FolderOpen :size="48" /></div>
+            <p>暂无文档，支持 PDF、Word 和纯文本格式。</p>
+          </div>
+
+          <div v-for="doc in selectedKb.documents" :key="doc.id" class="doc-row">
+            <div class="doc-info">
+              <FileText :size="18" class="doc-icon" />
+              <div class="doc-texts">
+                <span class="doc-name">{{ doc.name }}</span>
+                <span class="doc-date">{{ new Date(doc.createdAt).toLocaleDateString() }}</span>
+              </div>
             </div>
-            <div v-for="doc in selectedKb.documents" :key="doc.id" class="doc-row">
-              <div class="doc-info">
-                <FileText :size="18" class="doc-icon" />
-                <div class="doc-texts">
-                  <span class="doc-name">{{ doc.name }}</span>
-                  <span class="doc-date">{{ new Date(doc.createdAt).toLocaleDateString() }}</span>
-                </div>
+            <div class="doc-actions">
+              <div
+                class="doc-status-tag"
+                :class="{ processing: getDocStatus(doc).status !== 'completed' && getDocStatus(doc).status !== 'failed' }"
+                :style="{ borderColor: getStatusColor(getDocStatus(doc).status), color: getStatusColor(getDocStatus(doc).status) }"
+              >
+                <Loader2 v-if="getDocStatus(doc).status !== 'completed' && getDocStatus(doc).status !== 'failed'" :size="12" class="spin" />
+                <CheckCircle v-else-if="getDocStatus(doc).status === 'completed'" :size="12" />
+                <AlertCircle v-else :size="12" />
+                {{ getStatusText(getDocStatus(doc).status) }}
               </div>
-              <div class="doc-actions">
-                <div
-                  class="doc-status-tag"
-                  :class="{ processing: getDocStatus(doc).status !== 'completed' && getDocStatus(doc).status !== 'failed' }"
-                  :style="{ borderColor: getStatusColor(getDocStatus(doc).status), color: getStatusColor(getDocStatus(doc).status) }"
-                >
-                  <Loader2 v-if="getDocStatus(doc).status !== 'completed' && getDocStatus(doc).status !== 'failed'" :size="12" class="spin" />
-                  <CheckCircle v-else-if="getDocStatus(doc).status === 'completed'" :size="12" />
-                  <AlertCircle v-else :size="12" />
-                  {{ getStatusText(getDocStatus(doc).status) }}
-                </div>
-                <div
-                  v-if="getDocStatus(doc).status !== 'completed' && getDocStatus(doc).status !== 'failed'"
-                  class="progress-bar"
-                >
-                  <div class="progress-fill" :style="{ width: `${getDocStatus(doc).progress}%` }"></div>
-                </div>
-                <button class="icon-btn danger small" @click="e => deleteDoc(doc.id, e)">
-                  <Trash2 :size="14" />
-                </button>
+              <div
+                v-if="getDocStatus(doc).status !== 'completed' && getDocStatus(doc).status !== 'failed'"
+                class="progress-bar"
+              >
+                <div class="progress-fill" :style="{ width: `${getDocStatus(doc).progress}%` }"></div>
               </div>
+              <button class="icon-btn danger small" @click="e => deleteDoc(doc.id, e)">
+                <Trash2 :size="14" />
+              </button>
             </div>
           </div>
         </div>
-      </transition>
+      </div>
     </div>
   </div>
 </template>
@@ -337,9 +345,9 @@ onUnmounted(() => {
 .kb-card {
   padding: 24px;
   border-radius: 20px;
-  border: 1px solid var(--border-subtle);
+  border: 2px solid var(--border-subtle);
   cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.3s ease;
   background: white;
 }
 
@@ -352,6 +360,7 @@ onUnmounted(() => {
 .kb-card.active {
   background: var(--primary-light);
   border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(71, 118, 246, 0.2);
 }
 
 .kb-card-header {
@@ -370,6 +379,7 @@ onUnmounted(() => {
   justify-content: center;
   border-radius: 12px;
   box-shadow: var(--shadow-sm);
+  color: var(--primary);
 }
 
 .kb-meta h3 {
@@ -414,13 +424,17 @@ onUnmounted(() => {
 .kb-detail-panel {
   padding: 32px;
   border-radius: 24px;
-  border: 1px solid var(--border-subtle);
+  border: 2px solid var(--primary);
   background: var(--bg-surface);
   box-shadow: var(--shadow-md);
 }
 
 .detail-header {
   margin-bottom: 24px;
+}
+
+.detail-header h2 {
+  color: var(--primary);
 }
 
 .doc-list {
@@ -515,6 +529,7 @@ onUnmounted(() => {
   gap: 8px;
   border: none;
   cursor: pointer;
+  height: 44px;
 }
 
 input {
@@ -525,11 +540,6 @@ input {
   width: 240px;
 }
 
-/* Transitions */
-.fade-enter-active, .fade-leave-active { transition: opacity 0.3s ease; }
-.fade-enter-from, .fade-leave-to { opacity: 0; }
-
-/* Icon Button */
 .icon-btn {
   background: transparent;
   border: none;
@@ -557,14 +567,12 @@ input {
   color: #ef4444;
 }
 
-/* Doc Actions */
 .doc-actions {
   display: flex;
   align-items: center;
   gap: 12px;
 }
 
-/* Spin animation */
 .spin {
   animation: spin 1s linear infinite;
 }

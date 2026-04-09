@@ -14,6 +14,16 @@ import { KnowledgeBaseService } from './services/knowledge-base.service';
 import { SearchService } from './services/search.service';
 import { DEFAULT_SEARCH_CONFIG } from './interfaces';
 
+// 修复中文文件名编码问题
+function decodeFilename(filename: string): string {
+  try {
+    // 尝试修复 latin1 -> utf8 的编码问题
+    return Buffer.from(filename, 'latin1').toString('utf8');
+  } catch {
+    return filename;
+  }
+}
+
 @Controller('knowledge')
 export class KnowledgeController {
   constructor(
@@ -60,9 +70,12 @@ export class KnowledgeController {
   ) {
     if (!file) throw new Error('No file uploaded');
 
+    // 修复中文文件名编码
+    const filename = decodeFilename(file.originalname);
+
     return this.knowledgeBaseService.processDocument(
       id,
-      file.originalname,
+      filename,
       file.buffer,
       file.mimetype,
     );

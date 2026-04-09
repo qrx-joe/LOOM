@@ -156,11 +156,11 @@ const handleWorkflowBack = () => {
 .content-box {
   flex: 1;
   position: relative;
-  overflow: hidden;
+  overflow-y: auto;
 }
 
 .view-wrapper {
-  height: 100%;
+  min-height: 100%;
   width: 100%;
 }
 </style>
