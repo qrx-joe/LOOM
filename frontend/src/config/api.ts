@@ -4,7 +4,7 @@ export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localho
 // API 端点
 export const API_ENDPOINTS = {
   workflows: `${API_BASE_URL}/workflows`,
-  knowledgeBases: `${API_BASE_URL}/knowledge-bases`,
+  knowledgeBases: `${API_BASE_URL}/knowledge/bases`,
   chat: `${API_BASE_URL}/chat`,
 }
 
@@ -21,4 +21,17 @@ export const getWorkflowRunStreamUrl = (id: string) =>
 export const getWorkflowLogsUrl = (id: string) =>
   `${API_ENDPOINTS.workflows}/${id}/logs`
 
+// 知识库相关
 export const getKnowledgeBasesUrl = () => API_ENDPOINTS.knowledgeBases
+
+export const getKnowledgeBaseUrl = (id: string) =>
+  `${API_ENDPOINTS.knowledgeBases}/${id}`
+
+export const getUploadDocumentUrl = (kbId: string) =>
+  `${API_ENDPOINTS.knowledgeBases}/${kbId}/upload`
+
+export const getDocumentStatusUrl = (docId: string) =>
+  `${API_BASE_URL}/knowledge/documents/${docId}/status`
+
+export const getSearchKnowledgeUrl = () =>
+  `${API_BASE_URL}/knowledge/search`

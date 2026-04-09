@@ -1,13 +1,35 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { KnowledgeService } from './knowledge.service';
+import { ConfigModule } from '@nestjs/config';
 import { KnowledgeController } from './knowledge.controller';
-import { KnowledgeBase, KnowledgeDocument, KnowledgeChunk } from './knowledge.entity';
+import { KnowledgeBase, KnowledgeDocument, KnowledgeChunk } from './entities';
+import {
+  KnowledgeBaseService,
+  EmbeddingService,
+  ChunkingService,
+  DocumentProcessorService,
+  SearchService,
+} from './services';
 
 @Module({
-    imports: [TypeOrmModule.forFeature([KnowledgeBase, KnowledgeDocument, KnowledgeChunk])],
-    controllers: [KnowledgeController],
-    providers: [KnowledgeService],
-    exports: [KnowledgeService],
+  imports: [
+    ConfigModule,
+    TypeOrmModule.forFeature([KnowledgeBase, KnowledgeDocument, KnowledgeChunk]),
+  ],
+  controllers: [KnowledgeController],
+  providers: [
+    KnowledgeBaseService,
+    EmbeddingService,
+    ChunkingService,
+    DocumentProcessorService,
+    SearchService,
+  ],
+  exports: [
+    KnowledgeBaseService,
+    SearchService,
+    EmbeddingService,
+    ChunkingService,
+    DocumentProcessorService,
+  ],
 })
-export class KnowledgeModule { }
+export class KnowledgeModule {}

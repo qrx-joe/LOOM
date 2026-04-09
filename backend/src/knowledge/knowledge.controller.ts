@@ -1,49 +1,88 @@
-import { Controller, Post, Body, Get, UploadedFile, UseInterceptors, Param, Delete } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Body,
+  Get,
+  UploadedFile,
+  UseInterceptors,
+  Param,
+  Delete,
+  NotFoundException,
+} from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { KnowledgeService, SearchResult } from './knowledge.service';
+import { KnowledgeBaseService } from './services/knowledge-base.service';
+import { SearchService } from './services/search.service';
+import { DEFAULT_SEARCH_CONFIG } from './interfaces';
 
 @Controller('knowledge')
 export class KnowledgeController {
-    constructor(private readonly knowledgeService: KnowledgeService) { }
+  constructor(
+    private readonly knowledgeBaseService: KnowledgeBaseService,
+    private readonly searchService: SearchService,
+  ) {}
 
-    @Post('bases')
-    createBase(@Body() body: { name: string; description?: string }) {
-        return this.knowledgeService.createBase(body.name, body.description);
-    }
+  // ==================== 知识库管理 ====================
 
-    @Get('bases')
-    findAllBases() {
-        return this.knowledgeService.findAllBases();
-    }
+  @Post('bases')
+  createBase(@Body() body: { name: string; description?: string }) {
+    return this.knowledgeBaseService.createBase(body.name, body.description);
+  }
 
-    @Get('stats')
-    getStats() {
-        return this.knowledgeService.getStats();
-    }
+  @Get('bases')
+  findAllBases() {
+    return this.knowledgeBaseService.findAllBases();
+  }
 
-    @Delete('bases/:id')
-    deleteBase(@Param('id') id: string) {
-        return this.knowledgeService.deleteBase(id);
-    }
+  @Get('bases/:id')
+  async findBase(@Param('id') id: string) {
+    const kb = await this.knowledgeBaseService.findBaseById(id);
+    if (!kb) throw new NotFoundException('Knowledge Base not found');
+    return kb;
+  }
 
-    @Delete('documents/:id')
-    deleteDocument(@Param('id') id: string) {
-        return this.knowledgeService.deleteDocument(id);
-    }
+  @Delete('bases/:id')
+  deleteBase(@Param('id') id: string) {
+    return this.knowledgeBaseService.deleteBase(id);
+  }
 
-    @Post('bases/:id/upload')
-    @UseInterceptors(FileInterceptor('file'))
-    uploadDocument(
-        @Param('id') id: string,
-        @UploadedFile() file: any,
-    ) {
-        if (!file) throw new Error('No file uploaded');
-        const content = file.buffer.toString('utf-8');
-        return this.knowledgeService.processDocument(id, file.originalname, content);
-    }
+  @Get('stats')
+  getStats() {
+    return this.knowledgeBaseService.getStats();
+  }
 
-    @Post('search')
-    search(@Body() body: { kbId: string; query: string; topK?: number }) {
-        return this.knowledgeService.search(body.kbId, body.query, body.topK);
-    }
+  // ==================== 文档管理 ====================
+
+  @Post('bases/:id/upload')
+  @UseInterceptors(FileInterceptor('file'))
+  async uploadDocument(
+    @Param('id') id: string,
+    @UploadedFile() file: any,
+  ) {
+    if (!file) throw new Error('No file uploaded');
+
+    return this.knowledgeBaseService.processDocument(
+      id,
+      file.originalname,
+      file.buffer,
+      file.mimetype,
+    );
+  }
+
+  @Delete('documents/:id')
+  deleteDocument(@Param('id') id: string) {
+    return this.knowledgeBaseService.deleteDocument(id);
+  }
+
+  @Get('documents/:id/status')
+  getDocumentStatus(@Param('id') id: string) {
+    return this.knowledgeBaseService.getDocumentStatus(id);
+  }
+
+  // ==================== 检索 ====================
+
+  @Post('search')
+  async search(@Body() body: { kbId: string; query: string; topK?: number }) {
+    const config = { ...DEFAULT_SEARCH_CONFIG, topK: body.topK || DEFAULT_SEARCH_CONFIG.topK };
+    return this.searchService.search(body.kbId, body.query, config);
+  }
 }

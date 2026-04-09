@@ -1,17 +1,55 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import axios from 'axios'
-import { Plus, Trash2, Upload, FileText, BookOpen, FolderOpen } from 'lucide-vue-next'
+import { Plus, Trash2, Upload, FileText, BookOpen, FolderOpen, Loader2, CheckCircle, AlertCircle } from 'lucide-vue-next'
+import {
+  getKnowledgeBasesUrl,
+  getKnowledgeBaseUrl,
+  getUploadDocumentUrl,
+  getDocumentStatusUrl,
+} from '../config/api'
 
-const kbs = ref<any[]>([])
+type ProcessingStatus = 'pending' | 'parsing' | 'chunking' | 'embedding' | 'completed' | 'failed'
+
+interface Document {
+  id: string
+  name: string
+  createdAt: string
+  processingStatus?: ProcessingStatus
+  progress?: number
+  errorMessage?: string
+}
+
+interface KnowledgeBase {
+  id: string
+  name: string
+  description?: string
+  documents?: Document[]
+  createdAt: string
+}
+
+const kbs = ref<KnowledgeBase[]>([])
 const newKbName = ref('')
 const isLoading = ref(false)
-const selectedKb = ref<any>(null)
+const selectedKb = ref<KnowledgeBase | null>(null)
+const documentStatuses = ref<Map<string, { status: ProcessingStatus; progress: number; error?: string }>>(new Map())
+let statusPollingInterval: ReturnType<typeof setInterval> | null = null
 
 const fetchKbs = async () => {
   try {
-    const resp = await axios.get('http://localhost:3001/knowledge/bases')
+    const resp = await axios.get(getKnowledgeBasesUrl())
     kbs.value = resp.data
+    // 初始化文档状态
+    for (const kb of kbs.value) {
+      for (const doc of kb.documents || []) {
+        if (doc.processingStatus && doc.processingStatus !== 'completed') {
+          documentStatuses.value.set(doc.id, {
+            status: doc.processingStatus,
+            progress: doc.progress || 0,
+          })
+        }
+      }
+    }
   } catch (err) {
     console.error('Fetch KBs failed', err)
   }
@@ -20,7 +58,7 @@ const fetchKbs = async () => {
 const createKb = async () => {
   if (!newKbName.value.trim()) return
   try {
-    await axios.post('http://localhost:3001/knowledge/bases', { name: newKbName.value })
+    await axios.post(getKnowledgeBasesUrl(), { name: newKbName.value })
     newKbName.value = ''
     await fetchKbs()
   } catch (err) {
@@ -37,15 +75,57 @@ const handleUpload = async (kbId: string, event: any) => {
 
   isLoading.value = true
   try {
-    await axios.post(`http://localhost:3001/knowledge/bases/${kbId}/upload`, formData, {
+    const resp = await axios.post(getUploadDocumentUrl(kbId), formData, {
       headers: { 'Content-Type': 'multipart/form-data' }
     })
-    alert('上传成功！后端已自动分片并生成 Mock 向量索引。')
+
+    // 添加新文档到状态
+    const newDoc = resp.data as Document
+    documentStatuses.value.set(newDoc.id, {
+      status: 'pending',
+      progress: 0,
+    })
+
     await fetchKbs()
-  } catch (err) {
-    alert('上传失败')
+    startStatusPolling(newDoc.id)
+  } catch (err: any) {
+    alert(err.response?.data?.message || '上传失败')
   } finally {
     isLoading.value = false
+    event.target.value = '' // 重置文件输入
+  }
+}
+
+const startStatusPolling = (_docId: string) => {
+  if (!statusPollingInterval) {
+    statusPollingInterval = setInterval(pollDocumentStatuses, 2000)
+  }
+}
+
+const pollDocumentStatuses = async () => {
+  const pendingDocs = Array.from(documentStatuses.value.entries())
+    .filter(([_, data]) => data.status !== 'completed' && data.status !== 'failed')
+
+  if (pendingDocs.length === 0) {
+    if (statusPollingInterval) {
+      clearInterval(statusPollingInterval)
+      statusPollingInterval = null
+    }
+    return
+  }
+
+  for (const [docId, _] of pendingDocs) {
+    try {
+      const resp = await axios.get(getDocumentStatusUrl(docId))
+      const { status, progress, errorMessage } = resp.data
+      documentStatuses.value.set(docId, { status, progress, error: errorMessage })
+
+      if (status === 'completed' || status === 'failed') {
+        await fetchKbs() // 刷新知识库列表
+      }
+    } catch (err) {
+      console.error(`Failed to poll status for doc ${docId}`, err)
+    }
   }
 }
 
@@ -54,7 +134,7 @@ const deleteKb = async (kbId: string, event: Event) => {
   if (!confirm('确定要删除这个知识库吗？删除后无法恢复。')) return
 
   try {
-    await axios.delete(`http://localhost:3001/knowledge/bases/${kbId}`)
+    await axios.delete(getKnowledgeBaseUrl(kbId))
     if (selectedKb.value?.id === kbId) {
       selectedKb.value = null
     }
@@ -69,14 +149,52 @@ const deleteDoc = async (docId: string, event: Event) => {
   if (!confirm('确定要删除这个文档吗？')) return
 
   try {
-    await axios.delete(`http://localhost:3001/knowledge/documents/${docId}`)
+    await axios.delete(`${getKnowledgeBasesUrl().replace('/bases', '')}/documents/${docId}`)
+    documentStatuses.value.delete(docId)
     await fetchKbs()
   } catch (err) {
     alert('删除失败')
   }
 }
 
-onMounted(fetchKbs)
+const getDocStatus = (doc: Document) => {
+  const tracked = documentStatuses.value.get(doc.id)
+  return tracked || { status: doc.processingStatus || 'completed', progress: 100 }
+}
+
+const getStatusText = (status: ProcessingStatus): string => {
+  const map: Record<ProcessingStatus, string> = {
+    pending: '等待处理',
+    parsing: '解析文档',
+    chunking: '文本分片',
+    embedding: '生成向量',
+    completed: '已完成',
+    failed: '处理失败',
+  }
+  return map[status] || status
+}
+
+const getStatusColor = (status: ProcessingStatus): string => {
+  const map: Record<ProcessingStatus, string> = {
+    pending: '#6b7280',
+    parsing: '#3b82f6',
+    chunking: '#8b5cf6',
+    embedding: '#f59e0b',
+    completed: '#10b981',
+    failed: '#ef4444',
+  }
+  return map[status] || '#6b7280'
+}
+
+onMounted(() => {
+  fetchKbs()
+})
+
+onUnmounted(() => {
+  if (statusPollingInterval) {
+    clearInterval(statusPollingInterval)
+  }
+})
 </script>
 
 <template>
@@ -84,7 +202,7 @@ onMounted(fetchKbs)
     <header class="kb-header">
       <div class="header-main">
         <h1>知识库中心</h1>
-        <p class="subtitle">管理您的 AI 知识资产，支持多种格式文档上传。</p>
+        <p class="subtitle">管理您的 AI 知识资产，支持 PDF、Word 和纯文本文档。</p>
       </div>
       <div class="add-kb-wrapper">
         <input v-model="newKbName" placeholder="起个好记的名字..." @keyup.enter="createKb" />
@@ -97,9 +215,9 @@ onMounted(fetchKbs)
 
     <div class="kb-main">
       <div class="kb-grid">
-        <div 
-          v-for="kb in kbs" 
-          :key="kb.id" 
+        <div
+          v-for="kb in kbs"
+          :key="kb.id"
           class="kb-card"
           :class="{ active: selectedKb?.id === kb.id }"
           @click="selectedKb = kb"
@@ -111,12 +229,17 @@ onMounted(fetchKbs)
               <span class="kb-tag">{{ kb.documents?.length || 0 }} Docs</span>
             </div>
           </div>
-          
+
           <div class="kb-card-actions">
             <label class="upload-btn">
               <Upload :size="16" />
               上传文档
-              <input type="file" @change="e => handleUpload(kb.id, e)" hidden />
+              <input
+                type="file"
+                accept=".txt,.pdf,.doc,.docx"
+                @change="e => handleUpload(kb.id, e)"
+                hidden
+              />
             </label>
             <button class="icon-btn danger" @click="e => deleteKb(kb.id, e)">
               <Trash2 :size="16" />
@@ -129,13 +252,13 @@ onMounted(fetchKbs)
         <div v-if="selectedKb" class="kb-detail-panel">
           <header class="detail-header">
             <h2>文档详情 - {{ selectedKb.name }}</h2>
-            <p v-if="selectedKb.documents?.length > 0">共 {{ selectedKb.documents.length }} 个文档</p>
+            <p v-if="(selectedKb.documents?.length || 0) > 0">共 {{ selectedKb.documents?.length || 0 }} 个文档</p>
           </header>
 
           <div class="doc-list">
             <div v-if="selectedKb.documents?.length === 0" class="empty-state">
               <div class="empty-icon"><FolderOpen :size="48" /></div>
-              <p>暂无文档，请点击上方“上传文档”开始。</p>
+              <p>暂无文档，支持 PDF、Word 和纯文本格式。</p>
             </div>
             <div v-for="doc in selectedKb.documents" :key="doc.id" class="doc-row">
               <div class="doc-info">
@@ -146,7 +269,22 @@ onMounted(fetchKbs)
                 </div>
               </div>
               <div class="doc-actions">
-                <div class="doc-status-tag">已索引</div>
+                <div
+                  class="doc-status-tag"
+                  :class="{ processing: getDocStatus(doc).status !== 'completed' && getDocStatus(doc).status !== 'failed' }"
+                  :style="{ borderColor: getStatusColor(getDocStatus(doc).status), color: getStatusColor(getDocStatus(doc).status) }"
+                >
+                  <Loader2 v-if="getDocStatus(doc).status !== 'completed' && getDocStatus(doc).status !== 'failed'" :size="12" class="spin" />
+                  <CheckCircle v-else-if="getDocStatus(doc).status === 'completed'" :size="12" />
+                  <AlertCircle v-else :size="12" />
+                  {{ getStatusText(getDocStatus(doc).status) }}
+                </div>
+                <div
+                  v-if="getDocStatus(doc).status !== 'completed' && getDocStatus(doc).status !== 'failed'"
+                  class="progress-bar"
+                >
+                  <div class="progress-fill" :style="{ width: `${getDocStatus(doc).progress}%` }"></div>
+                </div>
                 <button class="icon-btn danger small" @click="e => deleteDoc(doc.id, e)">
                   <Trash2 :size="14" />
                 </button>
@@ -327,12 +465,32 @@ onMounted(fetchKbs)
 }
 
 .doc-status-tag {
+  display: flex;
+  align-items: center;
+  gap: 4px;
   font-size: 12px;
-  color: #10b981;
   font-weight: 600;
-  background: #ecfdf5;
   padding: 4px 12px;
   border-radius: 20px;
+  border: 1px solid;
+}
+
+.doc-status-tag.processing {
+  background: #fef3c7;
+}
+
+.progress-bar {
+  width: 80px;
+  height: 4px;
+  background: #e5e7eb;
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: var(--primary);
+  transition: width 0.3s ease;
 }
 
 .empty-state {
@@ -404,5 +562,15 @@ input {
   display: flex;
   align-items: center;
   gap: 12px;
+}
+
+/* Spin animation */
+.spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 </style>

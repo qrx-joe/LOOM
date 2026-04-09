@@ -1,0 +1,129 @@
+import { Injectable, Logger, BadRequestException } from '@nestjs/common';
+
+export interface ProcessedDocument {
+  content: string;
+  metadata: {
+    pageCount?: number;
+    wordCount: number;
+    format: string;
+  };
+}
+
+@Injectable()
+export class DocumentProcessorService {
+  private readonly logger = new Logger(DocumentProcessorService.name);
+
+  private readonly supportedMimeTypes = [
+    'text/plain',
+    'application/pdf',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // .docx
+    'application/msword', // .doc
+  ];
+
+  async process(buffer: Buffer, mimeType: string, fileName: string): Promise<ProcessedDocument> {
+    if (!this.supportedMimeTypes.includes(mimeType)) {
+      throw new BadRequestException(`Unsupported file type: ${mimeType}`);
+    }
+
+    const format = this.getFormatFromMime(mimeType);
+
+    try {
+      switch (mimeType) {
+        case 'text/plain':
+          return this.processText(buffer);
+        case 'application/pdf':
+          return this.processPdf(buffer);
+        case 'application/vnd.openxmlformats-officedocument.wordprocessingml.document':
+        case 'application/msword':
+          return this.processWord(buffer, mimeType);
+        default:
+          throw new BadRequestException(`Unsupported file type: ${mimeType}`);
+      }
+    } catch (error) {
+      this.logger.error(`Failed to process document ${fileName}: ${error.message}`);
+      throw error;
+    }
+  }
+
+  private async processText(buffer: Buffer): Promise<ProcessedDocument> {
+    const content = buffer.toString('utf-8');
+    return {
+      content,
+      metadata: {
+        wordCount: this.countWords(content),
+        format: 'text',
+      },
+    };
+  }
+
+  private async processPdf(buffer: Buffer): Promise<ProcessedDocument> {
+    // 动态加载 pdf-parse
+    let pdfParse: any;
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      pdfParse = require('pdf-parse');
+    } catch (error) {
+      throw new Error('pdf-parse module not installed. Run: npm install pdf-parse');
+    }
+
+    const data = await pdfParse(buffer);
+    const content = data.text;
+
+    return {
+      content,
+      metadata: {
+        pageCount: data.numpages,
+        wordCount: this.countWords(content),
+        format: 'pdf',
+      },
+    };
+  }
+
+  private async processWord(buffer: Buffer, mimeType: string): Promise<ProcessedDocument> {
+    // 动态加载 mammoth
+    let mammoth: any;
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      mammoth = require('mammoth');
+    } catch (error) {
+      throw new Error('mammoth module not installed. Run: npm install mammoth');
+    }
+
+    const result = await mammoth.extractRawText({ buffer });
+    const content = result.value;
+
+    return {
+      content,
+      metadata: {
+        wordCount: this.countWords(content),
+        format: mimeType === 'application/msword' ? 'doc' : 'docx',
+      },
+    };
+  }
+
+  private getFormatFromMime(mimeType: string): string {
+    const map: Record<string, string> = {
+      'text/plain': 'txt',
+      'application/pdf': 'pdf',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'docx',
+      'application/msword': 'doc',
+    };
+    return map[mimeType] || 'unknown';
+  }
+
+  private countWords(text: string): number {
+    // 中文字符计数
+    const chineseChars = (text.match(/[\u4e00-\u9fff]/g) || []).length;
+    // 英文单词计数
+    const englishWords = (text.match(/[a-zA-Z]+/g) || []).length;
+    return chineseChars + englishWords;
+  }
+
+  isSupported(mimeType: string): boolean {
+    return this.supportedMimeTypes.includes(mimeType);
+  }
+
+  getSupportedMimeTypes(): string[] {
+    return [...this.supportedMimeTypes];
+  }
+}
