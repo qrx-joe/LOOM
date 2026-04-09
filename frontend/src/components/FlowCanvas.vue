@@ -9,7 +9,7 @@ import axios from 'axios'
 import {
   Save, Play, Trash2,
   PlayCircle, Bot, BookOpen, GitBranch, Square,
-  ArrowLeft
+  ArrowLeft, FolderOpen, AlertCircle
 } from 'lucide-vue-next'
 import CustomNodes from './CustomNodes.vue'
 
@@ -28,6 +28,28 @@ const runLogs = ref<any[]>([])
 const showLogPanel = ref(false)
 const knowledgeBases = ref<{ id: string; name: string }[]>([])
 
+// 节点运行结果预览
+const nodeResults = ref<Map<string, any>>(new Map())
+const showNodeResultModal = ref(false)
+const selectedNodeForResult = ref<any>(null)
+
+// 打开节点运行结果弹窗
+const openNodeResultModal = (node: any) => {
+  selectedNodeForResult.value = node
+  showNodeResultModal.value = true
+}
+
+// 关闭节点运行结果弹窗
+const closeNodeResultModal = () => {
+  showNodeResultModal.value = false
+  selectedNodeForResult.value = null
+}
+
+// 获取节点的运行结果
+const getNodeResult = (nodeId: string) => {
+  return nodeResults.value.get(nodeId)
+}
+
 // 获取知识库列表
 const fetchKnowledgeBases = async () => {
   try {
@@ -36,6 +58,13 @@ const fetchKnowledgeBases = async () => {
   } catch (err) {
     console.error('Failed to fetch knowledge bases', err)
   }
+}
+
+// 根据知识库ID获取名称
+const getKnowledgeBaseName = (kbId: string) => {
+  if (!kbId) return ''
+  const kb = knowledgeBases.value.find(k => k.id === kbId)
+  return kb?.name || kbId
 }
 
 // 直接使用 computed 绑定 store 数据，确保撤销/重做同步
@@ -238,6 +267,7 @@ const handleRun = async () => {
 
   isRunning.value = true
   runLogs.value = []
+  nodeResults.value.clear() // 清空之前的运行结果
   showLogPanel.value = true
 
   const sseUrl = getWorkflowRunStreamUrl(store.currentWorkflowId)
@@ -250,6 +280,10 @@ const handleRun = async () => {
         isRunning.value = false
       } else {
         runLogs.value.push(data)
+        // 收集节点运行结果
+        if (data.nodeId && data.type === 'node_complete' && data.data) {
+          nodeResults.value.set(data.nodeId, data.data)
+        }
       }
     } catch (e) {}
   }
@@ -434,6 +468,7 @@ const handleBack = () => {
           fit-view-on-init
           :default-edge-options="{ type: 'smoothstep', style: { stroke: '#9CA3AF', strokeWidth: 2 } }"
           class="vue-flow"
+          @node-double-click="(event) => openNodeResultModal(event.node)"
         >
           <Background pattern-color="#E5E7EB" :gap="20" />
           <Controls />
@@ -527,6 +562,91 @@ const handleBack = () => {
           <span class="log-node">{{ log.nodeId || 'workflow' }}</span>
           <span class="log-type">{{ log.type }}</span>
           <span class="log-msg">{{ formatLogMessage(log) }}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 节点运行结果弹窗 -->
+    <div v-if="showNodeResultModal && selectedNodeForResult" class="node-result-modal" @click.self="closeNodeResultModal">
+      <div class="node-result-content">
+        <div class="node-result-header">
+          <h3>节点运行结果 - {{ selectedNodeForResult.label || selectedNodeForResult.type }}</h3>
+          <button class="close-btn" @click="closeNodeResultModal">×</button>
+        </div>
+        <div class="node-result-body">
+          <!-- 知识检索节点特殊展示 -->
+          <template v-if="selectedNodeForResult.type === 'KNOWLEDGE_RETRIEVAL' || selectedNodeForResult.data?.nodeType === 'KNOWLEDGE_RETRIEVAL'">
+            <div class="result-section">
+              <h4>检索配置</h4>
+              <div class="config-info">
+                <p><strong>知识库：</strong>{{ getKnowledgeBaseName(selectedNodeForResult.data?.kbId) || '未配置' }}</p>
+                <p><strong>查询：</strong>{{ selectedNodeForResult.data?.query || '{{START_INPUT}}' }}</p>
+              </div>
+            </div>
+            <div v-if="getNodeResult(selectedNodeForResult.id)" class="result-section">
+              <h4>检索结果</h4>
+              <div v-if="getNodeResult(selectedNodeForResult.id)?.fragments?.length > 0" class="fragments-list">
+                <div v-for="(fragment, idx) in getNodeResult(selectedNodeForResult.id).fragments" :key="idx" class="fragment-card">
+                  <div class="fragment-header">
+                    <span class="fragment-score">匹配度: {{ (fragment.score * 100).toFixed(1) }}%</span>
+                    <span class="fragment-doc">{{ fragment.documentName }}</span>
+                  </div>
+                  <div class="fragment-content">{{ fragment.content }}</div>
+                </div>
+              </div>
+              <div v-else-if="getNodeResult(selectedNodeForResult.id)?.error" class="error-message">
+                <AlertCircle :size="16" />
+                <span>{{ getNodeResult(selectedNodeForResult.id).error }}</span>
+              </div>
+              <div v-else class="empty-result">
+                <FolderOpen :size="32" />
+                <p>未检索到相关文档</p>
+              </div>
+            </div>
+            <div v-else class="no-result">
+              <p>暂无运行结果，请先运行工作流</p>
+            </div>
+          </template>
+
+          <!-- AI 节点展示 -->
+          <template v-else-if="selectedNodeForResult.type === 'AI_AGENT' || selectedNodeForResult.data?.nodeType === 'AI_AGENT'">
+            <div class="result-section">
+              <h4>AI 配置</h4>
+              <div class="config-info">
+                <p><strong>模型：</strong>{{ selectedNodeForResult.data?.model || 'DeepSeek V3' }}</p>
+                <p><strong>温度：</strong>{{ selectedNodeForResult.data?.temperature ?? 0.7 }}</p>
+              </div>
+            </div>
+            <div v-if="getNodeResult(selectedNodeForResult.id)" class="result-section">
+              <h4>输出结果</h4>
+              <div v-if="getNodeResult(selectedNodeForResult.id)?.output" class="output-content">
+                {{ typeof getNodeResult(selectedNodeForResult.id).output === 'string'
+                   ? getNodeResult(selectedNodeForResult.id).output
+                   : JSON.stringify(getNodeResult(selectedNodeForResult.id).output, null, 2) }}
+              </div>
+              <div v-else-if="getNodeResult(selectedNodeForResult.id)?.error" class="error-message">
+                <AlertCircle :size="16" />
+                <span>{{ getNodeResult(selectedNodeForResult.id).error }}</span>
+              </div>
+              <div v-else class="empty-result">
+                <p>无输出</p>
+              </div>
+            </div>
+            <div v-else class="no-result">
+              <p>暂无运行结果，请先运行工作流</p>
+            </div>
+          </template>
+
+          <!-- 其他节点通用展示 -->
+          <template v-else>
+            <div v-if="getNodeResult(selectedNodeForResult.id)" class="result-section">
+              <h4>运行结果</h4>
+              <pre class="json-output">{{ JSON.stringify(getNodeResult(selectedNodeForResult.id), null, 2) }}</pre>
+            </div>
+            <div v-else class="no-result">
+              <p>暂无运行结果，请先运行工作流</p>
+            </div>
+          </template>
         </div>
       </div>
     </div>
@@ -954,5 +1074,176 @@ const handleBack = () => {
 
 .log-success .log-type {
   color: #10B981;
+}
+
+/* 节点运行结果弹窗 */
+.node-result-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+}
+
+.node-result-content {
+  background: var(--bg-surface);
+  border-radius: 16px;
+  width: 100%;
+  max-width: 700px;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: var(--shadow-xl);
+}
+
+.node-result-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.node-result-header h3 {
+  margin: 0;
+  font-size: 18px;
+  color: var(--text-main);
+}
+
+.node-result-body {
+  padding: 24px;
+  overflow-y: auto;
+  max-height: 60vh;
+}
+
+.result-section {
+  margin-bottom: 24px;
+}
+
+.result-section h4 {
+  margin: 0 0 12px 0;
+  font-size: 14px;
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.config-info {
+  background: var(--bg-app);
+  padding: 16px;
+  border-radius: 8px;
+}
+
+.config-info p {
+  margin: 0 0 8px 0;
+  font-size: 13px;
+  color: var(--text-main);
+}
+
+.config-info p:last-child {
+  margin-bottom: 0;
+}
+
+.fragments-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.fragment-card {
+  background: var(--bg-app);
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  padding: 16px;
+}
+
+.fragment-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.fragment-score {
+  background: var(--primary-light);
+  color: var(--primary);
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.fragment-doc {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.fragment-content {
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--text-main);
+  background: white;
+  padding: 12px;
+  border-radius: 8px;
+  border-left: 3px solid var(--primary);
+}
+
+.output-content {
+  background: var(--bg-app);
+  padding: 16px;
+  border-radius: 8px;
+  font-size: 14px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.json-output {
+  background: var(--bg-app);
+  padding: 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  line-height: 1.5;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.error-message {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--error);
+  background: var(--error-light);
+  padding: 12px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+}
+
+.empty-result {
+  text-align: center;
+  padding: 40px;
+  color: var(--text-muted);
+}
+
+.empty-result svg {
+  margin-bottom: 12px;
+  color: var(--text-disabled);
+}
+
+.no-result {
+  text-align: center;
+  padding: 40px;
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+.no-result p {
+  margin: 0;
 }
 </style>
