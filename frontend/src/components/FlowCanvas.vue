@@ -328,15 +328,28 @@ const validateWorkflow = (): { valid: boolean; errors: string[] } => {
   }
 
   // 检查孤立节点（没有连接的节点）
-  const connectedNodeIds = new Set<string>()
-  edges.forEach(edge => {
-    connectedNodeIds.add(edge.source)
-    connectedNodeIds.add(edge.target)
+  const sourceIds = new Set<string>(edges.map(e => e.source))
+  const targetIds = new Set<string>(edges.map(e => e.target))
+
+  const isolatedNodes = nodes.filter(n => {
+    const hasSource = sourceIds.has(n.id)
+    const hasTarget = targetIds.has(n.id)
+
+    // 开始节点：必须有出边（是某个 edge 的 source）
+    if (n.type === 'START' || n.type === 'input') {
+      return !hasSource
+    }
+    // 结束节点：必须有入边（是某个 edge 的 target）
+    if (n.type === 'END' || n.type === 'output') {
+      return !hasTarget
+    }
+    // 其他节点：必须有入边和出边
+    return !hasSource || !hasTarget
   })
 
-  const isolatedNodes = nodes.filter(n => !connectedNodeIds.has(n.id))
   if (isolatedNodes.length > 0) {
-    errors.push(`存在 ${isolatedNodes.length} 个孤立节点（未连接）`)
+    const nodeNames = isolatedNodes.map(n => n.label || n.type).join('、')
+    errors.push(`孤立节点: ${nodeNames}`)
   }
 
   // 检查 AI 节点是否有 prompt
@@ -518,7 +531,7 @@ const handleBack = () => {
               </div>
               <div class="form-group">
                 <label>查询模板</label>
-                <input v-model="selectedNode.data.query" @change="onPropertyChange" placeholder="{{START_INPUT}}" />
+                <input v-model="selectedNode.data.query" @change="onPropertyChange" :placeholder="'{{START_INPUT}}'" />
               </div>
             </template>
             <template v-if="selectedNode.type === 'CONDITION' || selectedNode.data?.nodeType === 'CONDITION'">
@@ -580,7 +593,7 @@ const handleBack = () => {
               <h4>检索配置</h4>
               <div class="config-info">
                 <p><strong>知识库：</strong>{{ getKnowledgeBaseName(selectedNodeForResult.data?.kbId) || '未配置' }}</p>
-                <p><strong>查询：</strong>{{ selectedNodeForResult.data?.query || '{{START_INPUT}}' }}</p>
+                <p><strong>查询：</strong><span v-html="selectedNodeForResult.data?.query || '&#123;&#123;START_INPUT&#125;&#125;'"></span></p>
               </div>
             </div>
             <div v-if="getNodeResult(selectedNodeForResult.id)" class="result-section">
