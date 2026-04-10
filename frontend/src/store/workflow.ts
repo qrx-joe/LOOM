@@ -2,31 +2,15 @@ import { defineStore } from 'pinia';
 import { ref } from 'vue';
 import axios from 'axios';
 import { getWorkflowUrl } from '../config/api';
+// 复用共享类型
+import type {
+    WorkflowNode,
+    WorkflowEdge,
+    Workflow,
+} from '../types/workflow.types';
 
-export interface WorkflowNode {
-    id: string;
-    type?: string;
-    label: string;
-    position: { x: number; y: number };
-    data?: Record<string, any>;
-}
-
-export interface WorkflowEdge {
-    id: string;
-    source: string;
-    target: string;
-    sourceHandle?: string;
-    targetHandle?: string;
-    condition?: string;
-}
-
-export interface Workflow {
-    id: string;
-    name: string;
-    nodes: WorkflowNode[];
-    edges: WorkflowEdge[];
-    createdAt?: string;
-}
+// 重新导出类型，保持兼容性
+export type { WorkflowNode, WorkflowEdge, Workflow };
 
 export const useWorkflowStore = defineStore('workflow', () => {
     const nodes = ref<WorkflowNode[]>([]);

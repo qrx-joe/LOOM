@@ -174,6 +174,10 @@ onMounted(async () => {
 
 onUnmounted(() => {
   window.removeEventListener('keydown', handleKeyDown)
+  if (currentEventSource) {
+    currentEventSource.close()
+    currentEventSource = null
+  }
 })
 
 // 获取图标组件

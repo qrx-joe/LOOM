@@ -1,39 +1,22 @@
-export enum NodeType {
-    INPUT = 'INPUT',
-    AI_AGENT = 'AI_AGENT',
-    CONDITION = 'CONDITION',
-    KNOWLEDGE_RETRIEVAL = 'KNOWLEDGE_RETRIEVAL',
-    OUTPUT = 'OUTPUT',
-}
+// 从共享类型导入，保持单一数据源
+import {
+  NodeType as SharedNodeType,
+  WorkflowNode,
+  WorkflowEdge,
+  WorkflowDefinition as SharedWorkflowDefinition,
+  ExecutionLog as SharedExecutionLog,
+} from '../../common/types';
 
-export class NodeData {
-    id: string;
-    type: NodeType;
-    config: any;
-    inputVariables?: string[];
-    outputVariables?: string[];
-}
+// 重新导出，保持向后兼容
+export { SharedNodeType as NodeType };
+export { WorkflowNode as NodeData };
+export { WorkflowEdge as EdgeData };
+export { SharedWorkflowDefinition as WorkflowDefinition };
+export { SharedExecutionLog as ExecutionLog };
 
-export class EdgeData {
-    id: string;
-    source: string;
-    target: string;
-    condition?: string;
-}
-
-export class WorkflowDefinition {
-    id: string;
-    name: string;
-    nodes: NodeData[];
-    edges: EdgeData[];
-}
-
-export class ExecutionLog {
-    nodeId: string;
-    status: 'PENDING' | 'RUNNING' | 'COMPLETED' | 'FAILED';
-    input: any;
-    output: any;
-    error?: string;
-    startTime: number;
-    endTime?: number;
+// 扩展类型（如果需要后端特有的字段）
+export interface ExtendedNodeData extends WorkflowNode {
+  // 后端特有的字段可以在这里添加
+  executionCount?: number;
+  lastExecutionTime?: number;
 }
