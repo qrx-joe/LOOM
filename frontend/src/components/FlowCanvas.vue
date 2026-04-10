@@ -27,6 +27,7 @@ const isRunning = ref(false)
 const runLogs = ref<any[]>([])
 const showLogPanel = ref(false)
 const knowledgeBases = ref<{ id: string; name: string }[]>([])
+let currentEventSource: EventSource | null = null
 
 // 节点运行结果预览
 const nodeResults = ref<Map<string, any>>(new Map())
@@ -271,13 +272,15 @@ const handleRun = async () => {
   showLogPanel.value = true
 
   const sseUrl = getWorkflowRunStreamUrl(store.currentWorkflowId)
-  const eventSource = new EventSource(sseUrl)
+  currentEventSource = new EventSource(sseUrl)
+  const eventSource = currentEventSource
 
   eventSource.onmessage = (event) => {
     try {
       const data = JSON.parse(event.data)
       if (data.type === 'workflow_complete') {
         isRunning.value = false
+        eventSource.close()
       } else {
         runLogs.value.push(data)
         // 收集节点运行结果
@@ -285,7 +288,9 @@ const handleRun = async () => {
           nodeResults.value.set(data.nodeId, data.data)
         }
       }
-    } catch (e) {}
+    } catch (e) {
+      console.error('Failed to parse SSE message:', e, event.data)
+    }
   }
 
   eventSource.onerror = () => {
