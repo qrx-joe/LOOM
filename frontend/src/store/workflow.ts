@@ -113,20 +113,13 @@ export const useWorkflowStore = defineStore('workflow', () => {
     const createNewWorkflow = () => {
         currentWorkflowId.value = null;
         workflowName.value = '未命名工作流';
-        // 创建带默认节点的工作流
-        nodes.value = [
-            { id: 'node-1', type: 'input', label: '开始', position: { x: 100, y: 200 }, data: {} },
-            { id: 'node-2', type: 'AI_AGENT', label: 'AI 节点', position: { x: 350, y: 200 }, data: { prompt: '基于上下文回答问题：\n{{START_INPUT}}' } },
-            { id: 'node-3', type: 'output', label: '结束', position: { x: 600, y: 200 }, data: {} },
-        ];
-        edges.value = [
-            { id: 'edge-1', source: 'node-1', target: 'node-2', sourceHandle: 'out', targetHandle: 'in' },
-            { id: 'edge-2', source: 'node-2', target: 'node-3', sourceHandle: 'out', targetHandle: 'in' },
-        ];
+        // 创建空白画布（不带默认节点）
+        nodes.value = [];
+        edges.value = [];
         // 初始化历史记录
         history.value = [{
-            nodes: JSON.parse(JSON.stringify(nodes.value)),
-            edges: JSON.parse(JSON.stringify(edges.value)),
+            nodes: [],
+            edges: [],
         }];
         historyIndex.value = 0;
         // 新建的工作流还未保存
