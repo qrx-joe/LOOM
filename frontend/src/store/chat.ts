@@ -24,8 +24,10 @@ export const useChatStore = defineStore('chat', () => {
                 currentWorkflowId.value = resp.data[0].id;
                 console.log('Auto-selected workflow:', resp.data[0].id);
             }
-        } catch (err) {
+        } catch (err: any) {
             console.error('Fetch workflows failed', err);
+            const errorMsg = err.response?.data?.message || err.message || '获取工作流列表失败';
+            throw new Error(errorMsg);
         }
     };
 
@@ -38,8 +40,10 @@ export const useChatStore = defineStore('chat', () => {
             currentWorkflowId.value = workflowId;
             messages.value = [];
             return resp.data;
-        } catch (err) {
+        } catch (err: any) {
             console.error('Create session failed', err);
+            const errorMsg = err.response?.data?.message || err.message || '创建会话失败';
+            throw new Error(errorMsg);
         }
     };
 

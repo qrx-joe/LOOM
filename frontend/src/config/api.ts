@@ -5,7 +5,7 @@ export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localho
 export const API_ENDPOINTS = {
   workflows: `${API_BASE_URL}/workflows`,
   knowledgeBases: `${API_BASE_URL}/knowledge/bases`,
-  chat: `${API_BASE_URL}/chat`,
+  chat: `${API_BASE_URL}/agent`, // 实际端点是 /agent
 }
 
 // 辅助函数

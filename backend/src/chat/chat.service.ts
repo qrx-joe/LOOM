@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Session, Message } from './chat.entity';
@@ -8,6 +8,8 @@ import { WorkflowDefinition } from '../workflow/interfaces/workflow.interface';
 
 @Injectable()
 export class ChatService {
+    private readonly logger = new Logger(ChatService.name);
+
     constructor(
         @InjectRepository(Session)
         private sessionRepository: Repository<Session>,

@@ -18,7 +18,12 @@ const handleSend = async () => {
       alert('请先选择一个工作流')
       return
     }
-    await chatStore.createSession(chatStore.currentWorkflowId)
+    try {
+      await chatStore.createSession(chatStore.currentWorkflowId)
+    } catch (err: any) {
+      alert('创建会话失败: ' + err.message)
+      return
+    }
   }
 
   chatStore.sendMessageStream(content)
@@ -60,7 +65,11 @@ const startNewChat = async () => {
     alert('请先选择一个工作流')
     return
   }
-  await chatStore.createSession(chatStore.currentWorkflowId)
+  try {
+    await chatStore.createSession(chatStore.currentWorkflowId)
+  } catch (err: any) {
+    alert('创建会话失败: ' + err.message)
+  }
 }
 </script>
 
