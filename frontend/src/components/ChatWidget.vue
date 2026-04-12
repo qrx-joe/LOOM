@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { ref, watch, onMounted } from 'vue'
+import { ref, watch, onMounted, onUnmounted } from 'vue'
 import { useChatStore } from '../store/chat'
-import { Send, MessageSquare, X, Sparkles, User } from 'lucide-vue-next'
+import { Send, MessageSquare, X, Sparkles, User, Square } from 'lucide-vue-next'
 
 const chatStore = useChatStore()
 const userInput = ref('')
@@ -11,7 +11,7 @@ const handleSend = async () => {
   if (!userInput.value.trim() || chatStore.isLoading) return
   const content = userInput.value
   userInput.value = ''
-  
+
   // 如果没有会话，先创建
   if (!chatStore.currentSessionId) {
     if (!chatStore.currentWorkflowId) {
@@ -20,8 +20,13 @@ const handleSend = async () => {
     }
     await chatStore.createSession(chatStore.currentWorkflowId)
   }
-  
+
   chatStore.sendMessageStream(content)
+}
+
+// 停止生成
+const handleStop = () => {
+  chatStore.cancelOngoingRequest()
 }
 
 // 打开聊天窗口时获取工作流列表
@@ -34,7 +39,21 @@ watch(isOpen, async (open) => {
 // 组件挂载时也获取工作流列表
 onMounted(async () => {
   await chatStore.fetchWorkflows()
+
+  // 页面刷新或关闭时取消正在进行的请求
+  window.addEventListener('beforeunload', handleBeforeUnload)
 })
+
+// 组件卸载时清理
+onUnmounted(() => {
+  chatStore.cancelOngoingRequest()
+  window.removeEventListener('beforeunload', handleBeforeUnload)
+})
+
+// 页面卸载前取消请求
+const handleBeforeUnload = () => {
+  chatStore.cancelOngoingRequest()
+}
 
 const startNewChat = async () => {
   if (!chatStore.currentWorkflowId) {
@@ -122,7 +141,10 @@ const startNewChat = async () => {
               placeholder="输入你的问题..." 
               @keyup.enter="handleSend"
             />
-            <button @click="handleSend" class="send-btn" :disabled="chatStore.isLoading || !userInput.trim()">
+            <button v-if="chatStore.isLoading" @click="handleStop" class="stop-btn">
+              <Square :size="14" fill="currentColor" />
+            </button>
+            <button v-else @click="handleSend" class="send-btn" :disabled="!userInput.trim()">
               <Send :size="18" />
             </button>
           </div>
@@ -403,6 +425,29 @@ input {
 .send-btn:disabled {
   background: #ccc;
   cursor: not-allowed;
+}
+
+.stop-btn {
+  background: #ef4444;
+  color: white;
+  border: none;
+  border-radius: 10px;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+.stop-btn:hover {
+  background: #dc2626;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
 }
 
 /* Animations */

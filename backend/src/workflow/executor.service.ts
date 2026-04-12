@@ -26,6 +26,8 @@ export class ExecutorService {
     private readonly openai = new OpenAI({
         apiKey: process.env.DEEPSEEK_API_KEY || 'mock-key',
         baseURL: process.env.DEEPSEEK_BASE_URL || 'https://api.siliconflow.cn/v1',
+        timeout: 60000, // 60秒超时
+        maxRetries: 2,
     });
 
     // 策略上下文实例
@@ -242,16 +244,24 @@ export class ExecutorService {
 
     private resolveInputs(node: NodeData, nodeResults: Map<string, any>): any {
         // 构建节点的输入：使用 config 中的字段，并注入必要的上下文变量
-        // 注意：不要把整个 _context 注入到输入中，避免污染节点输出
         const result: any = { ...node.data };
 
-        // 注入上下文中的简单值（排除嵌套对象，避免循环引用）
+        // 注入上下文中的所有值（包括对象）
+        // 排除 _context 字段避免循环引用
         const context = Object.fromEntries(nodeResults);
         for (const [key, value] of Object.entries(context)) {
-            if (typeof value !== 'object' || value === null) {
+            if (key === '_context') continue;
+
+            // 对于对象类型，进行浅拷贝避免修改原始数据
+            if (typeof value === 'object' && value !== null) {
+                result[key] = { ...value };
+            } else {
                 result[key] = value;
             }
         }
+
+        // 添加 _context 供变量插值使用
+        result._context = context;
 
         return result;
     }
@@ -312,27 +322,70 @@ export class ExecutorService {
         try {
             // 流式调用
             const model = config.model || process.env.LLM_MODEL || 'deepseek-ai/DeepSeek-V3';
+            const maxTokens = config.maxTokens || 4096; // 默认最大token数
             const stream = await this.openai.chat.completions.create({
                 model,
                 messages: [{ role: 'user', content: prompt }],
                 temperature: config.temperature ?? 0.7,
+                max_tokens: maxTokens,
                 stream: true,
             });
 
             let fullText = '';
+            let tokenCount = 0;
+            const maxEmptyChunks = 10; // 允许的最大空chunk数
+            let emptyChunkCount = 0;
+
             for await (const chunk of stream) {
                 const content = chunk.choices[0]?.delta?.content || '';
+
+                // 验证响应格式
+                if (!chunk.choices || chunk.choices.length === 0) {
+                    this.logger.warn('Received empty choices from AI stream');
+                    emptyChunkCount++;
+                    if (emptyChunkCount > maxEmptyChunks) {
+                        throw new Error('AI响应异常：连续收到空数据');
+                    }
+                    continue;
+                }
+
                 if (content) {
                     fullText += content;
+                    tokenCount++;
+                    emptyChunkCount = 0; // 重置空chunk计数
                     if (onToken) {
                         onToken(content);
                     }
                 }
             }
+
+            // 验证最终响应
+            if (tokenCount === 0) {
+                this.logger.error('AI returned empty response');
+                return { text: '[AI错误：返回了空响应，请重试]' };
+            }
+
+            if (fullText.trim().length === 0) {
+                this.logger.error('AI returned whitespace-only response');
+                return { text: '[AI错误：响应内容为空]' };
+            }
+
             return { text: fullText };
         } catch (error: any) {
             this.logger.error(`AI call failed: ${error.message}`);
-            return { text: `[AI Error: ${error.message}]` };
+
+            // 区分不同类型的错误
+            if (error.message?.includes('timeout')) {
+                return { text: '[AI错误：请求超时，请稍后重试]' };
+            }
+            if (error.message?.includes('rate limit')) {
+                return { text: '[AI错误：请求过于频繁，请稍后重试]' };
+            }
+            if (error.status === 401 || error.status === 403) {
+                return { text: '[AI错误：API认证失败，请检查配置]' };
+            }
+
+            return { text: `[AI错误：${error.message}]` };
         }
     }
 

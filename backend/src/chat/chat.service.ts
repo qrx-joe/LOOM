@@ -86,11 +86,30 @@ export class ChatService {
 
         // 5. 获取输出节点的结果
         const lastLog = logs.reverse().find(l => l.status === 'COMPLETED');
-        let assistantReply = '对不起，我没法理解这个请求。';
+        let assistantReply = '';
+
         if (lastLog && lastLog.output) {
-            assistantReply = typeof lastLog.output === 'object'
-                ? (lastLog.output.text || JSON.stringify(lastLog.output))
-                : String(lastLog.output);
+            if (typeof lastLog.output === 'object' && lastLog.output !== null) {
+                assistantReply = lastLog.output.text || lastLog.output.content || '';
+            } else {
+                assistantReply = String(lastLog.output);
+            }
+        }
+
+        // 验证响应内容
+        if (!assistantReply || assistantReply.trim() === '') {
+            // 检查是否有失败的节点
+            const failedLog = logs.find(l => l.status === 'FAILED');
+            if (failedLog) {
+                assistantReply = `工作流执行出错：${failedLog.error || '未知错误'}`;
+            } else {
+                // 记录详细日志帮助调试
+                this.logger.warn('工作流执行完成但无有效输出', {
+                    lastLog: lastLog ? { nodeId: lastLog.nodeId, output: lastLog.output } : null,
+                    allLogs: logs.map(l => ({ nodeId: l.nodeId, status: l.status, hasOutput: !!l.output })),
+                });
+                assistantReply = '工作流执行完成，但没有返回有效内容。请确保：\n1. 工作流包含AI节点\n2. AI节点连接到输出节点\n3. AI节点的prompt配置正确';
+            }
         }
 
         // 6. 保存助手回复（带溯源元数据）
@@ -164,7 +183,8 @@ export class ChatService {
 
         // 6. 获取输出节点的结果
         const lastLog = logs.reverse().find(l => l.status === 'COMPLETED');
-        let assistantReply = '对不起，我没法理解这个请求。';
+        let assistantReply = '';
+
         if (lastLog && lastLog.output) {
             if (typeof lastLog.output === 'object' && lastLog.output !== null) {
                 // 优先使用 text 字段，这是 AI 节点的预期输出格式
@@ -175,7 +195,7 @@ export class ChatService {
                 } else if (lastLog.output.fragments) {
                     // 知识检索节点返回 fragments，取第一个片段的内容
                     const frag = lastLog.output.fragments[0];
-                    assistantReply = frag?.content || '未找到相关内容';
+                    assistantReply = frag?.content || '';
                 } else {
                     // 兜底：检查是否有其他有效字段
                     const keys = Object.keys(lastLog.output).filter(k => k !== '_context');
@@ -185,6 +205,22 @@ export class ChatService {
                 }
             } else {
                 assistantReply = String(lastLog.output);
+            }
+        }
+
+        // 验证响应内容
+        if (!assistantReply || assistantReply.trim() === '') {
+            // 检查是否有失败的节点
+            const failedLog = logs.find(l => l.status === 'FAILED');
+            if (failedLog) {
+                assistantReply = `工作流执行出错：${failedLog.error || '未知错误'}`;
+            } else {
+                // 记录详细日志帮助调试
+                this.logger.warn('工作流执行完成但无有效输出(流式)', {
+                    lastLog: lastLog ? { nodeId: lastLog.nodeId, output: lastLog.output } : null,
+                    allLogs: logs.map(l => ({ nodeId: l.nodeId, status: l.status, hasOutput: !!l.output })),
+                });
+                assistantReply = '工作流执行完成，但没有返回有效内容。请确保：\n1. 工作流包含AI节点\n2. AI节点连接到输出节点\n3. AI节点的prompt配置正确';
             }
         }
 
