@@ -2,10 +2,11 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 import { OpenAI } from 'openai';
-import { WorkflowDefinition, NodeData, ExecutionLog, NodeType } from './interfaces/workflow.interface';
+import { WorkflowDefinition, NodeData, ExecutionLog } from './interfaces/workflow.interface';
 import { SearchService } from '../knowledge/services/search.service';
 import { DEFAULT_SEARCH_CONFIG } from '../knowledge/interfaces';
 import { WorkflowLog, WorkflowLogStatus } from './workflow-log.entity';
+import { ConditionContext } from './strategies/condition.strategy';
 
 // SSE 事件类型
 export type WorkflowEventType = 'node_start' | 'node_complete' | 'node_error' | 'workflow_complete' | 'token';
@@ -27,11 +28,17 @@ export class ExecutorService {
         baseURL: process.env.DEEPSEEK_BASE_URL || 'https://api.siliconflow.cn/v1',
     });
 
+    // 策略上下文实例
+    private readonly conditionContext = new ConditionContext();
+
     constructor(
         private readonly searchService: SearchService,
         @InjectRepository(WorkflowLog)
         private readonly workflowLogRepo: Repository<WorkflowLog>,
-    ) { }
+    ) {
+        // 打印已注册的策略（调试用）
+        this.logger.log(`Registered condition strategies: ${this.conditionContext.getRegisteredStrategies().join(', ')}`);
+    }
 
     async runWorkflow(
         workflow: WorkflowDefinition,
@@ -357,37 +364,11 @@ export class ExecutorService {
         this.logger.log(`Executing Condition node: ${node.id}`);
         const expression = config.expression || '';
 
-        // 简单的条件表达式求值
-        // 支持格式: "{{input}}" > 10, "{{input}}" == "yes" 等
-        // 或者直接检查 input 中是否有某个字段
-        let conditionResult = 'true'; // 默认走 true 分支
+        // 使用策略模式执行条件求值
+        const { result, strategy } = this.conditionContext.evaluate(input, expression);
+        const conditionResult = result ? 'true' : 'false';
 
-        try {
-            // 简单实现：如果表达式包含 >, <, ==, != 等，比较数值或字符串
-            const matchGt = expression.match(/{{(\w+)}}\s*>\s*(\d+)/);
-            const matchLt = expression.match(/{{(\w+)}}\s*<\s*(\d+)/);
-            const matchEq = expression.match(/{{(\w+)}}\s*==\s*"?([^"]+)"?/);
-
-            if (matchGt) {
-                const value = parseFloat(input[matchGt[1]] || '0');
-                conditionResult = value > parseFloat(matchGt[2]) ? 'true' : 'false';
-            } else if (matchLt) {
-                const value = parseFloat(input[matchLt[1]] || '0');
-                conditionResult = value < parseFloat(matchLt[2]) ? 'true' : 'false';
-            } else if (matchEq) {
-                const value = String(input[matchEq[1]] || '');
-                conditionResult = value === matchEq[2] ? 'true' : 'false';
-            } else {
-                // 默认：如果 input 有某个字段存在且为真值
-                if (input[expression] || expression === 'input') {
-                    conditionResult = 'true';
-                }
-            }
-        } catch (e) {
-            this.logger.warn(`Condition evaluation error: ${e}`);
-        }
-
-        this.logger.log(`Condition node ${node.id} result: ${conditionResult}`);
+        this.logger.log(`Condition node ${node.id} result: ${conditionResult} (using ${strategy} strategy)`);
         return { conditionResult, ...input };
     }
 }
