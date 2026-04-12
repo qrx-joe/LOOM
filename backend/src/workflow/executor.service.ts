@@ -300,24 +300,85 @@ export class ExecutorService {
         }
     }
 
+    /**
+     * 将值格式化为适合prompt的字符串
+     */
+    private formatValueForPrompt(val: any): string {
+        if (val === null || val === undefined) {
+            return '';
+        }
+
+        if (typeof val !== 'object') {
+            return String(val);
+        }
+
+        // 对象类型：智能提取最有意义的内容
+        // 1. 如果有 text 字段，使用 text
+        if (val.text !== undefined) {
+            return String(val.text);
+        }
+
+        // 2. 如果有 content 字段，使用 content
+        if (val.content !== undefined) {
+            return String(val.content);
+        }
+
+        // 3. 如果有 fragments 数组（知识检索结果），拼接所有片段内容
+        if (val.fragments && Array.isArray(val.fragments)) {
+            return val.fragments
+                .map((f: any) => f.content || f.text || '')
+                .filter((c: string) => c)
+                .join('\n\n---\n\n');
+        }
+
+        // 4. 如果有 input 字段（INPUT节点），使用 input
+        if (val.input !== undefined) {
+            return String(val.input);
+        }
+
+        // 5. 默认使用 JSON.stringify，但格式化得更友好
+        try {
+            return JSON.stringify(val, null, 2);
+        } catch {
+            return '[无法序列化的对象]';
+        }
+    }
+
     private async handleAIRequest(node: NodeData, config: any, input: any, onToken?: (token: string) => void): Promise<any> {
         this.logger.log(`Executing AI Agent node: ${node.id}`);
         // 提取 prompt 并替换上下文变量
         let prompt = config.prompt || 'Hello';
 
-        // 简单的变量插值: {{nodeId.output}}
+        this.logger.debug(`[AI Node ${node.id}] Original prompt: ${prompt}`);
+        this.logger.debug(`[AI Node ${node.id}] Input keys: ${Object.keys(input).join(', ')}`);
+
+        // 简单的变量插值: {{nodeId}} 或 {{nodeId.output}}
         if (input._context) {
+            this.logger.debug(`[AI Node ${node.id}] Context keys: ${Object.keys(input._context).join(', ')}`);
             Object.entries(input._context).forEach(([key, val]: [string, any]) => {
-                const search = `{{${key}}}`;
-                const replace = typeof val === 'object' ? JSON.stringify(val) : String(val);
-                prompt = prompt.split(search).join(replace);
+                // 支持 {{nodeId}} 格式
+                const search1 = `{{${key}}}`;
+                // 支持 {{nodeId.output}} 格式（自动去掉.output后缀）
+                const search2 = `{{${key}.output}}`;
+                const replace = this.formatValueForPrompt(val);
+                prompt = prompt.split(search1).join(replace);
+                prompt = prompt.split(search2).join(replace);
             });
         }
 
         // 也处理 {{START_INPUT}} 作为用户输入
-        if (input.input) {
-            prompt = prompt.split('{{START_INPUT}}').join(input.input);
+        if (input.input !== undefined) {
+            const userInput = this.formatValueForPrompt(input.input);
+            prompt = prompt.split('{{START_INPUT}}').join(userInput);
         }
+
+        // 处理 {{input}} 作为用户输入的替代写法
+        if (input.input !== undefined) {
+            const userInput = this.formatValueForPrompt(input.input);
+            prompt = prompt.split('{{input}}').join(userInput);
+        }
+
+        this.logger.log(`[AI Node ${node.id}] Final prompt: ${prompt.substring(0, 200)}...`);
 
         try {
             // 流式调用

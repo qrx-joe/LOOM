@@ -89,11 +89,7 @@ export class ChatService {
         let assistantReply = '';
 
         if (lastLog && lastLog.output) {
-            if (typeof lastLog.output === 'object' && lastLog.output !== null) {
-                assistantReply = lastLog.output.text || lastLog.output.content || '';
-            } else {
-                assistantReply = String(lastLog.output);
-            }
+            assistantReply = this.extractTextFromOutput(lastLog.output);
         }
 
         // 验证响应内容
@@ -122,6 +118,62 @@ export class ChatService {
         await this.messageRepository.save(assistantMsg);
 
         return assistantMsg;
+    }
+
+    /**
+     * 从节点输出中提取文本内容
+     */
+    private extractTextFromOutput(output: any): string {
+        if (output === null || output === undefined) {
+            return '';
+        }
+
+        if (typeof output !== 'object') {
+            return String(output);
+        }
+
+        // 1. 优先使用 text 字段（AI节点的标准输出）
+        if (output.text !== undefined && output.text !== null) {
+            return String(output.text);
+        }
+
+        // 2. 使用 content 字段
+        if (output.content !== undefined && output.content !== null) {
+            return String(output.content);
+        }
+
+        // 3. 使用 fragments 数组（知识检索节点）
+        if (output.fragments && Array.isArray(output.fragments)) {
+            return output.fragments
+                .map((f: any) => f?.content || f?.text || '')
+                .filter((c: string) => c)
+                .join('\n\n');
+        }
+
+        // 4. 使用 input 字段
+        if (output.input !== undefined && output.input !== null) {
+            return String(output.input);
+        }
+
+        // 5. 遍历所有字段，找到第一个非对象的有效值
+        const keys = Object.keys(output).filter(k => k !== '_context' && !k.startsWith('__'));
+        for (const key of keys) {
+            const val = output[key];
+            if (val !== null && val !== undefined) {
+                if (typeof val === 'string') {
+                    return val;
+                }
+                if (typeof val === 'object') {
+                    // 递归提取对象中的文本
+                    const nested = this.extractTextFromOutput(val);
+                    if (nested) return nested;
+                } else {
+                    return String(val);
+                }
+            }
+        }
+
+        return '';
     }
 
     // 流式发送消息
@@ -186,26 +238,7 @@ export class ChatService {
         let assistantReply = '';
 
         if (lastLog && lastLog.output) {
-            if (typeof lastLog.output === 'object' && lastLog.output !== null) {
-                // 优先使用 text 字段，这是 AI 节点的预期输出格式
-                if (lastLog.output.text) {
-                    assistantReply = lastLog.output.text;
-                } else if (lastLog.output.content) {
-                    assistantReply = lastLog.output.content;
-                } else if (lastLog.output.fragments) {
-                    // 知识检索节点返回 fragments，取第一个片段的内容
-                    const frag = lastLog.output.fragments[0];
-                    assistantReply = frag?.content || '';
-                } else {
-                    // 兜底：检查是否有其他有效字段
-                    const keys = Object.keys(lastLog.output).filter(k => k !== '_context');
-                    if (keys.length > 0) {
-                        assistantReply = String(lastLog.output[keys[0]]);
-                    }
-                }
-            } else {
-                assistantReply = String(lastLog.output);
-            }
+            assistantReply = this.extractTextFromOutput(lastLog.output);
         }
 
         // 验证响应内容
