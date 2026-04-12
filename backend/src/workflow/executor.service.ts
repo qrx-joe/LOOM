@@ -243,7 +243,7 @@ export class ExecutorService {
     private resolveInputs(node: NodeData, nodeResults: Map<string, any>): any {
         // 构建节点的输入：使用 config 中的字段，并注入必要的上下文变量
         // 注意：不要把整个 _context 注入到输入中，避免污染节点输出
-        const result: any = { ...node.config };
+        const result: any = { ...node.data };
 
         // 注入上下文中的简单值（排除嵌套对象，避免循环引用）
         const context = Object.fromEntries(nodeResults);
