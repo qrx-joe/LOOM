@@ -152,12 +152,17 @@ const handleRun = async () => {
     return
   }
 
+  // 先获取输入
+  const input = prompt('请输入测试内容')
+  if (!input) return
+
   isRunning.value = true
   runLogs.value = []
   nodeResults.value.clear()
   showLogPanel.value = true
 
-  const sseUrl = getWorkflowRunStreamUrl(store.currentWorkflowId)
+  // 构建 SSE URL，带上 input 参数
+  const sseUrl = `${getWorkflowRunStreamUrl(store.currentWorkflowId)}?input=${encodeURIComponent(input)}`
   currentEventSource = new EventSource(sseUrl)
   const eventSource = currentEventSource
 
@@ -181,16 +186,6 @@ const handleRun = async () => {
   eventSource.onerror = () => {
     isRunning.value = false
     eventSource.close()
-  }
-
-  // 发送运行请求
-  const input = prompt('请输入测试内容')
-  if (input) {
-    fetch(`http://localhost:3001/workflows/${store.currentWorkflowId}/run`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ input })
-    }).catch(console.error)
   }
 }
 

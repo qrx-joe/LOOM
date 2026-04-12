@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed } from 'vue'
 import { AlertCircle, PlayCircle, CheckCircle, XCircle } from 'lucide-vue-next'
 
 const props = defineProps<{
@@ -11,9 +11,6 @@ const props = defineProps<{
 const emit = defineEmits<{
   (e: 'close'): void
 }>()
-
-const showNodeResultModal = ref(false)
-const selectedLog = ref<any>(null)
 
 // 过滤系统日志，只显示关键节点事件
 const displayLogs = computed(() => {

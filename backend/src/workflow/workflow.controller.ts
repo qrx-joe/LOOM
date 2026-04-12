@@ -1,9 +1,9 @@
-import { Controller, Post, Body, Get, Param, Put, Delete, Res } from '@nestjs/common';
+import { Controller, Post, Body, Get, Param, Put, Delete, Res, Query } from '@nestjs/common';
 import type { Response } from 'express';
 import { ExecutorService, WorkflowEvent } from './executor.service';
 import { WorkflowService } from './workflow.service';
 import { Workflow } from './workflow.entity';
-import { WorkflowDefinition } from './interfaces/workflow.interface';
+import type { WorkflowDefinition } from './interfaces/workflow.interface';
 
 @Controller('workflows')
 export class WorkflowController {
@@ -60,7 +60,11 @@ export class WorkflowController {
 
     // SSE: 工作流执行并实时推送状态
     @Get(':id/run-stream')
-    async runStream(@Param('id') id: string, @Res() res: Response) {
+    async runStream(
+        @Param('id') id: string,
+        @Query('input') input: string,
+        @Res() res: Response,
+    ) {
         const workflow = await this.workflowService.findOne(id);
         if (!workflow) {
             res.status(404).json({ error: 'Workflow not found' });
@@ -73,6 +77,9 @@ export class WorkflowController {
             nodes: workflow.nodes,
             edges: workflow.edges,
         };
+
+        // 解析输入
+        const initialInput = input ? { input } : {};
 
         // 设置 SSE headers
         res.setHeader('Content-Type', 'text/event-stream');
@@ -88,7 +95,7 @@ export class WorkflowController {
 
         // 执行工作流，传入回调
         try {
-            await this.executorService.runWorkflow(definition, {}, sendEvent);
+            await this.executorService.runWorkflow(definition, initialInput, sendEvent);
         } catch (error: any) {
             sendEvent({
                 type: 'workflow_complete',

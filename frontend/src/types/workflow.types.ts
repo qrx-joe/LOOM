@@ -4,15 +4,17 @@
  */
 
 // ============ 节点类型 ============
-export enum NodeType {
-  START = 'START',
-  INPUT = 'INPUT',  // 兼容旧版本
-  END = 'END',
-  OUTPUT = 'OUTPUT',  // 兼容旧版本
-  AI_AGENT = 'AI_AGENT',
-  KNOWLEDGE_RETRIEVAL = 'KNOWLEDGE_RETRIEVAL',
-  CONDITION = 'CONDITION',
-}
+export const NodeType = {
+  START: 'START',
+  INPUT: 'INPUT',  // 兼容旧版本
+  END: 'END',
+  OUTPUT: 'OUTPUT',  // 兼容旧版本
+  AI_AGENT: 'AI_AGENT',
+  KNOWLEDGE_RETRIEVAL: 'KNOWLEDGE_RETRIEVAL',
+  CONDITION: 'CONDITION',
+} as const
+
+export type NodeTypeValue = typeof NodeType[keyof typeof NodeType]
 
 // 节点类型判断函数
 export function isStartNodeType(type: string): boolean {

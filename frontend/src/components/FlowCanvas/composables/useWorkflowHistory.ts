@@ -54,7 +54,7 @@ export function useWorkflowHistory(maxHistory = 50) {
   function undo(): HistoryState | null {
     if (currentIndex.value > 0) {
       currentIndex.value--
-      return history.value[currentIndex.value].state
+      return history.value[currentIndex.value]?.state ?? null
     }
     return null
   }
@@ -66,7 +66,7 @@ export function useWorkflowHistory(maxHistory = 50) {
   function redo(): HistoryState | null {
     if (currentIndex.value < history.value.length - 1) {
       currentIndex.value++
-      return history.value[currentIndex.value].state
+      return history.value[currentIndex.value]?.state ?? null
     }
     return null
   }

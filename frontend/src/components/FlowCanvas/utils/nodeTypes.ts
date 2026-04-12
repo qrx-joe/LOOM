@@ -4,9 +4,9 @@
  */
 
 // 从共享类型导入
+import type { WorkflowNode } from '../../../types/workflow.types'
 import {
   NodeType,
-  WorkflowNode,
   isStartNodeType,
   isEndNodeType,
   isAINodeType,

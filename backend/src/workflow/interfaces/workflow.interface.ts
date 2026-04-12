@@ -9,10 +9,10 @@ import {
 
 // 重新导出，保持向后兼容
 export { SharedNodeType as NodeType };
-export { WorkflowNode as NodeData };
-export { WorkflowEdge as EdgeData };
-export { SharedWorkflowDefinition as WorkflowDefinition };
-export { SharedExecutionLog as ExecutionLog };
+export type { WorkflowNode as NodeData };
+export type { WorkflowEdge as EdgeData };
+export type { SharedWorkflowDefinition as WorkflowDefinition };
+export type { SharedExecutionLog as ExecutionLog };
 
 // 扩展类型（如果需要后端特有的字段）
 export interface ExtendedNodeData extends WorkflowNode {

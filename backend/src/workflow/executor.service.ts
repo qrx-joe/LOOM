@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 import { OpenAI } from 'openai';
-import { WorkflowDefinition, NodeData, ExecutionLog } from './interfaces/workflow.interface';
+import { WorkflowDefinition, NodeData, ExecutionLog, NodeType } from './interfaces/workflow.interface';
 import { SearchService } from '../knowledge/services/search.service';
 import { DEFAULT_SEARCH_CONFIG } from '../knowledge/interfaces';
 import { WorkflowLog, WorkflowLogStatus } from './workflow-log.entity';
