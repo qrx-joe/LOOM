@@ -1,42 +1,28 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
-import { ExceptionFilter, Catch, ArgumentsHost, HttpException, HttpStatus } from '@nestjs/common';
-import { Response } from 'express';
-
-@Catch()
-class AllExceptionsFilter implements ExceptionFilter {
-  catch(exception: unknown, host: ArgumentsHost) {
-    const ctx = host.switchToHttp();
-    const response = ctx.getResponse<Response>();
-
-    console.error('Global exception caught:', exception);
-
-    let status = HttpStatus.INTERNAL_SERVER_ERROR;
-    let message = 'Internal server error';
-
-    if (exception instanceof HttpException) {
-      status = exception.getStatus();
-      const exceptionResponse = exception.getResponse();
-      message = typeof exceptionResponse === 'string' ? exceptionResponse : JSON.stringify(exceptionResponse);
-    } else if (exception instanceof Error) {
-      message = exception.message;
-      console.error('Stack trace:', exception.stack);
-    }
-
-    response.status(status).json({
-      statusCode: status,
-      message,
-    });
-  }
-}
+import { HttpExceptionFilter, AllExceptionsFilter } from './common/filters/http-exception.filter';
+import { ResponseInterceptor } from './common/interceptors/response.interceptor';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+
+  // 启用 CORS
   app.enableCors({
     origin: true,
     credentials: true,
   });
-  app.useGlobalFilters(new AllExceptionsFilter());
-  await app.listen(process.env.PORT ?? 3001);
+
+  // 全局响应拦截器（统一响应格式）
+  app.useGlobalInterceptors(new ResponseInterceptor());
+
+  // 全局异常过滤器
+  app.useGlobalFilters(
+    new AllExceptionsFilter(),    // 捕获所有异常
+    new HttpExceptionFilter(),    // 处理 HTTP 异常
+  );
+
+  const port = process.env.PORT ?? 3001;
+  await app.listen(port);
+  console.log(`Server is running on http://localhost:${port}`);
 }
 bootstrap();

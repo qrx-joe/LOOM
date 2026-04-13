@@ -38,7 +38,9 @@ let statusPollingInterval: ReturnType<typeof setInterval> | null = null
 const fetchKbs = async () => {
   try {
     const resp = await axios.get(getKnowledgeBasesUrl())
-    kbs.value = resp.data
+    // 防御性处理：支持直接数组或 { data: [...] } 格式
+    const data = resp.data
+    kbs.value = Array.isArray(data) ? data : (Array.isArray(data?.data) ? data.data : [])
     // 更新 selectedKb 的引用
     if (selectedKb.value) {
       const updated = kbs.value.find(kb => kb.id === selectedKb.value!.id)
@@ -57,6 +59,7 @@ const fetchKbs = async () => {
     }
   } catch (err) {
     console.error('Fetch KBs failed', err)
+    kbs.value = []
   }
 }
 
@@ -88,7 +91,8 @@ const handleUpload = async (kbId: string, event: any) => {
       headers: { 'Content-Type': 'multipart/form-data' }
     })
 
-    const newDoc = resp.data as Document
+    // 适配后端统一响应格式
+    const newDoc = (resp.data?.data ?? resp.data) as Document
     documentStatuses.value.set(newDoc.id, {
       status: 'pending',
       progress: 0,
@@ -125,7 +129,9 @@ const pollDocumentStatuses = async () => {
   for (const [docId, _] of pendingDocs) {
     try {
       const resp = await axios.get(getDocumentStatusUrl(docId))
-      const { status, progress, errorMessage } = resp.data
+      // 适配后端统一响应格式
+      const resultData = resp.data?.data ?? resp.data
+      const { status, progress, errorMessage } = resultData || {}
       documentStatuses.value.set(docId, { status, progress, error: errorMessage })
 
       if (status === 'completed' || status === 'failed') {

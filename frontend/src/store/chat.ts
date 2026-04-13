@@ -17,12 +17,14 @@ export const useChatStore = defineStore('chat', () => {
     const fetchWorkflows = async () => {
         try {
             const resp = await axios.get(`${API_BASE_URL}/workflows`);
-            workflows.value = resp.data;
-            console.log('Workflows fetched:', resp.data);
+            // 适配后端统一响应格式 { success: true, data: [...] }
+            const data = resp.data?.data ?? resp.data;
+            workflows.value = Array.isArray(data) ? data : [];
+            console.log('Workflows fetched:', workflows.value);
             // 自动选择第一个工作流
-            if (resp.data.length > 0 && !currentWorkflowId.value) {
-                currentWorkflowId.value = resp.data[0].id;
-                console.log('Auto-selected workflow:', resp.data[0].id);
+            if (workflows.value.length > 0 && !currentWorkflowId.value) {
+                currentWorkflowId.value = workflows.value[0].id;
+                console.log('Auto-selected workflow:', workflows.value[0].id);
             }
         } catch (err: any) {
             console.error('Fetch workflows failed', err);
@@ -35,11 +37,13 @@ export const useChatStore = defineStore('chat', () => {
         console.log('Creating session for workflow:', workflowId);
         try {
             const resp = await axios.post(`${API_BASE_URL}/agent/sessions`, { workflowId });
-            console.log('Session created:', resp.data);
-            currentSessionId.value = resp.data.id;
+            // 适配后端统一响应格式 { success: true, data: {...} }
+            const resultData = resp.data?.data ?? resp.data;
+            console.log('Session created:', resultData);
+            currentSessionId.value = resultData?.id;
             currentWorkflowId.value = workflowId;
             messages.value = [];
-            return resp.data;
+            return resultData;
         } catch (err: any) {
             console.error('Create session failed', err);
             const errorMsg = err.response?.data?.message || err.message || '创建会话失败';
@@ -148,7 +152,9 @@ export const useChatStore = defineStore('chat', () => {
                 { content },
                 { signal: abortController.signal }
             );
-            messages.value.push(resp.data);
+            // 适配后端统一响应格式
+            const resultData = resp.data?.data ?? resp.data;
+            messages.value.push(resultData);
         } catch (err: any) {
             if (err.name === 'AbortError' || err.name === 'CanceledError') {
                 console.log('Request was cancelled');
@@ -164,7 +170,9 @@ export const useChatStore = defineStore('chat', () => {
     const fetchMessages = async (sessionId: string) => {
         try {
             const resp = await axios.get(`${API_BASE_URL}/agent/sessions/${sessionId}/messages`);
-            messages.value = resp.data;
+            // 适配后端统一响应格式
+            const data = resp.data?.data ?? resp.data;
+            messages.value = Array.isArray(data) ? data : [];
             currentSessionId.value = sessionId;
         } catch (err) {
             console.error('Fetch messages failed', err);

@@ -83,9 +83,12 @@ export const useWorkflowStore = defineStore('workflow', () => {
     const fetchWorkflows = async () => {
         try {
             const resp = await axios.get(getWorkflowUrl());
-            savedWorkflows.value = resp.data;
+            // 适配后端统一响应格式 { success: true, data: [...] }
+            const data = resp.data?.data ?? resp.data;
+            savedWorkflows.value = Array.isArray(data) ? data : [];
         } catch (err) {
             console.error('Failed to fetch workflows', err);
+            savedWorkflows.value = [];
         }
     };
 
@@ -128,15 +131,19 @@ export const useWorkflowStore = defineStore('workflow', () => {
 
     // 保存工作流（创建或更新）
     const saveWorkflow = async () => {
+        // 深度克隆并清理数据，移除 Vue 响应式额外属性
+        const cleanNodes = JSON.parse(JSON.stringify(nodes.value));
+        const cleanEdges = JSON.parse(JSON.stringify(edges.value));
+
         // 确保每条边都有 ID
-        const edgesWithIds = edges.value.map((edge, index) => ({
+        const edgesWithIds = cleanEdges.map((edge: any, index: number) => ({
             ...edge,
             id: edge.id || `edge-${Date.now()}-${index}`,
         }));
 
         const payload = {
             name: workflowName.value,
-            nodes: nodes.value,
+            nodes: cleanNodes,
             edges: edgesWithIds,
         };
 
@@ -148,13 +155,16 @@ export const useWorkflowStore = defineStore('workflow', () => {
             } else {
                 // 创建新工作流
                 resp = await axios.post(getWorkflowUrl(), payload);
-                currentWorkflowId.value = resp.data.id;
+                // 适配后端统一响应格式 { success: true, data: { id: ... } }
+                const resultData = resp.data?.data ?? resp.data;
+                currentWorkflowId.value = resultData?.id;
             }
             // 刷新列表
             await fetchWorkflows();
             // 清除未保存标记
             hasUnsavedChanges.value = false;
-            return resp.data;
+            // 返回实际数据（解包）
+            return resp.data?.data ?? resp.data;
         } catch (err) {
             console.error('Failed to save workflow', err);
             throw err;

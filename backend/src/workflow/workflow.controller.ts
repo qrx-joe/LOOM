@@ -23,13 +23,29 @@ export class WorkflowController {
     }
 
     @Post()
-    create(@Body() workflowData: Partial<Workflow>) {
-        return this.workflowService.create(workflowData);
+    async create(@Body() workflowData: Partial<Workflow>) {
+        try {
+            console.log('Creating workflow with data:', JSON.stringify(workflowData, null, 2));
+            const result = await this.workflowService.create(workflowData);
+            console.log('Workflow created successfully:', result.id);
+            return result;
+        } catch (error) {
+            console.error('Failed to create workflow:', error);
+            throw error;
+        }
     }
 
     @Put(':id')
-    update(@Param('id') id: string, @Body() workflowData: Partial<Workflow>) {
-        return this.workflowService.update(id, workflowData);
+    async update(@Param('id') id: string, @Body() workflowData: Partial<Workflow>) {
+        try {
+            console.log('Updating workflow:', id, 'with data:', JSON.stringify(workflowData, null, 2));
+            const result = await this.workflowService.update(id, workflowData);
+            console.log('Workflow updated successfully:', id);
+            return result;
+        } catch (error) {
+            console.error('Failed to update workflow:', id, error);
+            throw error;
+        }
     }
 
     @Delete(':id')
