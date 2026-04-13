@@ -1,4 +1,4 @@
-import axios, { AxiosError, AxiosRequestConfig } from 'axios';
+import axios, { AxiosError, type AxiosRequestConfig } from 'axios';
 import { API_BASE_URL } from '../config/api';
 
 // 后端统一响应格式
@@ -11,34 +11,43 @@ export interface ApiResponse<T> {
   path: string;
 }
 
-// 错误类型
-export enum ErrorType {
-  NETWORK = 'NETWORK',
-  TIMEOUT = 'TIMEOUT',
-  SERVER = 'SERVER',
-  VALIDATION = 'VALIDATION',
-  NOT_FOUND = 'NOT_FOUND',
-  UNAUTHORIZED = 'UNAUTHORIZED',
-  FORBIDDEN = 'FORBIDDEN',
-  RATE_LIMIT = 'RATE_LIMIT',
-  UNKNOWN = 'UNKNOWN',
-}
+// 错误类型常量
+export const ErrorType = {
+  NETWORK: 'NETWORK',
+  TIMEOUT: 'TIMEOUT',
+  SERVER: 'SERVER',
+  VALIDATION: 'VALIDATION',
+  NOT_FOUND: 'NOT_FOUND',
+  UNAUTHORIZED: 'UNAUTHORIZED',
+  FORBIDDEN: 'FORBIDDEN',
+  RATE_LIMIT: 'RATE_LIMIT',
+  UNKNOWN: 'UNKNOWN',
+} as const;
+
+export type ErrorTypeValue = typeof ErrorType[keyof typeof ErrorType];
 
 // 应用错误
 export class AppError extends Error {
+  type: ErrorTypeValue;
+  statusCode?: number;
+  originalError?: any;
+
   constructor(
-    public type: ErrorType,
+    type: ErrorTypeValue,
     message: string,
-    public statusCode?: number,
-    public originalError?: any
+    statusCode?: number,
+    originalError?: any
   ) {
     super(message);
     this.name = 'AppError';
+    this.type = type;
+    this.statusCode = statusCode;
+    this.originalError = originalError;
   }
 }
 
 // 获取错误类型
-function getErrorType(statusCode: number): ErrorType {
+function getErrorType(statusCode: number): ErrorTypeValue {
   switch (statusCode) {
     case 400:
       return ErrorType.VALIDATION;
@@ -65,7 +74,7 @@ function getErrorType(statusCode: number): ErrorType {
 // 获取用户友好的错误消息
 export function getErrorMessage(error: unknown): string {
   if (error instanceof AppError) {
-    const messages: Record<ErrorType, string> = {
+    const messages: Record<ErrorTypeValue, string> = {
       [ErrorType.NETWORK]: '网络连接失败，请检查网络设置',
       [ErrorType.TIMEOUT]: '请求超时，请稍后重试',
       [ErrorType.SERVER]: '服务器繁忙，请稍后重试',

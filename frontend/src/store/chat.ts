@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
-import axios from 'axios';
-import { API_BASE_URL } from '../config/api';
+import { api } from '../utils/api-client';
+import { showError } from '../utils/toast';
 
 export const useChatStore = defineStore('chat', () => {
     const sessions = ref<any[]>([]);
@@ -16,9 +16,7 @@ export const useChatStore = defineStore('chat', () => {
 
     const fetchWorkflows = async () => {
         try {
-            const resp = await axios.get(`${API_BASE_URL}/workflows`);
-            // 适配后端统一响应格式 { success: true, data: [...] }
-            const data = resp.data?.data ?? resp.data;
+            const data = await api.get<any[]>('/workflows');
             workflows.value = Array.isArray(data) ? data : [];
             console.log('Workflows fetched:', workflows.value);
             // 自动选择第一个工作流
@@ -28,17 +26,15 @@ export const useChatStore = defineStore('chat', () => {
             }
         } catch (err: any) {
             console.error('Fetch workflows failed', err);
-            const errorMsg = err.response?.data?.message || err.message || '获取工作流列表失败';
-            throw new Error(errorMsg);
+            showError(err);
+            throw err;
         }
     };
 
     const createSession = async (workflowId: string) => {
         console.log('Creating session for workflow:', workflowId);
         try {
-            const resp = await axios.post(`${API_BASE_URL}/agent/sessions`, { workflowId });
-            // 适配后端统一响应格式 { success: true, data: {...} }
-            const resultData = resp.data?.data ?? resp.data;
+            const resultData = await api.post<any>('/agent/sessions', { workflowId });
             console.log('Session created:', resultData);
             currentSessionId.value = resultData?.id;
             currentWorkflowId.value = workflowId;
@@ -46,8 +42,8 @@ export const useChatStore = defineStore('chat', () => {
             return resultData;
         } catch (err: any) {
             console.error('Create session failed', err);
-            const errorMsg = err.response?.data?.message || err.message || '创建会话失败';
-            throw new Error(errorMsg);
+            showError(err);
+            throw err;
         }
     };
 
@@ -65,7 +61,8 @@ export const useChatStore = defineStore('chat', () => {
         messages.value.push({ role: 'user', content, createdAt: new Date() });
 
         // 创建 SSE 连接
-        const sseUrl = `${API_BASE_URL}/agent/sessions/${currentSessionId.value}/messages/stream?content=${encodeURIComponent(content)}`;
+        const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001';
+        const sseUrl = `${baseUrl}/agent/sessions/${currentSessionId.value}/messages/stream?content=${encodeURIComponent(content)}`;
         eventSource = new EventSource(sseUrl);
 
         // 添加一个临时的 assistant 消息用于流式更新
@@ -147,19 +144,17 @@ export const useChatStore = defineStore('chat', () => {
         messages.value.push({ role: 'user', content, createdAt: new Date() });
 
         try {
-            const resp = await axios.post(
-                `${API_BASE_URL}/agent/sessions/${currentSessionId.value}/messages`,
-                { content },
-                { signal: abortController.signal }
+            const resultData = await api.post<any>(
+                `/agent/sessions/${currentSessionId.value}/messages`,
+                { content }
             );
-            // 适配后端统一响应格式
-            const resultData = resp.data?.data ?? resp.data;
             messages.value.push(resultData);
         } catch (err: any) {
             if (err.name === 'AbortError' || err.name === 'CanceledError') {
                 console.log('Request was cancelled');
             } else {
                 console.error('Send message failed', err);
+                showError(err);
             }
         } finally {
             isLoading.value = false;
@@ -169,13 +164,12 @@ export const useChatStore = defineStore('chat', () => {
 
     const fetchMessages = async (sessionId: string) => {
         try {
-            const resp = await axios.get(`${API_BASE_URL}/agent/sessions/${sessionId}/messages`);
-            // 适配后端统一响应格式
-            const data = resp.data?.data ?? resp.data;
+            const data = await api.get<any[]>(`/agent/sessions/${sessionId}/messages`);
             messages.value = Array.isArray(data) ? data : [];
             currentSessionId.value = sessionId;
         } catch (err) {
             console.error('Fetch messages failed', err);
+            showError(err);
         }
     };
 

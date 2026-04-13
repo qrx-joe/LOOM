@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
-import axios from 'axios';
-import { getWorkflowUrl } from '../config/api';
+import { api } from '../utils/api-client';
+import { showError, showSuccess } from '../utils/toast';
 // 复用共享类型
 import type {
     WorkflowNode,
@@ -82,12 +82,11 @@ export const useWorkflowStore = defineStore('workflow', () => {
     // 加载所有已保存的工作流
     const fetchWorkflows = async () => {
         try {
-            const resp = await axios.get(getWorkflowUrl());
-            // 适配后端统一响应格式 { success: true, data: [...] }
-            const data = resp.data?.data ?? resp.data;
+            const data = await api.get<Workflow[]>('/workflows');
             savedWorkflows.value = Array.isArray(data) ? data : [];
         } catch (err) {
             console.error('Failed to fetch workflows', err);
+            showError(err);
             savedWorkflows.value = [];
         }
     };
@@ -148,25 +147,25 @@ export const useWorkflowStore = defineStore('workflow', () => {
         };
 
         try {
-            let resp;
+            let resultData;
             if (currentWorkflowId.value) {
                 // 更新已有工作流
-                resp = await axios.put(getWorkflowUrl(currentWorkflowId.value), payload);
+                resultData = await api.put<Workflow>(`/workflows/${currentWorkflowId.value}`, payload);
+                showSuccess('工作流已更新');
             } else {
                 // 创建新工作流
-                resp = await axios.post(getWorkflowUrl(), payload);
-                // 适配后端统一响应格式 { success: true, data: { id: ... } }
-                const resultData = resp.data?.data ?? resp.data;
+                resultData = await api.post<Workflow>('/workflows', payload);
                 currentWorkflowId.value = resultData?.id;
+                showSuccess('工作流已创建');
             }
             // 刷新列表
             await fetchWorkflows();
             // 清除未保存标记
             hasUnsavedChanges.value = false;
-            // 返回实际数据（解包）
-            return resp.data?.data ?? resp.data;
+            return resultData;
         } catch (err) {
             console.error('Failed to save workflow', err);
+            showError(err);
             throw err;
         }
     };
@@ -183,10 +182,12 @@ export const useWorkflowStore = defineStore('workflow', () => {
         }
 
         try {
-            const resp = await axios.post(`${getWorkflowUrl(currentWorkflowId.value)}/run`);
-            return resp.data;
+            const result = await api.post<any>(`/workflows/${currentWorkflowId.value}/run`);
+            showSuccess('工作流执行完成');
+            return result;
         } catch (err) {
             console.error('Failed to run workflow', err);
+            showError(err);
             throw err;
         }
     };
@@ -195,14 +196,15 @@ export const useWorkflowStore = defineStore('workflow', () => {
     const deleteWorkflow = async (id: string) => {
         console.log('Deleting workflow:', id);
         try {
-            const response = await axios.delete(getWorkflowUrl(id));
-            console.log('Delete response:', response);
+            await api.delete(`/workflows/${id}`);
             if (currentWorkflowId.value === id) {
                 createNewWorkflow();
             }
             await fetchWorkflows();
+            showSuccess('工作流已删除');
         } catch (err) {
             console.error('Failed to delete workflow', err);
+            showError(err);
             throw err;
         }
     };
@@ -210,14 +212,16 @@ export const useWorkflowStore = defineStore('workflow', () => {
     // 更新工作流名称
     const updateWorkflowName = async (id: string, name: string) => {
         try {
-            await axios.put(getWorkflowUrl(id), { name });
+            await api.put(`/workflows/${id}`, { name });
             await fetchWorkflows();
             // 如果是当前编辑的工作流，更新本地名称
             if (currentWorkflowId.value === id) {
                 workflowName.value = name;
             }
+            showSuccess('名称已更新');
         } catch (err) {
             console.error('Failed to update workflow name', err);
+            showError(err);
             throw err;
         }
     };

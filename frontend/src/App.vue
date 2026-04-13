@@ -4,6 +4,7 @@ import WorkflowList from './components/WorkflowList.vue'
 import FlowCanvas from './components/FlowCanvas.vue'
 import ChatWidget from './components/ChatWidget.vue'
 import KnowledgeBaseManager from './components/KnowledgeBaseManager.vue'
+import ErrorToast from './components/ErrorToast.vue'
 
 const activeView = ref<'workflow' | 'knowledge'>('workflow')
 const workflowView = ref<'list' | 'editor'>('list')
@@ -63,6 +64,7 @@ const handleWorkflowBack = () => {
     </main>
 
     <ChatWidget />
+    <ErrorToast />
   </div>
 </template>
 
