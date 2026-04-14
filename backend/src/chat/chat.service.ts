@@ -140,7 +140,8 @@ export class ChatService {
         }
 
         // 5. 获取输出节点的结果
-        const lastLog = logs.reverse().find(l => l.status === 'COMPLETED');
+        // 使用 slice() 创建副本再 reverse，避免改变原数组
+        const lastLog = logs.slice().reverse().find(l => l.status === 'COMPLETED');
         let assistantReply = '';
 
         if (lastLog && lastLog.output) {
@@ -179,6 +180,8 @@ export class ChatService {
      * 从节点输出中提取文本内容
      */
     private extractTextFromOutput(output: any): string {
+        this.logger.debug(`[extractTextFromOutput] Input: ${JSON.stringify(output).substring(0, 500)}`);
+
         if (output === null || output === undefined) {
             return '';
         }
@@ -189,6 +192,7 @@ export class ChatService {
 
         // 1. 优先使用 text 字段（AI节点的标准输出）
         if (output.text !== undefined && output.text !== null) {
+            this.logger.debug(`[extractTextFromOutput] Found text field: ${output.text.substring(0, 100)}`);
             return String(output.text);
         }
 
@@ -205,9 +209,15 @@ export class ChatService {
                 .join('\n\n');
         }
 
-        // 4. 使用 input 字段
+        // 4. 使用 input 字段（但避免返回原始用户输入）
         if (output.input !== undefined && output.input !== null) {
-            return String(output.input);
+            const inputStr = String(output.input);
+            // 如果 input 只是简单的用户输入（无其他有效字段），继续查找其他字段
+            if (Object.keys(output).length > 1 && inputStr.length > 0) {
+                // 有其他字段，优先使用 input
+                return inputStr;
+            }
+            // 只有当没有其他有效字段时才使用 input
         }
 
         // 5. 遍历所有字段，找到第一个非对象的有效值
@@ -291,7 +301,8 @@ export class ChatService {
         }
 
         // 6. 获取输出节点的结果
-        const lastLog = logs.reverse().find(l => l.status === 'COMPLETED');
+        // 使用 slice() 创建副本再 reverse，避免改变原数组
+        const lastLog = logs.slice().reverse().find(l => l.status === 'COMPLETED');
         let assistantReply = '';
 
         if (lastLog && lastLog.output) {

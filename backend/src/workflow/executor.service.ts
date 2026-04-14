@@ -292,6 +292,23 @@ export class ExecutorService {
             case 'output':
             case 'OUTPUT':
             case NodeType.OUTPUT:
+                // OUTPUT 节点：尝试提取 AI 节点的输出作为最终输出
+                // 遍历所有输入值，找到 AI 节点的 text 输出
+                for (const [key, value] of Object.entries(input)) {
+                    if (key === '_context') continue;
+                    if (value && typeof value === 'object') {
+                        const val = value as any;
+                        // 如果值对象有 text 字段，这就是 AI 输出
+                        if (val.text !== undefined) {
+                            return { text: val.text, _source: key };
+                        }
+                        // 如果有 content 字段
+                        if (val.content !== undefined) {
+                            return { text: val.content, _source: key };
+                        }
+                    }
+                }
+                // 如果没找到，返回原始 input（兼容旧逻辑）
                 return input;
             default:
                 // 未知类型节点默认透传

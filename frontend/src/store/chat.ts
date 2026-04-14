@@ -99,7 +99,10 @@ export const useChatStore = defineStore('chat', () => {
                     messages.value[assistantMsgIndex].content = streamingContent.value;
                 } else if (data.type === 'done') {
                     // 流式结束
-                    messages.value[assistantMsgIndex].content = data.content;
+                    // 只有当后端返回的内容不为空且与已累积内容不同时才更新
+                    // 避免流式显示正常但最终被空内容或错误内容覆盖
+                    const finalContent = data.content || streamingContent.value;
+                    messages.value[assistantMsgIndex].content = finalContent;
                     messages.value[assistantMsgIndex].metadata = data.metadata;
                     messages.value[assistantMsgIndex].isStreaming = false;
                     isLoading.value = false;
