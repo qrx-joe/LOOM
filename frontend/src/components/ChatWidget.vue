@@ -239,9 +239,8 @@ const handleKeydown = (e: KeyboardEvent) => {
 
             <!-- 新建会话状态 -->
             <div v-if="!chatStore.currentSessionId && !showSessionList" class="session-start">
-              <button @click="toggleSessionList" class="start-session-btn">
-                <History :size="14" />
-                历史会话
+              <button @click="toggleSessionList" class="icon-btn session-icon-btn" title="历史会话">
+                <History :size="18" />
               </button>
               <select v-model="chatStore.currentWorkflowId" class="workflow-select">
                 <option value="" disabled>选择工作流</option>
@@ -249,9 +248,8 @@ const handleKeydown = (e: KeyboardEvent) => {
                   {{ wf.name }}
                 </option>
               </select>
-              <button @click="startNewChat" class="start-session-btn primary">
-                <Plus :size="14" />
-                新建会话
+              <button @click="startNewChat" class="icon-btn primary-icon-btn" title="新建会话">
+                <Plus :size="18" />
               </button>
             </div>
 
@@ -524,6 +522,48 @@ const handleKeydown = (e: KeyboardEvent) => {
   display: flex;
   gap: 8px;
   align-items: center;
+}
+
+.session-start .icon-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: white;
+  border: 1px solid var(--border-subtle);
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  padding: 0;
+}
+
+.session-start .icon-btn:hover {
+  background: var(--primary-light);
+  color: var(--primary);
+  border-color: var(--primary);
+  transform: scale(1.05);
+}
+
+.session-start .icon-btn:active {
+  transform: scale(0.95);
+}
+
+.session-start .icon-btn :deep(svg) {
+  width: 18px !important;
+  height: 18px !important;
+}
+
+.session-start .primary-icon-btn {
+  background: var(--primary);
+  color: white;
+  border-color: var(--primary);
+}
+
+.session-start .primary-icon-btn:hover {
+  background: #3d68e6;
+  box-shadow: 0 4px 12px rgba(71, 118, 246, 0.4);
 }
 
 .workflow-select {
