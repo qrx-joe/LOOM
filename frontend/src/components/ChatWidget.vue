@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, watch, onMounted, onUnmounted } from 'vue'
 import { useChatStore } from '../store/chat'
-import { Send, MessageSquare, X, Sparkles, User, Square } from 'lucide-vue-next'
+import { Send, MessageSquare, X, Sparkles, User, Square, RefreshCw, Download, Clock } from 'lucide-vue-next'
 
 const chatStore = useChatStore()
 const userInput = ref('')
@@ -103,9 +103,14 @@ const startNewChat = async () => {
               进入会话
             </button>
           </div>
-          <button v-else @click="chatStore.currentSessionId = null" class="start-session-btn">
-            切换会话
-          </button>
+          <div v-else class="header-actions">
+            <button @click="chatStore.exportSession" class="icon-btn" title="导出会话">
+              <Download :size="16" />
+            </button>
+            <button @click="chatStore.currentSessionId = null" class="start-session-btn">
+              切换会话
+            </button>
+          </div>
         </header>
 
         <div class="message-list">
@@ -121,6 +126,13 @@ const startNewChat = async () => {
               <Sparkles v-else :size="14" />
             </div>
             <div class="bubble-wrapper">
+              <div class="message-header">
+                <span class="message-role">{{ msg.role === 'user' ? '用户' : 'AI助手' }}</span>
+                <span v-if="msg.createdAt" class="message-time">
+                  <Clock :size="10" />
+                  {{ chatStore.formatRelativeTime(msg.createdAt) }}
+                </span>
+              </div>
               <div class="bubble-content">
                 {{ msg.content }}<span v-if="msg.isStreaming" class="typing-cursor">▋</span>
               </div>
@@ -131,6 +143,13 @@ const startNewChat = async () => {
                   <span class="source-name">{{ doc.documentName || '未知文档' }}</span>
                   <span class="source-score">{{ (doc.score * 100).toFixed(0) }}%</span>
                 </div>
+              </div>
+              <!-- 重新生成按钮（仅对最后一条助手消息显示） -->
+              <div v-if="msg.role === 'assistant' && i === chatStore.messages.length - 1 && !msg.isStreaming && !chatStore.isLoading" class="message-actions">
+                <button @click="chatStore.regenerateMessage" class="action-btn" title="重新生成">
+                  <RefreshCw :size="12" />
+                  重新生成
+                </button>
               </div>
             </div>
           </div>
@@ -224,6 +243,32 @@ const startNewChat = async () => {
   display: flex;
   gap: 12px;
   align-items: center;
+}
+
+.header-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.icon-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: white;
+  border: 1px solid var(--border-subtle);
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.icon-btn:hover {
+  background: var(--primary-light);
+  color: var(--primary);
+  border-color: var(--primary);
 }
 
 .bot-avatar {
@@ -335,7 +380,56 @@ const startNewChat = async () => {
 .bubble-wrapper {
   display: flex;
   flex-direction: column;
+  gap: 4px;
+}
+
+.message-header {
+  display: flex;
+  align-items: center;
   gap: 8px;
+  margin-bottom: 2px;
+}
+
+.message-role {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.message-time {
+  font-size: 10px;
+  color: #aaa;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.message-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.action-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  font-size: 11px;
+  color: var(--text-muted);
+  background: transparent;
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.action-btn:hover {
+  color: var(--primary);
+  background: var(--primary-light);
+  border-color: var(--primary);
 }
 
 .user .bubble-content {

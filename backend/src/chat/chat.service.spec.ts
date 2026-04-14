@@ -45,6 +45,7 @@ describe('ChatService', () => {
 
   const mockMessageRepo = {
     find: jest.fn(() => Promise.resolve([])),
+    findAndCount: jest.fn(() => Promise.resolve([[], 0])),
     create: jest.fn((data) => ({ ...data, id: 'msg-1' })),
     save: jest.fn((data) => Promise.resolve({ ...data, id: data.id || 'msg-1' })),
     remove: jest.fn(() => Promise.resolve()),
@@ -126,19 +127,23 @@ describe('ChatService', () => {
       await expect(service.createSession('invalid-wf', 'Test')).rejects.toThrow('Workflow not found');
     });
 
-    it('应该获取会话消息', async () => {
+    it('应该获取会话消息（带分页）', async () => {
       const mockMessages = [
         { id: 'msg-1', role: 'user', content: 'Hello', createdAt: new Date() },
         { id: 'msg-2', role: 'assistant', content: 'Hi', createdAt: new Date() },
       ];
-      mockMessageRepo.find.mockResolvedValueOnce(mockMessages);
+      mockMessageRepo.findAndCount.mockResolvedValueOnce([mockMessages, 2]);
 
-      const messages = await service.getMessages('session-1');
+      const result = await service.getMessages('session-1', 1, 50);
 
-      expect(messages).toHaveLength(2);
-      expect(mockMessageRepo.find).toHaveBeenCalledWith({
+      expect(result.messages).toHaveLength(2);
+      expect(result.pagination.total).toBe(2);
+      expect(result.pagination.page).toBe(1);
+      expect(mockMessageRepo.findAndCount).toHaveBeenCalledWith({
         where: { session: { id: 'session-1' } },
         order: { createdAt: 'ASC' },
+        skip: 0,
+        take: 50,
       });
     });
   });

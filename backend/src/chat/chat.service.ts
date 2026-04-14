@@ -77,11 +77,23 @@ export class ChatService {
         return this.sessionRepository.save(session);
     }
 
-    async getMessages(sessionId: string) {
-        return this.messageRepository.find({
+    async getMessages(sessionId: string, page: number = 1, limit: number = 50) {
+        const skip = (page - 1) * limit;
+        const [messages, total] = await this.messageRepository.findAndCount({
             where: { session: { id: sessionId } },
             order: { createdAt: 'ASC' },
+            skip,
+            take: limit,
         });
+        return {
+            messages,
+            pagination: {
+                page,
+                limit,
+                total,
+                totalPages: Math.ceil(total / limit),
+            },
+        };
     }
 
     private readonly MAX_MESSAGE_LENGTH = 10000;
@@ -340,5 +352,68 @@ export class ChatService {
             metadata: sourceDocs.length > 0 ? { sourceDocs } : undefined,
         });
         await this.messageRepository.save(assistantMsg);
+    }
+
+    // 导出会话为 Markdown 格式
+    async exportSession(sessionId: string): Promise<string> {
+        const session = await this.sessionRepository.findOne({
+            where: { id: sessionId },
+            relations: ['workflow'],
+        });
+        if (!session) throw new Error('Session not found');
+
+        const { messages } = await this.getMessages(sessionId, 1, 1000);
+
+        let markdown = `# ${session.name || '未命名会话'}\n\n`;
+        markdown += `**工作流**: ${session.workflow?.name || '未知'}\n\n`;
+        markdown += `**创建时间**: ${session.createdAt.toISOString()}\n\n`;
+        markdown += `---\n\n`;
+
+        for (const msg of messages) {
+            const role = msg.role === 'user' ? '👤 用户' : '🤖 助手';
+            markdown += `## ${role} (${msg.createdAt.toISOString()})\n\n`;
+            markdown += `${msg.content}\n\n`;
+
+            // 添加引用来源
+            if (msg.metadata?.sourceDocs?.length > 0) {
+                markdown += `**引用来源**:\n\n`;
+                for (const doc of msg.metadata.sourceDocs) {
+                    markdown += `- ${doc.documentName} (相关度: ${(doc.score * 100).toFixed(0)}%)\n`;
+                }
+                markdown += `\n`;
+            }
+
+            markdown += `---\n\n`;
+        }
+
+        return markdown;
+    }
+
+    // 重新生成最后一条助手回复
+    async regenerateMessage(sessionId: string, onToken: (data: any) => void): Promise<void> {
+        const session = await this.sessionRepository.findOne({
+            where: { id: sessionId },
+            relations: ['workflow', 'messages'],
+        });
+        if (!session) throw new Error('Session not found');
+
+        // 获取最后一条用户消息
+        const userMessages = session.messages?.filter(m => m.role === 'user') || [];
+        if (userMessages.length === 0) {
+            throw new Error('没有用户消息可重新生成回复');
+        }
+
+        const lastUserMsg = userMessages[userMessages.length - 1];
+
+        // 删除之前的助手回复（如果有）
+        const assistantMessages = session.messages?.filter(m =>
+            m.role === 'assistant' && m.createdAt > lastUserMsg.createdAt
+        ) || [];
+        for (const msg of assistantMessages) {
+            await this.messageRepository.remove(msg);
+        }
+
+        // 重新执行工作流
+        await this.sendMessageStream(sessionId, lastUserMsg.content, onToken);
     }
 }
