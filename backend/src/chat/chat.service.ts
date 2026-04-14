@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { OpenAI } from 'openai';
 import { Session, Message } from './chat.entity';
 import { ExecutorService } from '../workflow/executor.service';
 import { WorkflowService } from '../workflow/workflow.service';
@@ -9,6 +10,12 @@ import { WorkflowDefinition } from '../workflow/interfaces/workflow.interface';
 @Injectable()
 export class ChatService {
     private readonly logger = new Logger(ChatService.name);
+    private readonly openai = new OpenAI({
+        apiKey: process.env.DEEPSEEK_API_KEY || 'mock-key',
+        baseURL: process.env.DEEPSEEK_BASE_URL || 'https://api.siliconflow.cn/v1',
+        timeout: 30000,
+        maxRetries: 2,
+    });
 
     constructor(
         @InjectRepository(Session)
@@ -185,6 +192,11 @@ export class ChatService {
         });
         await this.messageRepository.save(assistantMsg);
 
+        // 7. 如果是第一条消息，异步生成会话标题（不阻塞响应）
+        this.generateSessionTitle(sessionId, content).catch(err => {
+            this.logger.error(`[sendMessage] Failed to generate session title: ${err.message}`);
+        });
+
         return assistantMsg;
     }
 
@@ -352,6 +364,11 @@ export class ChatService {
             metadata: sourceDocs.length > 0 ? { sourceDocs } : undefined,
         });
         await this.messageRepository.save(assistantMsg);
+
+        // 9. 如果是第一条消息，异步生成会话标题（不阻塞响应）
+        this.generateSessionTitle(sessionId, content).catch(err => {
+            this.logger.error(`[sendMessageStream] Failed to generate session title: ${err.message}`);
+        });
     }
 
     // 导出会话为 Markdown 格式
@@ -415,5 +432,76 @@ export class ChatService {
 
         // 重新执行工作流
         await this.sendMessageStream(sessionId, lastUserMsg.content, onToken);
+    }
+
+    /**
+     * 使用AI智能生成会话标题
+     * 基于用户第一条消息生成简洁的标题（不超过20个字）
+     */
+    private async generateSessionTitle(sessionId: string, userMessage: string): Promise<string | null> {
+        try {
+            // 获取会话信息
+            const session = await this.sessionRepository.findOne({
+                where: { id: sessionId },
+                relations: ['messages'],
+            });
+
+            if (!session) return null;
+
+            // 只处理第一条消息（用户消息数<=1且当前无标题或标题是默认格式）
+            const userMessages = session.messages?.filter(m => m.role === 'user') || [];
+            if (userMessages.length > 1) return null;
+
+            // 如果标题已经被自定义过（不是默认格式），不再重新生成
+            if (session.name && !session.name.startsWith('Chat with')) {
+                return null;
+            }
+
+            this.logger.log(`[generateSessionTitle] Generating title for session ${sessionId}, user message: ${userMessage.substring(0, 50)}...`);
+
+            const model = process.env.LLM_MODEL || 'deepseek-ai/DeepSeek-V3';
+            const response = await this.openai.chat.completions.create({
+                model,
+                messages: [
+                    {
+                        role: 'system',
+                        content: '你是一个会话标题生成助手。基于用户的第一条消息，生成一个简洁、准确的会话标题。\n要求：\n1. 标题长度不超过20个字\n2. 准确概括用户意图\n3. 不要包含标点符号\n4. 直接返回标题文本，不要有任何解释'
+                    },
+                    {
+                        role: 'user',
+                        content: userMessage
+                    }
+                ],
+                temperature: 0.3,
+                max_tokens: 50,
+            });
+
+            const title = response.choices[0]?.message?.content?.trim();
+            if (!title) {
+                this.logger.warn(`[generateSessionTitle] Empty title generated for session ${sessionId}`);
+                return null;
+            }
+
+            // 清理标题：移除可能的引号、限制长度
+            const cleanTitle = title
+                .replace(/^["\']|["\']$/g, '') // 移除首尾引号
+                .replace(/[\n\r]/g, '')       // 移除换行
+                .substring(0, 20);             // 限制长度
+
+            if (cleanTitle.length < 2) {
+                this.logger.warn(`[generateSessionTitle] Title too short: "${cleanTitle}"`);
+                return null;
+            }
+
+            // 更新会话标题
+            session.name = cleanTitle;
+            await this.sessionRepository.save(session);
+
+            this.logger.log(`[generateSessionTitle] Generated title: "${cleanTitle}" for session ${sessionId}`);
+            return cleanTitle;
+        } catch (error: any) {
+            this.logger.error(`[generateSessionTitle] Failed to generate title: ${error.message}`);
+            return null;
+        }
     }
 }
