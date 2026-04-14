@@ -8,6 +8,8 @@ import {
 } from '@nestjs/common';
 import { Observable, throwError } from 'rxjs';
 import { catchError, map } from 'rxjs/operators';
+import { Reflector } from '@nestjs/core';
+import { NO_INTERCEPTORS_KEY } from '../decorators/no-interceptors.decorator';
 
 export interface ApiResponse<T> {
   success: boolean;
@@ -24,7 +26,20 @@ export interface ApiResponse<T> {
  */
 @Injectable()
 export class ResponseInterceptor<T> implements NestInterceptor<T, ApiResponse<T>> {
+  constructor(private readonly reflector: Reflector) {}
+
   intercept(context: ExecutionContext, next: CallHandler): Observable<ApiResponse<T>> {
+    // 检查是否设置了跳过拦截器的元数据
+    const noInterceptors = this.reflector.getAllAndOverride<boolean>(NO_INTERCEPTORS_KEY, [
+      context.getHandler(),
+      context.getClass(),
+    ]);
+
+    // 如果设置了跳过拦截器，直接返回原始数据
+    if (noInterceptors) {
+      return next.handle() as Observable<ApiResponse<T>>;
+    }
+
     const request = context.switchToHttp().getRequest();
     const path = request.url;
 

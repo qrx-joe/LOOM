@@ -84,8 +84,12 @@ export const useWorkflowStore = defineStore('workflow', () => {
         try {
             const data = await api.get<Workflow[]>('/workflows');
             savedWorkflows.value = Array.isArray(data) ? data : [];
-        } catch (err) {
+        } catch (err: any) {
             console.error('Failed to fetch workflows', err);
+            // 忽略请求取消的错误（去重机制导致的）
+            if (err?.message?.includes('取消')) {
+                return;
+            }
             showError(err);
             savedWorkflows.value = [];
         }
@@ -163,8 +167,12 @@ export const useWorkflowStore = defineStore('workflow', () => {
             // 清除未保存标记
             hasUnsavedChanges.value = false;
             return resultData;
-        } catch (err) {
+        } catch (err: any) {
             console.error('Failed to save workflow', err);
+            // 忽略请求取消的错误
+            if (err?.message?.includes('取消')) {
+                return;
+            }
             showError(err);
             throw err;
         }
@@ -185,8 +193,12 @@ export const useWorkflowStore = defineStore('workflow', () => {
             const result = await api.post<any>(`/workflows/${currentWorkflowId.value}/run`);
             showSuccess('工作流执行完成');
             return result;
-        } catch (err) {
+        } catch (err: any) {
             console.error('Failed to run workflow', err);
+            // 忽略请求取消的错误
+            if (err?.message?.includes('取消')) {
+                return;
+            }
             showError(err);
             throw err;
         }
@@ -202,8 +214,12 @@ export const useWorkflowStore = defineStore('workflow', () => {
             }
             await fetchWorkflows();
             showSuccess('工作流已删除');
-        } catch (err) {
+        } catch (err: any) {
             console.error('Failed to delete workflow', err);
+            // 忽略请求取消的错误
+            if (err?.message?.includes('取消')) {
+                return;
+            }
             showError(err);
             throw err;
         }
@@ -219,8 +235,12 @@ export const useWorkflowStore = defineStore('workflow', () => {
                 workflowName.value = name;
             }
             showSuccess('名称已更新');
-        } catch (err) {
+        } catch (err: any) {
             console.error('Failed to update workflow name', err);
+            // 忽略请求取消的错误
+            if (err?.message?.includes('取消')) {
+                return;
+            }
             showError(err);
             throw err;
         }

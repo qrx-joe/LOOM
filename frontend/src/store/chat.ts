@@ -26,6 +26,10 @@ export const useChatStore = defineStore('chat', () => {
             }
         } catch (err: any) {
             console.error('Fetch workflows failed', err);
+            // 忽略请求取消的错误（去重机制导致的）
+            if (err?.message?.includes('取消')) {
+                return;
+            }
             showError(err);
             throw err;
         }
@@ -42,6 +46,10 @@ export const useChatStore = defineStore('chat', () => {
             return resultData;
         } catch (err: any) {
             console.error('Create session failed', err);
+            // 忽略请求取消的错误
+            if (err?.message?.includes('取消')) {
+                return;
+            }
             showError(err);
             throw err;
         }
@@ -167,8 +175,12 @@ export const useChatStore = defineStore('chat', () => {
             const data = await api.get<any[]>(`/agent/sessions/${sessionId}/messages`);
             messages.value = Array.isArray(data) ? data : [];
             currentSessionId.value = sessionId;
-        } catch (err) {
+        } catch (err: any) {
             console.error('Fetch messages failed', err);
+            // 忽略请求取消的错误
+            if (err?.message?.includes('取消')) {
+                return;
+            }
             showError(err);
         }
     };

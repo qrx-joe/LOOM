@@ -1,9 +1,10 @@
-import { Controller, Post, Body, Get, Param, Put, Delete, Res, Query } from '@nestjs/common';
+import { Controller, Post, Body, Get, Param, Put, Delete, Res, Query, UseInterceptors } from '@nestjs/common';
 import type { Response } from 'express';
 import { ExecutorService, WorkflowEvent } from './executor.service';
 import { WorkflowService } from './workflow.service';
 import { Workflow } from './workflow.entity';
 import type { WorkflowDefinition } from './interfaces/workflow.interface';
+import { NoInterceptors } from '../common/decorators/no-interceptors.decorator';
 
 @Controller('workflows')
 export class WorkflowController {
@@ -76,6 +77,7 @@ export class WorkflowController {
 
     // SSE: 工作流执行并实时推送状态
     @Get(':id/run-stream')
+    @NoInterceptors()
     async runStream(
         @Param('id') id: string,
         @Query('input') input: string,

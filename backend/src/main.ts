@@ -1,4 +1,4 @@
-import { NestFactory } from '@nestjs/core';
+import { NestFactory, Reflector } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { HttpExceptionFilter, AllExceptionsFilter } from './common/filters/http-exception.filter';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
@@ -13,7 +13,8 @@ async function bootstrap() {
   });
 
   // 全局响应拦截器（统一响应格式）
-  app.useGlobalInterceptors(new ResponseInterceptor());
+  const reflector = app.get(Reflector);
+  app.useGlobalInterceptors(new ResponseInterceptor(reflector));
 
   // 全局异常过滤器
   app.useGlobalFilters(

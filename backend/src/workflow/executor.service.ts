@@ -9,7 +9,7 @@ import { WorkflowLog, WorkflowLogStatus } from './workflow-log.entity';
 import { ConditionContext } from './strategies/condition.strategy';
 
 // SSE 事件类型
-export type WorkflowEventType = 'node_start' | 'node_complete' | 'node_error' | 'workflow_complete' | 'token';
+export type WorkflowEventType = 'node_start' | 'node_complete' | 'node_error' | 'workflow_start' | 'workflow_complete' | 'token';
 
 export interface WorkflowEvent {
     type: WorkflowEventType;
@@ -68,7 +68,7 @@ export class ExecutorService {
         // 发送工作流开始事件
         if (onEvent) {
             onEvent({
-                type: 'workflow_complete',
+                type: 'workflow_start',
                 nodeId: 'workflow',
                 data: { status: 'started', name: workflow.name, logId: workflowLog.id },
                 timestamp: Date.now(),

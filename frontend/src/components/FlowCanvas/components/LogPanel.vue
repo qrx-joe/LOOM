@@ -15,10 +15,11 @@ const emit = defineEmits<{
 // 过滤系统日志，只显示关键节点事件
 const displayLogs = computed(() => {
   return props.logs.filter(log => {
-    // 过滤掉过多的 workflow 状态事件
-    if (log.nodeId === 'workflow' && log.type === 'workflow_complete') {
+    // 显示所有 workflow 事件（开始、完成等）
+    if (log.nodeId === 'workflow') {
       return true
     }
+    // 显示所有节点事件
     return log.nodeId !== 'workflow'
   })
 })
@@ -37,6 +38,10 @@ const formatTime = (timestamp: number) => {
 // 格式化日志消息
 const formatMessage = (log: any) => {
   switch (log.type) {
+    case 'workflow_start':
+      return `工作流开始: ${log.data?.name || ''}`
+    case 'workflow_complete':
+      return `工作流完成: ${log.data?.status || ''}`
     case 'node_start':
       return `开始执行: ${log.nodeId}`
     case 'node_complete':
@@ -51,6 +56,10 @@ const formatMessage = (log: any) => {
 // 获取日志图标
 const getLogIcon = (log: any) => {
   switch (log.type) {
+    case 'workflow_start':
+      return PlayCircle
+    case 'workflow_complete':
+      return CheckCircle
     case 'node_start':
       return PlayCircle
     case 'node_complete':
@@ -65,6 +74,10 @@ const getLogIcon = (log: any) => {
 // 获取日志样式类
 const getLogClass = (log: any) => {
   switch (log.type) {
+    case 'workflow_start':
+      return 'log-info'
+    case 'workflow_complete':
+      return 'log-success'
     case 'node_complete':
       return 'log-success'
     case 'node_error':
