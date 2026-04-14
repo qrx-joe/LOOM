@@ -291,25 +291,40 @@ export class ExecutorService {
                 return this.handleCondition(node, config, input);
             case 'output':
             case 'OUTPUT':
-            case NodeType.OUTPUT:
-                // OUTPUT 节点：尝试提取 AI 节点的输出作为最终输出
-                // 遍历所有输入值，找到 AI 节点的 text 输出
+            case NodeType.OUTPUT: {
+                // OUTPUT 节点：遍历所有输入值，找到 AI 节点的 text 输出
+                // 注意：绝对不能直接返回含有 input 字段的原始 input 对象，
+                // 否则 extractTextFromOutput 的 input 字段兜底逻辑会把用户原话当成 AI 回复
+                let bestText: string | undefined;
+                let bestSource: string | undefined;
+
                 for (const [key, value] of Object.entries(input)) {
-                    if (key === '_context') continue;
+                    if (key === '_context' || key === 'input' || key === 'START_INPUT') continue;
                     if (value && typeof value === 'object') {
                         const val = value as any;
-                        // 如果值对象有 text 字段，这就是 AI 输出
-                        if (val.text !== undefined) {
-                            return { text: val.text, _source: key };
+                        // 优先找 text 字段（AI 节点的标准输出）
+                        if (val.text !== undefined && val.text !== null) {
+                            bestText = String(val.text);
+                            bestSource = key;
+                            break; // 找到第一个 AI 输出即停止
                         }
-                        // 如果有 content 字段
-                        if (val.content !== undefined) {
-                            return { text: val.content, _source: key };
+                        // 其次找 content 字段
+                        if (val.content !== undefined && val.content !== null && !bestText) {
+                            bestText = String(val.content);
+                            bestSource = key;
                         }
                     }
                 }
-                // 如果没找到，返回原始 input（兼容旧逻辑）
-                return input;
+
+                if (bestText !== undefined) {
+                    return { text: bestText, _source: bestSource };
+                }
+
+                // 真的没找到 AI 输出时，返回 { text: '' } 而不是原始 input
+                // 避免 extractTextFromOutput 误把用户原话当 AI 回复
+                this.logger.warn(`[OUTPUT node] No AI output found in input keys: ${Object.keys(input).join(', ')}`);
+                return { text: '' };
+            }
             default:
                 // 未知类型节点默认透传
                 this.logger.warn(`Unknown node type: ${nodeType}, passing through input`);
