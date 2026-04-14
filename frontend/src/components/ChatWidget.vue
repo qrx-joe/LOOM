@@ -269,12 +269,11 @@ const handleKeydown = (e: KeyboardEvent) => {
             <!-- 空状态 -->
             <div v-if="!chatStore.currentSessionId" class="empty-state">
               <div class="empty-content">
-                <History :size="48" class="empty-icon" />
-                <h4>选择一个会话开始</h4>
-                <p>从历史记录中选择或创建新会话</p>
-                <button @click="toggleSessionList" class="start-session-btn primary" style="margin-top: 16px;">
-                  查看历史会话
-                </button>
+                <div class="empty-icon-wrapper">
+                  <History :size="40" class="empty-icon" />
+                </div>
+                <h4>开始对话</h4>
+                <p>选择工作流并新建会话，或从历史记录继续</p>
               </div>
             </div>
 
@@ -1210,24 +1209,40 @@ input {
 
 .empty-content {
   text-align: center;
-  padding: 40px 20px;
+  padding: 48px 32px;
   color: var(--text-muted);
+  max-width: 280px;
+}
+
+.empty-icon-wrapper {
+  width: 80px;
+  height: 80px;
+  border-radius: 24px;
+  background: linear-gradient(135deg, var(--primary-light) 0%, #e8eeff 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 20px;
+  box-shadow: 0 4px 16px rgba(71, 118, 246, 0.15);
 }
 
 .empty-icon {
   color: var(--primary);
-  margin-bottom: 16px;
-  opacity: 0.5;
+  opacity: 0.8;
 }
 
 .empty-content h4 {
-  margin: 0 0 8px;
+  margin: 0 0 10px;
   color: var(--text-main);
+  font-size: 16px;
+  font-weight: 600;
 }
 
 .empty-content p {
-  margin: 0 0 16px;
+  margin: 0;
   font-size: 13px;
+  line-height: 1.6;
+  color: var(--text-muted);
 }
 
 /* 按钮变体 */
