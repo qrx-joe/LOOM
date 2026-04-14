@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Get, Param, Query, Res } from '@nestjs/common';
+import { Controller, Post, Body, Get, Param, Query, Res, Delete, Patch } from '@nestjs/common';
 import type { Response } from 'express';
 import { ChatService } from './chat.service';
 
@@ -9,6 +9,11 @@ export class ChatController {
     @Get('sessions')
     getSessions() {
         return this.chatService.findAllSessions();
+    }
+
+    @Get('sessions/:id')
+    getSession(@Param('id') id: string) {
+        return this.chatService.findSessionById(id);
     }
 
     @Post('sessions')
@@ -52,5 +57,18 @@ export class ChatController {
         }
 
         res.end();
+    }
+
+    @Delete('sessions/:id')
+    deleteSession(@Param('id') id: string) {
+        return this.chatService.deleteSession(id);
+    }
+
+    @Patch('sessions/:id')
+    updateSession(
+        @Param('id') id: string,
+        @Body() body: { name: string }
+    ) {
+        return this.chatService.updateSession(id, body.name);
     }
 }

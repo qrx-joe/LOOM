@@ -40,7 +40,10 @@ export const useChatStore = defineStore('chat', () => {
         try {
             const resultData = await api.post<any>('/agent/sessions', { workflowId });
             console.log('Session created:', resultData);
-            currentSessionId.value = resultData?.id;
+            if (!resultData?.id) {
+                throw new Error('Failed to create session: invalid response');
+            }
+            currentSessionId.value = resultData.id;
             currentWorkflowId.value = workflowId;
             messages.value = [];
             return resultData;

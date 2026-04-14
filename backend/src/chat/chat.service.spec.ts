@@ -40,12 +40,14 @@ describe('ChatService', () => {
     findOne: jest.fn(() => Promise.resolve(mockSession)),
     create: jest.fn((data) => ({ ...data, id: 'session-1' })),
     save: jest.fn((data) => Promise.resolve({ ...data, id: data.id || 'session-1' })),
+    remove: jest.fn(() => Promise.resolve()),
   };
 
   const mockMessageRepo = {
     find: jest.fn(() => Promise.resolve([])),
     create: jest.fn((data) => ({ ...data, id: 'msg-1' })),
     save: jest.fn((data) => Promise.resolve({ ...data, id: data.id || 'msg-1' })),
+    remove: jest.fn(() => Promise.resolve()),
   };
 
   const mockExecutorService = {
@@ -317,6 +319,78 @@ describe('ChatService', () => {
       const result = await service.sendMessage('session-1', 'test');
 
       expect(result.content).toContain('没有返回有效内容');
+    });
+
+    it('空消息内容应该抛出错误', async () => {
+      await expect(service.sendMessage('session-1', '')).rejects.toThrow('Message content cannot be empty');
+      await expect(service.sendMessage('session-1', '   ')).rejects.toThrow('Message content cannot be empty');
+    });
+
+    it('超长消息内容应该抛出错误', async () => {
+      const longContent = 'a'.repeat(10001);
+      await expect(service.sendMessage('session-1', longContent)).rejects.toThrow('exceeds maximum length');
+    });
+  });
+
+  describe('会话详情获取', () => {
+    it('应该返回会话详情', async () => {
+      const session = await service.findSessionById('session-1');
+
+      expect(session.id).toBe('session-1');
+      expect(mockSessionRepo.findOne).toHaveBeenCalledWith({
+        where: { id: 'session-1' },
+        relations: ['workflow'],
+      });
+    });
+
+    it('会话不存在时应该抛出错误', async () => {
+      mockSessionRepo.findOne.mockResolvedValueOnce(null);
+
+      await expect(service.findSessionById('invalid-id')).rejects.toThrow('Session not found');
+    });
+  });
+
+  describe('会话删除', () => {
+    it('应该删除会话及其消息', async () => {
+      const mockSessionWithMessages = {
+        ...mockSession,
+        messages: [{ id: 'msg-1', content: 'test' }],
+      };
+      mockSessionRepo.findOne.mockResolvedValueOnce(mockSessionWithMessages);
+
+      const result = await service.deleteSession('session-1');
+
+      expect(mockMessageRepo.remove).toHaveBeenCalledWith(mockSessionWithMessages.messages);
+      expect(mockSessionRepo.remove).toHaveBeenCalledWith(mockSessionWithMessages);
+      expect(result.success).toBe(true);
+    });
+
+    it('删除不存在会话应该抛出错误', async () => {
+      mockSessionRepo.findOne.mockResolvedValueOnce(null);
+
+      await expect(service.deleteSession('invalid-id')).rejects.toThrow('Session not found');
+    });
+  });
+
+  describe('会话重命名', () => {
+    it('应该更新会话名称', async () => {
+      mockSessionRepo.findOne.mockResolvedValueOnce({ ...mockSession, name: 'Old Name' });
+
+      const result = await service.updateSession('session-1', 'New Name');
+
+      expect(mockSessionRepo.save).toHaveBeenCalledWith(
+        expect.objectContaining({ name: 'New Name' })
+      );
+    });
+
+    it('空名称应该抛出错误', async () => {
+      await expect(service.updateSession('session-1', '')).rejects.toThrow('Session name cannot be empty');
+      await expect(service.updateSession('session-1', '   ')).rejects.toThrow('Session name cannot be empty');
+    });
+
+    it('超长名称应该抛出错误', async () => {
+      const longName = 'a'.repeat(101);
+      await expect(service.updateSession('session-1', longName)).rejects.toThrow('exceeds maximum length');
     });
   });
 });

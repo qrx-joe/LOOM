@@ -26,6 +26,46 @@ export class ChatService {
         });
     }
 
+    async findSessionById(id: string) {
+        const session = await this.sessionRepository.findOne({
+            where: { id },
+            relations: ['workflow'],
+        });
+        if (!session) throw new Error('Session not found');
+        return session;
+    }
+
+    async deleteSession(id: string) {
+        const session = await this.sessionRepository.findOne({
+            where: { id },
+            relations: ['messages'],
+        });
+        if (!session) throw new Error('Session not found');
+
+        // 级联删除消息（通过数据库配置也会自动删除，这里显式处理确保清理）
+        if (session.messages?.length > 0) {
+            await this.messageRepository.remove(session.messages);
+        }
+
+        await this.sessionRepository.remove(session);
+        return { success: true, message: 'Session deleted' };
+    }
+
+    async updateSession(id: string, name: string) {
+        if (!name || name.trim() === '') {
+            throw new Error('Session name cannot be empty');
+        }
+        if (name.length > 100) {
+            throw new Error('Session name exceeds maximum length of 100 characters');
+        }
+
+        const session = await this.sessionRepository.findOne({ where: { id } });
+        if (!session) throw new Error('Session not found');
+
+        session.name = name.trim();
+        return this.sessionRepository.save(session);
+    }
+
     async createSession(workflowId: string, name?: string) {
         const workflow = await this.workflowService.findOne(workflowId);
         if (!workflow) throw new Error('Workflow not found');
@@ -44,7 +84,20 @@ export class ChatService {
         });
     }
 
+    private readonly MAX_MESSAGE_LENGTH = 10000;
+
+    private validateContent(content: string): void {
+        if (!content || content.trim() === '') {
+            throw new Error('Message content cannot be empty');
+        }
+        if (content.length > this.MAX_MESSAGE_LENGTH) {
+            throw new Error(`Message content exceeds maximum length of ${this.MAX_MESSAGE_LENGTH} characters`);
+        }
+    }
+
     async sendMessage(sessionId: string, content: string) {
+        this.validateContent(content);
+
         const session = await this.sessionRepository.findOne({
             where: { id: sessionId },
             relations: ['workflow'],
@@ -184,6 +237,8 @@ export class ChatService {
         content: string,
         onToken: (data: any) => void
     ) {
+        this.validateContent(content);
+
         const session = await this.sessionRepository.findOne({
             where: { id: sessionId },
             relations: ['workflow'],

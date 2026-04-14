@@ -28,7 +28,7 @@ export class Message {
     role: 'user' | 'assistant' | 'system';
 
     @Column('text')
-    content: string;
+    content: string;  // 建议应用层限制最大长度 10000 字符
 
     // 消息元数据（如引用来源）
     @Column('simple-json', { nullable: true })
