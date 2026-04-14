@@ -163,6 +163,10 @@ const startNewChat = async () => {
         <!-- 会话列表面板 -->
         <transition name="slide">
           <div v-if="showSessionList" class="session-panel">
+            <!-- 拖动手柆 - 用于收起侧边栏 -->
+            <div class="panel-resize-handle" @click="toggleSessionList" title="收起侧边栏">
+              <ChevronLeft :size="16" />
+            </div>
             <div class="session-panel-header">
               <h4>历史会话</h4>
               <button @click="handleNewSession" class="new-session-btn" title="新建会话">
@@ -197,11 +201,17 @@ const startNewChat = async () => {
           </div>
         </transition>
 
+        <!-- 侧边栏收起时的展开手柄 -->
+        <div v-if="!showSessionList" class="panel-expand-handle" @click="toggleSessionList" title="展开历史会话">
+          <History :size="16" />
+          <ChevronLeft :size="12" class="expand-icon" />
+        </div>
+
         <!-- 主聊天区域 -->
-        <div class="chat-main">
+        <div class="chat-main" :class="{ 'panel-hidden': !showSessionList }">
           <header class="chat-header">
             <div class="header-left">
-              <button v-if="chatStore.currentSessionId" @click="toggleSessionList" class="back-btn" title="会话列表">
+              <button v-if="chatStore.currentSessionId && !showSessionList" @click="toggleSessionList" class="back-btn" title="会话列表">
                 <ChevronLeft :size="20" />
               </button>
               <div class="header-info">
@@ -423,11 +433,12 @@ const startNewChat = async () => {
   cursor: pointer;
   transition: all 0.2s;
   padding: 0;
+  flex-shrink: 0;
 }
 
-.icon-btn svg {
-  width: 16px;
-  height: 16px;
+.icon-btn :deep(svg) {
+  width: 16px !important;
+  height: 16px !important;
   stroke-width: 2;
 }
 
@@ -582,14 +593,19 @@ const startNewChat = async () => {
   display: flex;
   align-items: center;
   gap: 4px;
-  padding: 4px 8px;
-  font-size: 11px;
+  padding: 6px 10px;
+  font-size: 12px;
   color: var(--text-muted);
   background: transparent;
   border: 1px solid var(--border-subtle);
   border-radius: 6px;
   cursor: pointer;
   transition: all 0.2s;
+}
+
+.action-btn :deep(svg) {
+  width: 12px !important;
+  height: 12px !important;
 }
 
 .action-btn:hover {
@@ -780,6 +796,83 @@ input {
   z-index: 10;
 }
 
+/* 面板调整手柄 - 用于收起 */
+.panel-resize-handle {
+  position: absolute;
+  right: -12px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 24px;
+  height: 48px;
+  background: white;
+  border: 1px solid var(--border-subtle);
+  border-left: none;
+  border-radius: 0 8px 8px 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 2px 0 8px rgba(0,0,0,0.1);
+  z-index: 11;
+  color: var(--text-muted);
+  transition: all 0.2s;
+}
+
+.panel-resize-handle:hover {
+  background: var(--primary-light);
+  color: var(--primary);
+  width: 28px;
+}
+
+.panel-resize-handle :deep(svg) {
+  width: 16px;
+  height: 16px;
+}
+
+/* 面板展开手柄 - 用于展开 */
+.panel-expand-handle {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 32px;
+  height: 64px;
+  background: white;
+  border: 1px solid var(--border-subtle);
+  border-left: none;
+  border-radius: 0 8px 8px 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  cursor: pointer;
+  box-shadow: 2px 0 8px rgba(0,0,0,0.1);
+  z-index: 10;
+  color: var(--text-muted);
+  transition: all 0.2s;
+}
+
+.panel-expand-handle:hover {
+  background: var(--primary-light);
+  color: var(--primary);
+  width: 36px;
+}
+
+.panel-expand-handle :deep(svg) {
+  width: 16px;
+  height: 16px;
+}
+
+.panel-expand-handle .expand-icon {
+  transform: rotate(180deg);
+}
+
+/* 主聊天区域适配 */
+.chat-main.panel-hidden {
+  margin-left: 0;
+}
+
 .slide-enter-active, .slide-leave-active {
   transition: transform 0.3s ease;
 }
@@ -813,6 +906,12 @@ input {
   align-items: center;
   justify-content: center;
   cursor: pointer;
+  padding: 0;
+}
+
+.new-session-btn :deep(svg) {
+  width: 16px !important;
+  height: 16px !important;
 }
 
 .session-list {
@@ -864,8 +963,8 @@ input {
 }
 
 .delete-session-btn {
-  width: 24px;
-  height: 24px;
+  width: 28px;
+  height: 28px;
   border-radius: 6px;
   background: transparent;
   border: none;
@@ -874,8 +973,14 @@ input {
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  opacity: 0;
+  opacity: 0.6;
   transition: all 0.2s;
+  padding: 0;
+}
+
+.delete-session-btn svg {
+  width: 14px;
+  height: 14px;
 }
 
 .session-item:hover .delete-session-btn {
@@ -885,6 +990,7 @@ input {
 .delete-session-btn:hover {
   background: #fee2e2;
   color: #ef4444;
+  opacity: 1;
 }
 
 .empty-sessions {
