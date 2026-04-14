@@ -256,19 +256,26 @@ const startNewChat = async () => {
   height: 32px;
   border-radius: 8px;
   background: white;
-  border: 1px solid var(--border-subtle);
-  color: var(--text-muted);
+  border: 1px solid var(--border-subtle, #e5e7eb);
+  color: var(--text-muted, #6b7280);
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   transition: all 0.2s;
+  padding: 0;
+}
+
+.icon-btn svg {
+  width: 16px;
+  height: 16px;
+  stroke-width: 2;
 }
 
 .icon-btn:hover {
-  background: var(--primary-light);
-  color: var(--primary);
-  border-color: var(--primary);
+  background: var(--primary-light, #eef2ff);
+  color: var(--primary, #4776f6);
+  border-color: var(--primary, #4776f6);
 }
 
 .bot-avatar {

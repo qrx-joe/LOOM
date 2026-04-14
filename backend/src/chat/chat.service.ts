@@ -375,7 +375,7 @@ export class ChatService {
             markdown += `${msg.content}\n\n`;
 
             // 添加引用来源
-            if (msg.metadata?.sourceDocs?.length > 0) {
+            if (msg.metadata?.sourceDocs && msg.metadata.sourceDocs.length > 0) {
                 markdown += `**引用来源**:\n\n`;
                 for (const doc of msg.metadata.sourceDocs) {
                     markdown += `- ${doc.documentName} (相关度: ${(doc.score * 100).toFixed(0)}%)\n`;
