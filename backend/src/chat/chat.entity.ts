@@ -12,7 +12,7 @@ export class Session {
     @ManyToOne(() => Workflow)
     workflow: Workflow;
 
-    @OneToMany(() => Message, (msg) => msg.session)
+    @OneToMany(() => Message, (msg) => msg.session, { cascade: true, onDelete: 'CASCADE' })
     messages: Message[];
 
     @CreateDateColumn()
@@ -37,7 +37,7 @@ export class Message {
         nodeIds?: string[];
     };
 
-    @ManyToOne(() => Session, (session) => session.messages)
+    @ManyToOne(() => Session, (session) => session.messages, { onDelete: 'CASCADE' })
     session: Session;
 
     @CreateDateColumn()
