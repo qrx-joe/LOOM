@@ -8,6 +8,7 @@ import {
   Param,
   Delete,
   NotFoundException,
+  Patch,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { KnowledgeBaseService } from './services/knowledge-base.service';
@@ -53,6 +54,14 @@ export class KnowledgeController {
   @Delete('bases/:id')
   deleteBase(@Param('id') id: string) {
     return this.knowledgeBaseService.deleteBase(id);
+  }
+
+  @Patch('bases/:id')
+  updateBase(
+    @Param('id') id: string,
+    @Body() body: { name?: string; description?: string },
+  ) {
+    return this.knowledgeBaseService.updateBase(id, body.name, body.description);
   }
 
   @Get('stats')

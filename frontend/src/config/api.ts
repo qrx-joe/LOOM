@@ -33,5 +33,8 @@ export const getUploadDocumentUrl = (kbId: string) =>
 export const getDocumentStatusUrl = (docId: string) =>
   `${API_BASE_URL}/knowledge/documents/${docId}/status`
 
+export const getUpdateKnowledgeBaseUrl = (id: string) =>
+  `${API_ENDPOINTS.knowledgeBases}/${id}`
+
 export const getSearchKnowledgeUrl = () =>
   `${API_BASE_URL}/knowledge/search`

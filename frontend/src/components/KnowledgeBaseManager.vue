@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
 import axios from 'axios'
-import { Plus, Trash2, Upload, FileText, BookOpen, FolderOpen, Loader2, CheckCircle, AlertCircle } from 'lucide-vue-next'
+import { Plus, Trash2, Upload, FileText, BookOpen, FolderOpen, Loader2, CheckCircle, AlertCircle, Pencil, X, Check } from 'lucide-vue-next'
 import {
   getKnowledgeBasesUrl,
   getKnowledgeBaseUrl,
   getUploadDocumentUrl,
   getDocumentStatusUrl,
+  getUpdateKnowledgeBaseUrl,
 } from '../config/api'
 
 type ProcessingStatus = 'pending' | 'parsing' | 'chunking' | 'embedding' | 'completed' | 'failed'
@@ -34,6 +35,11 @@ const isLoading = ref(false)
 const selectedKb = ref<KnowledgeBase | null>(null)
 const documentStatuses = ref<Map<string, { status: ProcessingStatus; progress: number; error?: string }>>(new Map())
 let statusPollingInterval: ReturnType<typeof setInterval> | null = null
+
+// 编辑相关状态
+const editingKbId = ref<string | null>(null)
+const editKbName = ref('')
+const editKbDescription = ref('')
 
 const fetchKbs = async () => {
   try {
@@ -158,6 +164,44 @@ const deleteKb = async (kbId: string, event: Event) => {
   }
 }
 
+// 开始编辑知识库
+const startEditKb = (kb: KnowledgeBase, event: Event) => {
+  event.stopPropagation()
+  editingKbId.value = kb.id
+  editKbName.value = kb.name
+  editKbDescription.value = kb.description || ''
+}
+
+// 取消编辑
+const cancelEditKb = (event: Event) => {
+  event.stopPropagation()
+  editingKbId.value = null
+  editKbName.value = ''
+  editKbDescription.value = ''
+}
+
+// 保存编辑
+const saveEditKb = async (kbId: string, event: Event) => {
+  event.stopPropagation()
+  if (!editKbName.value.trim()) {
+    alert('知识库名称不能为空')
+    return
+  }
+
+  try {
+    await axios.patch(getUpdateKnowledgeBaseUrl(kbId), {
+      name: editKbName.value.trim(),
+      description: editKbDescription.value.trim() || undefined,
+    })
+    editingKbId.value = null
+    editKbName.value = ''
+    editKbDescription.value = ''
+    await fetchKbs()
+  } catch (err) {
+    alert('更新失败')
+  }
+}
+
 const deleteDoc = async (docId: string, event: Event) => {
   event.stopPropagation()
   if (!confirm('确定要删除这个文档吗？')) return
@@ -234,31 +278,62 @@ onUnmounted(() => {
           v-for="kb in kbs"
           :key="kb.id"
           class="kb-card"
-          :class="{ active: selectedKb?.id === kb.id }"
+          :class="{ active: selectedKb?.id === kb.id, editing: editingKbId === kb.id }"
           @click="selectKb(kb)"
         >
-          <div class="kb-card-header">
-            <div class="kb-icon"><BookOpen :size="24" /></div>
-            <div class="kb-meta">
-              <h3>{{ kb.name }}</h3>
-              <span class="kb-tag">{{ kb.documents?.length || 0 }} Docs</span>
+          <!-- 编辑模式 -->
+          <div v-if="editingKbId === kb.id" class="kb-edit-form" @click.stop>
+            <input
+              v-model="editKbName"
+              type="text"
+              placeholder="知识库名称"
+              class="edit-input"
+              @keyup.enter="e => saveEditKb(kb.id, e)"
+            />
+            <input
+              v-model="editKbDescription"
+              type="text"
+              placeholder="描述（可选）"
+              class="edit-input"
+              @keyup.enter="e => saveEditKb(kb.id, e)"
+            />
+            <div class="edit-actions">
+              <button class="icon-btn success" @click="e => saveEditKb(kb.id, e)" title="保存">
+                <Check :size="16" />
+              </button>
+              <button class="icon-btn" @click="cancelEditKb" title="取消">
+                <X :size="16" />
+              </button>
             </div>
           </div>
-          <div class="kb-card-actions">
-            <label class="upload-btn" @click.stop>
-              <Upload :size="16" />
-              上传文档
-              <input
-                type="file"
-                accept=".txt,.pdf,.doc,.docx"
-                @change="e => handleUpload(kb.id, e)"
-                hidden
-              />
-            </label>
-            <button class="icon-btn danger" @click="e => deleteKb(kb.id, e)">
-              <Trash2 :size="16" />
-            </button>
-          </div>
+          <!-- 展示模式 -->
+          <template v-else>
+            <div class="kb-card-header">
+              <div class="kb-icon"><BookOpen :size="24" /></div>
+              <div class="kb-meta">
+                <h3>{{ kb.name }}</h3>
+                <span class="kb-tag">{{ kb.documents?.length || 0 }} Docs</span>
+              </div>
+            </div>
+            <div class="kb-card-actions">
+              <label class="upload-btn" @click.stop>
+                <Upload :size="16" />
+                上传文档
+                <input
+                  type="file"
+                  accept=".txt,.pdf,.doc,.docx"
+                  @change="e => handleUpload(kb.id, e)"
+                  hidden
+                />
+              </label>
+              <button class="icon-btn" @click="e => startEditKb(kb, e)" title="编辑">
+                <Pencil :size="16" />
+              </button>
+              <button class="icon-btn danger" @click="e => deleteKb(kb.id, e)" title="删除">
+                <Trash2 :size="16" />
+              </button>
+            </div>
+          </template>
         </div>
       </div>
 
@@ -571,6 +646,45 @@ input {
 
 .icon-btn.danger {
   color: #ef4444;
+}
+
+.icon-btn.success {
+  color: #10b981;
+}
+
+.icon-btn.success:hover {
+  background: #d1fae5;
+}
+
+.kb-edit-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.kb-edit-form .edit-input {
+  width: 100%;
+  padding: 10px 14px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  font-size: 14px;
+  background: white;
+}
+
+.kb-edit-form .edit-input:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+
+.edit-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.kb-card.editing {
+  background: var(--bg-surface);
+  border-color: var(--primary);
 }
 
 .doc-actions {

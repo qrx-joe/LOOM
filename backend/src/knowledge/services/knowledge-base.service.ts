@@ -60,6 +60,23 @@ export class KnowledgeBaseService {
     return { success: true };
   }
 
+  async updateBase(id: string, name?: string, description?: string): Promise<KnowledgeBase> {
+    const kb = await this.kbRepository.findOne({
+      where: { id },
+      relations: ['documents'],
+    });
+    if (!kb) throw new NotFoundException('Knowledge Base not found');
+
+    if (name !== undefined) {
+      kb.name = name;
+    }
+    if (description !== undefined) {
+      kb.description = description;
+    }
+
+    return this.kbRepository.save(kb);
+  }
+
   async getStats(): Promise<{ totalBases: number; totalDocuments: number; totalChunks: number }> {
     const totalBases = await this.kbRepository.count();
     const totalDocuments = await this.docRepository.count();
