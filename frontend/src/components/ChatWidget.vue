@@ -1,11 +1,13 @@
 <script setup lang="ts">
-import { ref, watch, onMounted, onUnmounted } from 'vue'
+import { ref, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { useChatStore } from '../store/chat'
-import { Send, MessageSquare, X, Sparkles, User, Square, RefreshCw, Download, Clock } from 'lucide-vue-next'
+import { Send, MessageSquare, X, Sparkles, User, Square, RefreshCw, Download, Clock, Trash2, Plus, ChevronLeft, History } from 'lucide-vue-next'
 
 const chatStore = useChatStore()
 const userInput = ref('')
 const isOpen = ref(false)
+const showSessionList = ref(false)
+const messageListRef = ref<HTMLDivElement>()
 
 const handleSend = async () => {
   if (!userInput.value.trim() || chatStore.isLoading) return
@@ -34,20 +36,66 @@ const handleStop = () => {
   chatStore.cancelOngoingRequest()
 }
 
-// 打开聊天窗口时获取工作流列表
+// 打开聊天窗口时获取工作流和会话列表
 watch(isOpen, async (open) => {
   if (open) {
-    await chatStore.fetchWorkflows()
+    await Promise.all([
+      chatStore.fetchWorkflows(),
+      chatStore.fetchSessions()
+    ])
   }
 })
 
-// 组件挂载时也获取工作流列表
+// 消息更新时自动滚动到底部
+watch(() => chatStore.messages.length, () => {
+  nextTick(() => {
+    scrollToBottom()
+  })
+})
+
+// 组件挂载时也获取数据
 onMounted(async () => {
-  await chatStore.fetchWorkflows()
+  await Promise.all([
+    chatStore.fetchWorkflows(),
+    chatStore.fetchSessions()
+  ])
 
   // 页面刷新或关闭时取消正在进行的请求
   window.addEventListener('beforeunload', handleBeforeUnload)
 })
+
+// 自动滚动到底部
+const scrollToBottom = () => {
+  if (messageListRef.value) {
+    messageListRef.value.scrollTop = messageListRef.value.scrollHeight
+  }
+}
+
+// 切换会话列表
+const toggleSessionList = () => {
+  showSessionList.value = !showSessionList.value
+}
+
+// 选择会话
+const selectSession = (sessionId: string) => {
+  chatStore.switchSession(sessionId)
+  showSessionList.value = false
+}
+
+// 删除会话
+const handleDeleteSession = async (sessionId: string, event: Event) => {
+  event.stopPropagation()
+  if (confirm('确定要删除这个会话吗？')) {
+    await chatStore.deleteSession(sessionId)
+  }
+}
+
+// 新建会话
+const handleNewSession = () => {
+  chatStore.currentSessionId = null
+  chatStore.messages = []
+  showSessionList.value = false
+}
 
 // 组件卸载时清理
 onUnmounted(() => {
@@ -58,6 +106,34 @@ onUnmounted(() => {
 // 页面卸载前取消请求
 const handleBeforeUnload = () => {
   chatStore.cancelOngoingRequest()
+}
+
+// 格式化消息内容（处理换行和代码块）
+const formatMessage = (content: string): string => {
+  if (!content) return ''
+
+  // 转义 HTML 特殊字符
+  let formatted = content
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+
+  // 处理代码块 ```code```
+  formatted = formatted.replace(/```([\s\S]*?)```/g, '<pre class="code-block"><code>$1</code></pre>')
+
+  // 处理行内代码 `code`
+  formatted = formatted.replace(/`([^`]+)`/g, '<code class="inline-code">$1</code>')
+
+  // 处理加粗 **text**
+  formatted = formatted.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+
+  // 处理斜体 *text*
+  formatted = formatted.replace(/\*([^*]+)\*/g, '<em>$1</em>')
+
+  // 处理换行
+  formatted = formatted.replace(/\n/g, '<br>')
+
+  return formatted
 }
 
 const startNewChat = async () => {
@@ -75,108 +151,191 @@ const startNewChat = async () => {
 
 <template>
   <div class="chat-widget" :class="{ open: isOpen }">
-    <!-- 悬浮按钮 - Vibrant Pulse -->
+    <!-- 悬浮按钮 -->
     <button class="toggle-btn" :class="{ active: isOpen }" @click="isOpen = !isOpen">
       <MessageSquare v-if="!isOpen" :size="24" />
       <X v-else :size="24" />
     </button>
 
-    <!-- 聊天窗口 - Glassmorphism -->
+    <!-- 聊天窗口 -->
     <transition name="pop">
       <div v-if="isOpen" class="chat-window">
-        <header class="chat-header">
-          <div class="header-info">
-            <div class="bot-avatar"><Sparkles :size="20" /></div>
-            <div class="bot-texts">
-              <h3>AI 助手</h3>
-              <span class="status">在线中</span>
+        <!-- 会话列表面板 -->
+        <transition name="slide">
+          <div v-if="showSessionList" class="session-panel">
+            <div class="session-panel-header">
+              <h4>历史会话</h4>
+              <button @click="handleNewSession" class="new-session-btn" title="新建会话">
+                <Plus :size="16" />
+              </button>
+            </div>
+            <div class="session-list">
+              <div
+                v-for="session in chatStore.sessions"
+                :key="session.id"
+                class="session-item"
+                :class="{ active: session.id === chatStore.currentSessionId }"
+                @click="selectSession(session.id)"
+              >
+                <div class="session-info">
+                  <span class="session-name">{{ session.name || '未命名会话' }}</span>
+                  <span class="session-time">{{ chatStore.formatRelativeTime(session.createdAt) }}</span>
+                </div>
+                <button
+                  class="delete-session-btn"
+                  @click="(e) => handleDeleteSession(session.id, e)"
+                  title="删除会话"
+                >
+                  <Trash2 :size="14" />
+                </button>
+              </div>
+              <div v-if="chatStore.sessions.length === 0" class="empty-sessions">
+                <History :size="24" />
+                <p>暂无历史会话</p>
+              </div>
             </div>
           </div>
-          <div v-if="!chatStore.currentSessionId" class="session-start">
-            <select v-model="chatStore.currentWorkflowId" class="workflow-select">
-              <option value="" disabled>选择工作流</option>
-              <option v-for="wf in chatStore.workflows" :key="wf.id" :value="wf.id">
-                {{ wf.name }}
-              </option>
-            </select>
-            <button @click="startNewChat" class="start-session-btn">
-              进入会话
-            </button>
-          </div>
-          <div v-else class="header-actions">
-            <button @click="chatStore.exportSession" class="icon-btn" title="导出会话">
-              <Download :size="16" />
-            </button>
-            <button @click="chatStore.currentSessionId = null" class="start-session-btn">
-              切换会话
-            </button>
-          </div>
-        </header>
+        </transition>
 
-        <div class="message-list">
-          <div v-if="chatStore.messages.length === 0" class="welcome-card">
-            <Sparkles :size="32" class="sparkle-icon" />
-            <h4>有什么我可以帮你的？</h4>
-            <p>我可以基于你编排的工作流提供智能问答服务。</p>
-          </div>
-          
-          <div v-for="(msg, i) in chatStore.messages" :key="i" class="message-bubble" :class="msg.role">
-            <div class="avatar-sm">
-              <User v-if="msg.role === 'user'" :size="14" />
-              <Sparkles v-else :size="14" />
-            </div>
-            <div class="bubble-wrapper">
-              <div class="message-header">
-                <span class="message-role">{{ msg.role === 'user' ? '用户' : 'AI助手' }}</span>
-                <span v-if="msg.createdAt" class="message-time">
-                  <Clock :size="10" />
-                  {{ chatStore.formatRelativeTime(msg.createdAt) }}
-                </span>
-              </div>
-              <div class="bubble-content">
-                {{ msg.content }}<span v-if="msg.isStreaming" class="typing-cursor">▋</span>
-              </div>
-              <!-- 引用来源 -->
-              <div v-if="msg.metadata?.sourceDocs?.length > 0 && !msg.isStreaming" class="source-docs">
-                <div class="source-header">引用来源</div>
-                <div v-for="(doc, idx) in msg.metadata.sourceDocs" :key="idx" class="source-item">
-                  <span class="source-name">{{ doc.documentName || '未知文档' }}</span>
-                  <span class="source-score">{{ (doc.score * 100).toFixed(0) }}%</span>
+        <!-- 主聊天区域 -->
+        <div class="chat-main">
+          <header class="chat-header">
+            <div class="header-left">
+              <button v-if="chatStore.currentSessionId" @click="toggleSessionList" class="back-btn" title="会话列表">
+                <ChevronLeft :size="20" />
+              </button>
+              <div class="header-info">
+                <div class="bot-avatar"><Sparkles :size="20" /></div>
+                <div class="bot-texts">
+                  <h3>{{ chatStore.currentSessionId ? 'AI 助手' : '选择会话' }}</h3>
+                  <span v-if="chatStore.currentSessionId" class="status">在线中</span>
                 </div>
               </div>
-              <!-- 重新生成按钮（仅对最后一条助手消息显示） -->
-              <div v-if="msg.role === 'assistant' && i === chatStore.messages.length - 1 && !msg.isStreaming && !chatStore.isLoading" class="message-actions">
-                <button @click="chatStore.regenerateMessage" class="action-btn" title="重新生成">
-                  <RefreshCw :size="12" />
-                  重新生成
+            </div>
+
+            <!-- 新建会话状态 -->
+            <div v-if="!chatStore.currentSessionId && !showSessionList" class="session-start">
+              <button @click="toggleSessionList" class="start-session-btn">
+                <History :size="14" />
+                历史会话
+              </button>
+              <select v-model="chatStore.currentWorkflowId" class="workflow-select">
+                <option value="" disabled>选择工作流</option>
+                <option v-for="wf in chatStore.workflows" :key="wf.id" :value="wf.id">
+                  {{ wf.name }}
+                </option>
+              </select>
+              <button @click="startNewChat" class="start-session-btn primary">
+                <Plus :size="14" />
+                新建会话
+              </button>
+            </div>
+
+            <!-- 聊天状态工具栏 -->
+            <div v-if="chatStore.currentSessionId" class="header-actions">
+              <button @click="chatStore.exportSession" class="icon-btn" title="导出会话">
+                <Download :size="16" />
+              </button>
+              <button @click="toggleSessionList" class="icon-btn" title="会话列表">
+                <History :size="16" />
+              </button>
+            </div>
+          </header>
+
+          <!-- 消息列表 -->
+          <div ref="messageListRef" class="message-list">
+            <!-- 空状态 -->
+            <div v-if="!chatStore.currentSessionId" class="empty-state">
+              <div class="empty-content">
+                <History :size="48" class="empty-icon" />
+                <h4>选择一个会话开始</h4>
+                <p>从历史记录中选择或创建新会话</p>
+                <button @click="toggleSessionList" class="start-session-btn primary" style="margin-top: 16px;">
+                  查看历史会话
                 </button>
               </div>
             </div>
-          </div>
-          
-          <div v-if="chatStore.isLoading" class="message-bubble assistant">
-            <div class="avatar-sm loading-spin"><Sparkles :size="14" /></div>
-            <div class="bubble-content typing">
-              <span></span><span></span><span></span>
-            </div>
-          </div>
-        </div>
 
-        <footer class="chat-input-wrapper">
-          <div class="input-area">
-            <input 
-              v-model="userInput" 
-              placeholder="输入你的问题..." 
-              @keyup.enter="handleSend"
-            />
-            <button v-if="chatStore.isLoading" @click="handleStop" class="stop-btn">
-              <Square :size="14" fill="currentColor" />
-            </button>
-            <button v-else @click="handleSend" class="send-btn" :disabled="!userInput.trim()">
-              <Send :size="18" />
-            </button>
+            <template v-else>
+              <!-- 欢迎卡片 -->
+              <div v-if="chatStore.messages.length === 0" class="welcome-card">
+                <Sparkles :size="32" class="sparkle-icon" />
+                <h4>有什么我可以帮你的？</h4>
+                <p>我可以基于你编排的工作流提供智能问答服务。</p>
+              </div>
+
+              <!-- 消息气泡 -->
+              <div
+                v-for="(msg, i) in chatStore.messages"
+                :key="i"
+                class="message-bubble"
+                :class="[msg.role, { last: i === chatStore.messages.length - 1 }]"
+              >
+                <div class="avatar-sm">
+                  <User v-if="msg.role === 'user'" :size="14" />
+                  <Sparkles v-else :size="14" />
+                </div>
+                <div class="bubble-wrapper">
+                  <div class="message-header">
+                    <span class="message-role">{{ msg.role === 'user' ? '用户' : 'AI助手' }}</span>
+                    <span v-if="msg.createdAt" class="message-time">
+                      <Clock :size="10" />
+                      {{ chatStore.formatRelativeTime(msg.createdAt) }}
+                    </span>
+                  </div>
+                  <div class="bubble-content">
+                    <div class="message-text" v-html="formatMessage(msg.content)"></div>
+                    <span v-if="msg.isStreaming" class="typing-cursor">▋</span>
+                  </div>
+                  <!-- 引用来源 -->
+                  <div v-if="msg.metadata?.sourceDocs?.length > 0 && !msg.isStreaming" class="source-docs">
+                    <div class="source-header">
+                      <span>引用来源</span>
+                      <span class="source-count">{{ msg.metadata.sourceDocs.length }}个</span>
+                    </div>
+                    <div v-for="(doc, idx) in msg.metadata.sourceDocs" :key="idx" class="source-item">
+                      <span class="source-name">{{ doc.documentName || '未知文档' }}</span>
+                      <span class="source-score">{{ (doc.score * 100).toFixed(0) }}%</span>
+                    </div>
+                  </div>
+                  <!-- 重新生成按钮 -->
+                  <div v-if="msg.role === 'assistant' && i === chatStore.messages.length - 1 && !msg.isStreaming && !chatStore.isLoading" class="message-actions">
+                    <button @click="chatStore.regenerateMessage" class="action-btn" title="重新生成">
+                      <RefreshCw :size="12" />
+                      重新生成
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 加载状态 -->
+              <div v-if="chatStore.isLoading" class="message-bubble assistant">
+                <div class="avatar-sm loading-spin"><Sparkles :size="14" /></div>
+                <div class="bubble-content typing">
+                  <span></span><span></span><span></span>
+                </div>
+              </div>
+            </template>
           </div>
-        </footer>
+
+          <!-- 输入区域 -->
+          <footer v-if="chatStore.currentSessionId" class="chat-input-wrapper">
+            <div class="input-area">
+              <input
+                v-model="userInput"
+                placeholder="输入你的问题..."
+                @keyup.enter="handleSend"
+                :disabled="chatStore.isLoading"
+              />
+              <button v-if="chatStore.isLoading" @click="handleStop" class="stop-btn">
+                <Square :size="14" fill="currentColor" />
+              </button>
+              <button v-else @click="handleSend" class="send-btn" :disabled="!userInput.trim()">
+                <Send :size="18" />
+              </button>
+            </div>
+          </footer>
+        </div>
       </div>
     </transition>
   </div>
@@ -605,5 +764,282 @@ input {
 @keyframes blink {
   0%, 50% { opacity: 1; }
   51%, 100% { opacity: 0; }
+}
+
+/* 会话列表面板 */
+.session-panel {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 240px;
+  background: #f8f9fa;
+  border-right: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  z-index: 10;
+}
+
+.slide-enter-active, .slide-leave-active {
+  transition: transform 0.3s ease;
+}
+
+.slide-enter-from, .slide-leave-to {
+  transform: translateX(-100%);
+}
+
+.session-panel-header {
+  padding: 16px;
+  border-bottom: 1px solid var(--border-subtle);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.session-panel-header h4 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.new-session-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  background: var(--primary);
+  color: white;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.session-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+}
+
+.session-item {
+  padding: 12px;
+  border-radius: 10px;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  transition: all 0.2s;
+  margin-bottom: 4px;
+}
+
+.session-item:hover {
+  background: white;
+  box-shadow: var(--shadow-sm);
+}
+
+.session-item.active {
+  background: var(--primary-light);
+  border: 1px solid var(--primary);
+}
+
+.session-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  overflow: hidden;
+}
+
+.session-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-main);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.session-time {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.delete-session-btn {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  opacity: 0;
+  transition: all 0.2s;
+}
+
+.session-item:hover .delete-session-btn {
+  opacity: 1;
+}
+
+.delete-session-btn:hover {
+  background: #fee2e2;
+  color: #ef4444;
+}
+
+.empty-sessions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 40px 20px;
+  color: var(--text-muted);
+  gap: 8px;
+}
+
+.empty-sessions p {
+  font-size: 12px;
+  margin: 0;
+}
+
+/* 主聊天区域 */
+.chat-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.back-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.back-btn:hover {
+  background: var(--primary-light);
+  color: var(--primary);
+}
+
+/* 空状态 */
+.empty-state {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.empty-content {
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--text-muted);
+}
+
+.empty-icon {
+  color: var(--primary);
+  margin-bottom: 16px;
+  opacity: 0.5;
+}
+
+.empty-content h4 {
+  margin: 0 0 8px;
+  color: var(--text-main);
+}
+
+.empty-content p {
+  margin: 0 0 16px;
+  font-size: 13px;
+}
+
+/* 按钮变体 */
+.start-session-btn.primary {
+  background: var(--primary);
+  color: white;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.start-session-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* 消息文本格式化 */
+.message-text {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.message-text :deep(.code-block) {
+  background: #1e1e1e;
+  color: #d4d4d4;
+  padding: 12px;
+  border-radius: 8px;
+  font-family: 'Fira Code', monospace;
+  font-size: 12px;
+  overflow-x: auto;
+  margin: 8px 0;
+}
+
+.message-text :deep(.inline-code) {
+  background: #f0f0f0;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: 'Fira Code', monospace;
+  font-size: 12px;
+  color: #e83e8c;
+}
+
+.message-text :deep(strong) {
+  font-weight: 600;
+}
+
+.message-text :deep(em) {
+  font-style: italic;
+}
+
+.message-text :deep(br) {
+  display: block;
+  content: '';
+  margin-bottom: 4px;
+}
+
+/* 引用来源改进 */
+.source-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.source-count {
+  font-size: 10px;
+  background: var(--primary-light);
+  color: var(--primary);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+/* 消息间距优化 */
+.message-bubble {
+  margin-bottom: 8px;
+}
+
+.message-bubble.last {
+  margin-bottom: 0;
 }
 </style>

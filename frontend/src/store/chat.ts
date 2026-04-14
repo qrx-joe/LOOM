@@ -301,15 +301,57 @@ export const useChatStore = defineStore('chat', () => {
 
     const fetchMessages = async (sessionId: string) => {
         try {
-            const data = await api.get<any[]>(`/agent/sessions/${sessionId}/messages`);
-            messages.value = Array.isArray(data) ? data : [];
+            const data = await api.get<any>(`/agent/sessions/${sessionId}/messages`);
+            messages.value = data.messages || [];
             currentSessionId.value = sessionId;
         } catch (err: any) {
-            console.error('Fetch messages failed', err);
             // 忽略请求取消的错误
             if (err?.message?.includes('取消')) {
                 return;
             }
+            console.error('Fetch messages failed', err);
+            showError(err);
+        }
+    };
+
+    // 获取会话列表
+    const fetchSessions = async () => {
+        try {
+            const data = await api.get<any[]>('/agent/sessions');
+            sessions.value = Array.isArray(data) ? data : [];
+            console.log('Sessions fetched:', sessions.value);
+        } catch (err: any) {
+            // 忽略请求取消的错误
+            if (err?.message?.includes('取消')) {
+                return;
+            }
+            console.error('Fetch sessions failed', err);
+            showError(err);
+        }
+    };
+
+    // 切换会话
+    const switchSession = (sessionId: string) => {
+        currentSessionId.value = sessionId;
+        messages.value = [];
+        fetchMessages(sessionId);
+    };
+
+    // 删除会话
+    const deleteSession = async (sessionId: string) => {
+        try {
+            await api.delete(`/agent/sessions/${sessionId}`);
+            sessions.value = sessions.value.filter(s => s.id !== sessionId);
+            if (currentSessionId.value === sessionId) {
+                currentSessionId.value = null;
+                messages.value = [];
+            }
+            showSuccess('会话已删除');
+        } catch (err: any) {
+            if (err?.message?.includes('取消')) {
+                return;
+            }
+            console.error('Delete session failed', err);
             showError(err);
         }
     };
@@ -323,7 +365,10 @@ export const useChatStore = defineStore('chat', () => {
         isLoading,
         streamingContent,
         fetchWorkflows,
+        fetchSessions,
         createSession,
+        switchSession,
+        deleteSession,
         sendMessage,
         sendMessageStream,
         fetchMessages,
