@@ -147,6 +147,20 @@ const startNewChat = async () => {
     alert('创建会话失败: ' + err.message)
   }
 }
+
+// 键盘快捷键处理
+const handleKeydown = (e: KeyboardEvent) => {
+  // Esc 停止生成
+  if (e.key === 'Escape' && chatStore.isLoading) {
+    e.preventDefault()
+    handleStop()
+  }
+  // Enter 发送（已在input上用@keyup.enter处理，这里处理组合键）
+  if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && !chatStore.isLoading) {
+    e.preventDefault()
+    handleSend()
+  }
+}
 </script>
 
 <template>
@@ -333,16 +347,40 @@ const startNewChat = async () => {
             <div class="input-area">
               <input
                 v-model="userInput"
-                placeholder="输入你的问题..."
+                placeholder="输入你的问题，按 Enter 发送..."
                 @keyup.enter="handleSend"
+                @keydown="handleKeydown"
                 :disabled="chatStore.isLoading"
               />
-              <button v-if="chatStore.isLoading" @click="handleStop" class="stop-btn">
-                <Square :size="14" fill="currentColor" />
-              </button>
-              <button v-else @click="handleSend" class="send-btn" :disabled="!userInput.trim()">
-                <Send :size="18" />
-              </button>
+              <transition name="btn-switch" mode="out-in">
+                <button
+                  v-if="chatStore.isLoading"
+                  @click="handleStop"
+                  class="stop-btn"
+                  title="停止生成 (Esc)"
+                  key="stop"
+                >
+                  <span class="stop-icon">
+                    <Square :size="12" fill="currentColor" />
+                  </span>
+                  <span class="stop-text">停止</span>
+                </button>
+                <button
+                  v-else
+                  @click="handleSend"
+                  class="send-btn"
+                  :disabled="!userInput.trim()"
+                  :class="{ 'has-content': userInput.trim() }"
+                  title="发送消息 (Enter)"
+                  key="send"
+                >
+                  <Send :size="18" />
+                </button>
+              </transition>
+            </div>
+            <div class="input-hints">
+              <span v-if="chatStore.isLoading" class="hint stop-hint">按 Esc 停止生成</span>
+              <span v-else class="hint send-hint">Enter 发送</span>
             </div>
           </footer>
         </div>
@@ -695,7 +733,7 @@ input {
 }
 
 .send-btn {
-  background: var(--primary);
+  background: #ccc;
   color: white;
   border: none;
   border-radius: 10px;
@@ -704,35 +742,117 @@ input {
   display: flex;
   align-items: center;
   justify-content: center;
+  cursor: not-allowed;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.send-btn.has-content {
+  background: var(--primary);
   cursor: pointer;
 }
 
-.send-btn:disabled {
-  background: #ccc;
-  cursor: not-allowed;
+.send-btn.has-content:hover {
+  background: #3d68e6;
+  transform: scale(1.05);
+}
+
+.send-btn.has-content:active {
+  transform: scale(0.95);
+}
+
+/* 按钮切换动画 */
+.btn-switch-enter-active,
+.btn-switch-leave-active {
+  transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.btn-switch-enter-from {
+  opacity: 0;
+  transform: scale(0.8) rotate(-45deg);
+}
+
+.btn-switch-leave-to {
+  opacity: 0;
+  transform: scale(0.8) rotate(45deg);
 }
 
 .stop-btn {
-  background: #ef4444;
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
   color: white;
   border: none;
   border-radius: 10px;
-  width: 40px;
   height: 40px;
+  padding: 0 14px;
   display: flex;
   align-items: center;
   justify-content: center;
+  gap: 6px;
   cursor: pointer;
   animation: pulse 1.5s ease-in-out infinite;
+  flex-shrink: 0;
+  font-weight: 600;
+  font-size: 13px;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.4);
 }
 
 .stop-btn:hover {
-  background: #dc2626;
+  background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.5);
+  transform: translateY(-1px);
+}
+
+.stop-btn:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 4px rgba(239, 68, 68, 0.4);
+}
+
+.stop-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.stop-text {
+  font-size: 13px;
+  letter-spacing: 0.5px;
 }
 
 @keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.7; }
+  0%, 100% {
+    opacity: 1;
+    box-shadow: 0 2px 8px rgba(239, 68, 68, 0.4);
+  }
+  50% {
+    opacity: 0.85;
+    box-shadow: 0 2px 16px rgba(239, 68, 68, 0.6);
+  }
+}
+
+/* 输入提示 */
+.input-hints {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 6px;
+  height: 16px;
+}
+
+.hint {
+  font-size: 11px;
+  color: var(--text-muted);
+  opacity: 0.7;
+  transition: all 0.2s ease;
+}
+
+.stop-hint {
+  color: #ef4444;
+  animation: fadeInOut 2s ease-in-out infinite;
+}
+
+@keyframes fadeInOut {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
 }
 
 /* Animations */
