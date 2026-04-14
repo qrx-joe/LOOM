@@ -225,9 +225,6 @@ const handleKeydown = (e: KeyboardEvent) => {
         <div class="chat-main" :class="{ 'panel-hidden': !showSessionList }">
           <header class="chat-header">
             <div class="header-left">
-              <button v-if="chatStore.currentSessionId && !showSessionList" @click="toggleSessionList" class="back-btn" title="会话列表">
-                <ChevronLeft :size="20" />
-              </button>
               <div class="header-info">
                 <div class="bot-avatar"><Sparkles :size="20" /></div>
                 <div class="bot-texts">
@@ -1178,25 +1175,6 @@ input {
   display: flex;
   align-items: center;
   gap: 8px;
-}
-
-.back-btn {
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
-  background: transparent;
-  border: none;
-  color: var(--text-muted);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.back-btn:hover {
-  background: var(--primary-light);
-  color: var(--primary);
 }
 
 /* 空状态 */
