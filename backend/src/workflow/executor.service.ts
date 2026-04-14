@@ -454,7 +454,7 @@ export class ExecutorService {
         this.logger.log(`Executing Knowledge Retrieval node: ${node.id}`);
         // kbId 和 query 可能来自 config 或 input
         const kbId = config.kbId || input.kbId;
-        const query = config.query || input.query || input.input || '';
+        let query = config.query || input.query || input.input || '';
 
         if (!kbId) {
             return { fragments: [], error: 'Missing kbId' };
@@ -462,6 +462,31 @@ export class ExecutorService {
         if (!query) {
             return { fragments: [], error: 'Missing query' };
         }
+
+        // 处理变量插值: {{nodeId}} 或 {{START_INPUT}}
+        if (input._context) {
+            Object.entries(input._context).forEach(([key, val]: [string, any]) => {
+                const search1 = `{{${key}}}`;
+                const search2 = `{{${key}.output}}`;
+                const replace = this.formatValueForPrompt(val);
+                query = query.split(search1).join(replace);
+                query = query.split(search2).join(replace);
+            });
+        }
+
+        // 也处理 {{START_INPUT}} 作为用户输入
+        if (input.input !== undefined) {
+            const userInput = this.formatValueForPrompt(input.input);
+            query = query.split('{{START_INPUT}}').join(userInput);
+        }
+
+        // 处理 {{input}} 作为用户输入的替代写法
+        if (input.input !== undefined) {
+            const userInput = this.formatValueForPrompt(input.input);
+            query = query.split('{{input}}').join(userInput);
+        }
+
+        this.logger.log(`[Knowledge Retrieval Node ${node.id}] Final query: ${query.substring(0, 200)}...`);
 
         const searchResult = await this.searchService.search(kbId, query, DEFAULT_SEARCH_CONFIG);
         return {

@@ -55,9 +55,10 @@ const getNodeResult = (nodeId: string) => {
 const fetchKnowledgeBases = async () => {
   try {
     const resp = await axios.get(getKnowledgeBasesUrl())
-    knowledgeBases.value = resp.data || []
+    knowledgeBases.value = resp.data?.data || []
   } catch (err) {
     console.error('Failed to fetch knowledge bases', err)
+    knowledgeBases.value = []
   }
 }
 

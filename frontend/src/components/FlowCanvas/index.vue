@@ -69,9 +69,11 @@ onUnmounted(() => {
 const fetchKnowledgeBases = async () => {
   try {
     const resp = await fetch('http://localhost:3001/knowledge/bases')
-    knowledgeBases.value = await resp.json()
+    const result = await resp.json()
+    knowledgeBases.value = result.data || []
   } catch (err) {
     console.error('Failed to fetch knowledge bases', err)
+    knowledgeBases.value = []
   }
 }
 
