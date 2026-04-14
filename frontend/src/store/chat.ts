@@ -25,11 +25,12 @@ export const useChatStore = defineStore('chat', () => {
                 console.log('Auto-selected workflow:', workflows.value[0].id);
             }
         } catch (err: any) {
-            console.error('Fetch workflows failed', err);
             // 忽略请求取消的错误（去重机制导致的）
             if (err?.message?.includes('取消')) {
                 return;
             }
+            // 只在非取消错误时打印日志
+            console.error('Fetch workflows failed', err);
             showError(err);
             throw err;
         }
