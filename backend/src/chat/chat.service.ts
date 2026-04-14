@@ -221,19 +221,8 @@ export class ChatService {
                 .join('\n\n');
         }
 
-        // 4. 使用 input 字段（但避免返回原始用户输入）
-        if (output.input !== undefined && output.input !== null) {
-            const inputStr = String(output.input);
-            // 如果 input 只是简单的用户输入（无其他有效字段），继续查找其他字段
-            if (Object.keys(output).length > 1 && inputStr.length > 0) {
-                // 有其他字段，优先使用 input
-                return inputStr;
-            }
-            // 只有当没有其他有效字段时才使用 input
-        }
-
-        // 5. 遍历所有字段，找到第一个非对象的有效值
-        const keys = Object.keys(output).filter(k => k !== '_context' && !k.startsWith('__'));
+        // 4. 遍历所有字段（除了 input），找到第一个非对象的有效值
+        const keys = Object.keys(output).filter(k => k !== '_context' && k !== 'input' && !k.startsWith('__'));
         for (const key of keys) {
             const val = output[key];
             if (val !== null && val !== undefined) {
@@ -247,6 +236,17 @@ export class ChatService {
                 } else {
                     return String(val);
                 }
+            }
+        }
+
+        // 5. 最后使用 input 字段（兜底选项）
+        // 注意：input 字段通常是用户的原始输入，应该作为最后的兜底选项
+        // 只有在前面没有找到任何有效字段（text/content/fragments/其他字段）时才使用
+        if (output.input !== undefined && output.input !== null) {
+            const inputStr = String(output.input);
+            if (inputStr.length > 0) {
+                this.logger.debug(`[extractTextFromOutput] Using input field as fallback: ${inputStr.substring(0, 100)}`);
+                return inputStr;
             }
         }
 
