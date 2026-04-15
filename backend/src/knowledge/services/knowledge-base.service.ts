@@ -118,6 +118,41 @@ export class KnowledgeBaseService {
     };
   }
 
+  async getDocumentContent(docId: string): Promise<{
+    id: string;
+    name: string;
+    content: string;
+    metadata: {
+      pageCount?: number;
+      wordCount?: number;
+      format?: string;
+    };
+    chunkCount: number;
+  }> {
+    const doc = await this.docRepository.findOne({
+      where: { id: docId },
+      relations: ['chunks'],
+    });
+    if (!doc) throw new NotFoundException('Document not found');
+
+    // 按顺序合并所有 chunks 的内容
+    const sortedChunks = (doc.chunks || []).sort((a, b) => {
+      const aIndex = a.metadata?.startIndex || 0;
+      const bIndex = b.metadata?.startIndex || 0;
+      return aIndex - bIndex;
+    });
+
+    const fullContent = sortedChunks.map(chunk => chunk.content).join('\n\n');
+
+    return {
+      id: doc.id,
+      name: doc.name,
+      content: fullContent,
+      metadata: doc.metadata || {},
+      chunkCount: sortedChunks.length,
+    };
+  }
+
   // ==================== 文档处理 ====================
 
   async processDocument(

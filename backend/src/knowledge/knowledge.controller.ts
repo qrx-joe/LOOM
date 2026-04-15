@@ -100,6 +100,11 @@ export class KnowledgeController {
     return this.knowledgeBaseService.getDocumentStatus(id);
   }
 
+  @Get('documents/:id/content')
+  async getDocumentContent(@Param('id') id: string) {
+    return this.knowledgeBaseService.getDocumentContent(id);
+  }
+
   // ==================== 检索 ====================
 
   @Post('search')
