@@ -2,8 +2,8 @@ import axios, { type AxiosInstance, type AxiosRequestConfig, type AxiosError } f
 import { API_BASE_URL } from '../config/api';
 import { AppError, ErrorType, type ErrorTypeValue, getErrorMessage } from './error-handler';
 
-// API 客户端配置
-const apiClient: AxiosInstance = axios.create({
+// 创建 axios 实例
+const axiosInstance: AxiosInstance = axios.create({
   baseURL: API_BASE_URL,
   timeout: 30000,
   headers: {
@@ -20,7 +20,7 @@ function getRequestKey(config: AxiosRequestConfig): string {
 }
 
 // 请求拦截器
-apiClient.interceptors.request.use(
+axiosInstance.interceptors.request.use(
   (config) => {
     // 取消重复请求
     const requestKey = getRequestKey(config);
@@ -44,8 +44,8 @@ apiClient.interceptors.request.use(
   }
 );
 
-// 响应拦截器
-apiClient.interceptors.response.use(
+// 响应拦截器 - 提取 data 并处理错误
+axiosInstance.interceptors.response.use(
   (response) => {
     // 移除已完成的请求
     const requestKey = getRequestKey(response.config);
@@ -137,27 +137,43 @@ export function cancelAllRequests(): void {
   pendingRequests.clear();
 }
 
-// 导出带类型的请求方法
-export const api = {
-  get: <T>(url: string, config?: AxiosRequestConfig) =>
-    apiClient.get<T, T>(url, config),
+// 创建自定义 API 客户端类型 - 覆盖 Axios 的返回类型
+type ApiResponse<T> = T;
 
-  post: <T>(url: string, data?: any, config?: AxiosRequestConfig) =>
-    apiClient.post<T, T>(url, data, config),
+interface ApiClient {
+  get<T>(url: string, config?: AxiosRequestConfig): Promise<ApiResponse<T>>;
+  post<T>(url: string, data?: any, config?: AxiosRequestConfig): Promise<ApiResponse<T>>;
+  put<T>(url: string, data?: any, config?: AxiosRequestConfig): Promise<ApiResponse<T>>;
+  patch<T>(url: string, data?: any, config?: AxiosRequestConfig): Promise<ApiResponse<T>>;
+  delete<T>(url: string, config?: AxiosRequestConfig): Promise<ApiResponse<T>>;
+}
 
-  put: <T>(url: string, data?: any, config?: AxiosRequestConfig) =>
-    apiClient.put<T, T>(url, data, config),
+// 实现 API 客户端
+const apiClientImpl: ApiClient = {
+  get: <T>(url: string, config?: AxiosRequestConfig): Promise<T> => {
+    return axiosInstance.get(url, config) as Promise<T>;
+  },
+  post: <T>(url: string, data?: any, config?: AxiosRequestConfig): Promise<T> => {
+    return axiosInstance.post(url, data, config) as Promise<T>;
+  },
+  put: <T>(url: string, data?: any, config?: AxiosRequestConfig): Promise<T> => {
+    return axiosInstance.put(url, data, config) as Promise<T>;
+  },
+  patch: <T>(url: string, data?: any, config?: AxiosRequestConfig): Promise<T> => {
+    return axiosInstance.patch(url, data, config) as Promise<T>;
+  },
+  delete: <T>(url: string, config?: AxiosRequestConfig): Promise<T> => {
+    return axiosInstance.delete(url, config) as Promise<T>;
+  },
+};
 
-  patch: <T>(url: string, data?: any, config?: AxiosRequestConfig) =>
-    apiClient.patch<T, T>(url, data, config),
-
-  delete: <T>(url: string, config?: AxiosRequestConfig) =>
-    apiClient.delete<T, T>(url, config),
-
-  // 流式请求（用于 SSE）
-  stream: (url: string) => {
+// 导出带类型的 API 客户端
+export const api: ApiClient & { stream: (url: string) => EventSource } = {
+  ...apiClientImpl,
+  stream: (url: string): EventSource => {
     return new EventSource(`${API_BASE_URL}${url}`);
   },
 };
 
-export default apiClient;
+// 默认导出 axios 实例（用于需要原始 axios 的场景）
+export default axiosInstance;
