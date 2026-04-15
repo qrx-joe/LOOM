@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { FileText, FolderOpen, Trash2, Loader2, CheckCircle, AlertCircle } from 'lucide-vue-next'
+import { FileText, FolderOpen, Trash2, Loader2, CheckCircle, AlertCircle, Eye } from 'lucide-vue-next'
 import type { Document, ProcessingStatus } from '../../composables/useKnowledgeBases'
 
 interface Props {
@@ -11,6 +11,7 @@ const props = defineProps<Props>()
 
 const emit = defineEmits<{
   delete: [docId: string]
+  preview: [doc: Document]
 }>()
 
 const getDocStatus = (doc: Document) => {
@@ -91,6 +92,16 @@ const getStatusColor = (status: ProcessingStatus): string => {
         >
           <div class="progress-fill" :style="{ width: `${getDocStatus(doc).progress}%` }"></div>
         </div>
+
+        <!-- 预览按钮 -->
+        <button
+          class="icon-btn small"
+          @click.stop="emit('preview', doc)"
+          title="预览"
+          :disabled="doc.processingStatus !== 'completed'"
+        >
+          <Eye :size="14" />
+        </button>
 
         <!-- 删除按钮 -->
         <button

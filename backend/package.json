@@ -1,7 +1,7 @@
 {
-  "name": "backend",
+  "name": "loom-backend",
   "version": "0.0.1",
-  "description": "",
+  "description": "LOOM Backend - AI Workflow Orchestration",
   "author": "",
   "private": true,
   "license": "UNLICENSED",

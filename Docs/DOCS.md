@@ -1,4 +1,4 @@
-# Mini-Coze 项目交付文档 (Final Walkthrough - Premium Edition)
+# LOOM 项目交付文档 (Final Walkthrough - Premium Edition)
 
 这是一个简约且**极其精美**的 Coze 智能体平台，已经完成了从后端引擎到**全链路视觉重塑**的闭环。
 
@@ -29,4 +29,4 @@
 4. 访问 `http://localhost:5173`。
 
 ---
-**Mini-Coze Premium 已就绪，请尽情体验您的智能体工坊！**
+**LOOM Premium 已就绪，请尽情体验您的智能体工坊！**

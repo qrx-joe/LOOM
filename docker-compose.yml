@@ -1,13 +1,13 @@
 services:
   db:
     image: ankane/pgvector:latest
-    container_name: mini-coze-db
+    container_name: loom-db
     ports:
       - "5432:5432"
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres_password
-      POSTGRES_DB: mini_coze
+      POSTGRES_DB: loom
     volumes:
       - pgdata:/var/lib/postgresql/data
 

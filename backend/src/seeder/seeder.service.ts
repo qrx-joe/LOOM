@@ -37,8 +37,8 @@ export class SeederService implements OnModuleInit {
 
         // 1. 创建示例知识库
         const sampleKb = await this.kbRepo.save(this.kbRepo.create({
-            name: 'Mini-Coze 产品指南',
-            description: '关于 Mini-Coze 平台的功能介绍和使用指南',
+            name: 'LOOM 产品指南',
+            description: '关于 LOOM 平台的功能介绍和使用指南',
         }));
 
         // 2. 创建示例工作流（关联到知识库）
@@ -66,7 +66,7 @@ export class SeederService implements OnModuleInit {
 
         // 4. 创建示例知识片段
         const sampleChunks = [
-            { content: 'Mini-Coze 是一个轻量级的智能体平台，支持可视化工作流编排。用户可以通过拖拽节点来创建复杂的工作流程。', order: 0 },
+            { content: 'LOOM 是一个轻量级的智能体平台，支持可视化工作流编排。用户可以通过拖拽节点来创建复杂的工作流程。', order: 0 },
             { content: '平台提供知识库管理功能，支持上传 TXT 和 Markdown 格式的文档。文档会自动进行分片处理，便于精确检索。', order: 1 },
             { content: 'RAG（检索增强生成）技术是平台的核心能力。系统会将文档转换为向量存储，当用户提问时，自动检索相关片段并注入到 AI 上下文中。', order: 2 },
             { content: '工作流节点类型包括：触发器（Trigger）用于启动工作流，AI 节点用于调用大模型，知识检索节点用于 RAG，分支节点用于条件判断。', order: 3 },

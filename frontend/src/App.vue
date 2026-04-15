@@ -28,7 +28,7 @@ const handleWorkflowBack = () => {
             <path d="M2 17L12 22L22 17" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
             <path d="M2 12L12 17L22 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
           </svg>
-          <span>Mini-Coze</span>
+          <span>LOOM</span>
         </div>
         <div class="nav-links">
           <button :class="{ active: activeView === 'workflow' }" @click="activeView = 'workflow'">

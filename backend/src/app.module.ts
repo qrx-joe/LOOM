@@ -20,7 +20,7 @@ import { SeederModule } from './seeder/seeder.module';
     }]),
     TypeOrmModule.forRoot({
       type: 'sqlite',
-      database: process.env.DATABASE_PATH || 'mini-coze.db',
+      database: process.env.DATABASE_PATH || 'loom.db',
       autoLoadEntities: true,
       synchronize: process.env.NODE_ENV !== 'production',
     }),

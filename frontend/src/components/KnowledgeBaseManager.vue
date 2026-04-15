@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, watch } from 'vue'
 import { Plus } from 'lucide-vue-next'
-import { useKnowledgeBases, type KnowledgeBase, type ProcessingStatus } from '../composables/useKnowledgeBases'
+import { useKnowledgeBases, type KnowledgeBase, type ProcessingStatus, type Document } from '../composables/useKnowledgeBases'
 import KbCard from './knowledge/KbCard.vue'
 import DocumentList from './knowledge/DocumentList.vue'
 import SearchInput from './knowledge/SearchInput.vue'
+import DocumentPreview from './knowledge/DocumentPreview.vue'
 
 // 使用组合式函数
 const {
@@ -31,6 +32,9 @@ let statusPollingInterval: ReturnType<typeof setInterval> | null = null
 const editingKbId = ref<string | null>(null)
 const editKbName = ref('')
 const editKbDescription = ref('')
+
+// 预览状态
+const previewDoc = ref<Document | null>(null)
 
 // 选择知识库
 const selectKb = (kb: KnowledgeBase) => {
@@ -118,6 +122,16 @@ const handleDeleteDoc = async (docId: string) => {
   } catch (err: any) {
     alert(err.message)
   }
+}
+
+// 打开预览
+const openPreview = (doc: Document) => {
+  previewDoc.value = doc
+}
+
+// 关闭预览
+const closePreview = () => {
+  previewDoc.value = null
 }
 
 // 状态轮询
@@ -244,9 +258,17 @@ onUnmounted(() => {
           :documents="selectedKb.documents || []"
           :document-statuses="documentStatuses"
           @delete="handleDeleteDoc"
+          @preview="openPreview"
         />
       </div>
     </div>
+
+    <!-- 文档预览弹窗 -->
+    <DocumentPreview
+      :doc-id="previewDoc?.id || null"
+      :doc-name="previewDoc?.name || ''"
+      @close="closePreview"
+    />
   </div>
 </template>
 

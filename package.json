@@ -1,7 +1,7 @@
 {
-    "name": "mini-coze-root",
+    "name": "loom-root",
     "version": "1.0.0",
-    "description": "Simplified Coze Platform Root",
+    "description": "LOOM - AI Workflow Orchestration Platform",
     "main": "index.js",
     "scripts": {
         "dev:backend": "cd backend && npm run start:dev",
