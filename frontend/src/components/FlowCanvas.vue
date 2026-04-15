@@ -3,6 +3,7 @@ import { VueFlow, useVueFlow } from '@vue-flow/core'
 import { Background } from '@vue-flow/background'
 import { Controls } from '@vue-flow/controls'
 import { ref, onMounted, onUnmounted, markRaw, computed } from 'vue'
+import { useRouter } from 'vue-router'
 import { useWorkflowStore } from '../store/workflow'
 import { getWorkflowRunStreamUrl, getKnowledgeBasesUrl } from '../config/api'
 import axios from 'axios'
@@ -13,9 +14,7 @@ import {
 } from 'lucide-vue-next'
 import CustomNodes from './CustomNodes.vue'
 
-const emit = defineEmits<{
-  (e: 'back'): void
-}>()
+const router = useRouter()
 
 const store = useWorkflowStore()
 const { onConnect, onNodeClick, onEdgeClick, project, onNodesChange } = useVueFlow()
@@ -413,7 +412,7 @@ const handleBack = () => {
       return
     }
   }
-  emit('back')
+  router.push('/workflow')
 }
 </script>
 

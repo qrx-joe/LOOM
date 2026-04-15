@@ -1,21 +1,14 @@
 <script setup lang="ts">
-import { ref } from 'vue'
-import WorkflowList from './components/WorkflowList.vue'
-import FlowCanvas from './components/FlowCanvas.vue'
+import { computed } from 'vue'
+import { useRoute } from 'vue-router'
 import ChatWidget from './components/ChatWidget.vue'
-import KnowledgeBaseManager from './components/KnowledgeBaseManager.vue'
 import ErrorToast from './components/ErrorToast.vue'
 
-const activeView = ref<'workflow' | 'knowledge'>('workflow')
-const workflowView = ref<'list' | 'editor'>('list')
-
-const handleWorkflowSelect = () => {
-  workflowView.value = 'editor'
-}
-
-const handleWorkflowBack = () => {
-  workflowView.value = 'list'
-}
+const route = useRoute()
+const activeView = computed(() => {
+  if (route.path.startsWith('/knowledge')) return 'knowledge'
+  return 'workflow'
+})
 </script>
 
 <template>
@@ -31,20 +24,20 @@ const handleWorkflowBack = () => {
           <span>LOOM</span>
         </div>
         <div class="nav-links">
-          <button :class="{ active: activeView === 'workflow' }" @click="activeView = 'workflow'">
+          <router-link to="/workflow" :class="{ active: activeView === 'workflow' }">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <polyline points="16 18 22 12 16 6"></polyline>
               <polyline points="8 6 2 12 8 18"></polyline>
             </svg>
             工作流编排
-          </button>
-          <button :class="{ active: activeView === 'knowledge' }" @click="activeView = 'knowledge'">
+          </router-link>
+          <router-link to="/knowledge" :class="{ active: activeView === 'knowledge' }">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
               <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
             </svg>
             知识库管理
-          </button>
+          </router-link>
         </div>
         <div class="nav-extra">
           <span class="status-indicator"></span>
@@ -55,11 +48,7 @@ const handleWorkflowBack = () => {
 
     <main class="content-box">
       <div class="view-wrapper">
-        <template v-if="activeView === 'workflow'">
-          <WorkflowList v-if="workflowView === 'list'" @select="handleWorkflowSelect" />
-          <FlowCanvas v-else @back="handleWorkflowBack" />
-        </template>
-        <KnowledgeBaseManager v-else />
+        <router-view />
       </div>
     </main>
 
@@ -113,7 +102,7 @@ const handleWorkflowBack = () => {
   flex: 1;
 }
 
-.nav-links button {
+.nav-links a {
   background: transparent;
   border: none;
   padding: 8px 14px;
@@ -127,14 +116,15 @@ const handleWorkflowBack = () => {
   display: flex;
   align-items: center;
   gap: 8px;
+  text-decoration: none;
 }
 
-.nav-links button:hover {
+.nav-links a:hover {
   background: var(--bg-hover);
   color: var(--text-main);
 }
 
-.nav-links button.active {
+.nav-links a.active {
   background: var(--primary-light);
   color: var(--primary);
 }

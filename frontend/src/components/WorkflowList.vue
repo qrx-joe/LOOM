@@ -1,14 +1,12 @@
 <script setup lang="ts">
 import { ref, onMounted, nextTick, computed } from 'vue'
+import { useRouter } from 'vue-router'
 import { useWorkflowStore } from '../store/workflow'
 import { useChatStore } from '../store/chat'
 import { Plus, FileCode, Trash2, Play, Clock, Pencil, Check, X } from 'lucide-vue-next'
 import WorkflowCardSkeleton from './workflow/WorkflowCardSkeleton.vue'
 
-const emit = defineEmits<{
-  (e: 'select', workflow: any): void
-}>()
-
+const router = useRouter()
 const store = useWorkflowStore()
 const chatStore = useChatStore()
 const isCreating = ref(false)
@@ -32,14 +30,15 @@ onMounted(async () => {
 const handleCreateWorkflow = () => {
   store.createNewWorkflow()
   isCreating.value = true
-  // 通知父组件跳转到编辑
-  emit('select', store.nodes)
+  // 导航到编辑器页面
+  router.push('/workflow/editor')
 }
 
 const handleSelectWorkflow = (wf: any) => {
   if (editingId.value === wf.id) return
   store.loadWorkflow(wf)
-  emit('select', wf)
+  // 导航到编辑器页面
+  router.push('/workflow/editor')
 }
 
 const handleDeleteWorkflow = async (id: string) => {
