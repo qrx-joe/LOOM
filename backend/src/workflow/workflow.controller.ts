@@ -68,6 +68,7 @@ export class WorkflowController {
         const definition: WorkflowDefinition = {
             id: workflow.id,
             name: workflow.name,
+            description: workflow.description,
             nodes: workflow.nodes,
             edges: workflow.edges,
         };
@@ -94,6 +95,7 @@ export class WorkflowController {
         const definition: WorkflowDefinition = {
             id: workflow.id,
             name: workflow.name,
+            description: workflow.description,
             nodes: workflow.nodes,
             edges: workflow.edges,
         };

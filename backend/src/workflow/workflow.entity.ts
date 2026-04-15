@@ -8,6 +8,9 @@ export class Workflow {
     @Column()
     name: string;
 
+    @Column({ nullable: true })
+    description: string;
+
     @Column('simple-json')
     nodes: any[];
 

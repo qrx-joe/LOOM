@@ -164,6 +164,7 @@ const formatDate = (dateStr?: string) => {
           </div>
           <template v-else>
             <h3 class="card-title">{{ wf.name }}</h3>
+            <p v-if="wf.description" class="card-description">{{ wf.description }}</p>
             <div class="card-meta">
               <span class="meta-item">
                 <Clock :size="12" />
@@ -439,8 +440,20 @@ const formatDate = (dateStr?: string) => {
   font-size: 16px;
   font-weight: 600;
   color: var(--text-main);
-  margin: 0 0 8px 0;
+  margin: 0 0 4px 0;
   word-break: break-word;
+}
+
+.card-description {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin: 0 0 8px 0;
+  line-height: 1.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .card-meta {

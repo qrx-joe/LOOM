@@ -278,7 +278,15 @@ const getNodeResult = (nodeId: string) => {
         <button class="btn btn-secondary" @click="handleBack">
           ← 返回
         </button>
-        <h2 class="workflow-name">{{ store.workflowName || '未命名工作流' }}</h2>
+        <div class="workflow-info">
+          <h2 class="workflow-name">{{ store.workflowName || '未命名工作流' }}</h2>
+          <textarea
+            v-model="store.workflowDescription"
+            class="workflow-description-input"
+            placeholder="添加工作流描述（可选）"
+            rows="1"
+          ></textarea>
+        </div>
       </div>
 
       <div class="toolbar-actions">
@@ -404,11 +412,39 @@ const getNodeResult = (nodeId: string) => {
   gap: 16px;
 }
 
+.workflow-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
 .workflow-name {
   font-size: 16px;
   font-weight: 600;
   color: #111827;
   margin: 0;
+}
+
+.workflow-description-input {
+  font-size: 13px;
+  color: #6b7280;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  padding: 2px 6px;
+  resize: none;
+  outline: none;
+  min-width: 300px;
+  font-family: inherit;
+}
+
+.workflow-description-input:hover {
+  background: #f3f4f6;
+}
+
+.workflow-description-input:focus {
+  background: white;
+  border-color: #3b82f6;
 }
 
 .toolbar-actions {

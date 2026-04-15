@@ -16,6 +16,7 @@ export const useWorkflowStore = defineStore('workflow', () => {
     const nodes = ref<WorkflowNode[]>([]);
     const edges = ref<WorkflowEdge[]>([]);
     const workflowName = ref('未命名工作流');
+    const workflowDescription = ref('');
     const currentWorkflowId = ref<string | null>(null);
     const savedWorkflows = ref<Workflow[]>([]);
     const hasUnsavedChanges = ref(false);
@@ -114,6 +115,7 @@ export const useWorkflowStore = defineStore('workflow', () => {
     const loadWorkflow = (workflow: Workflow) => {
         currentWorkflowId.value = workflow.id;
         workflowName.value = workflow.name;
+        workflowDescription.value = workflow.description || '';
         nodes.value = workflow.nodes || [];
         // 确保边有 ID
         edges.value = (workflow.edges || []).map((edge, index) => ({
@@ -135,6 +137,7 @@ export const useWorkflowStore = defineStore('workflow', () => {
     const createNewWorkflow = () => {
         currentWorkflowId.value = null;
         workflowName.value = '未命名工作流';
+        workflowDescription.value = '';
         // 创建空白画布（不带默认节点）
         nodes.value = [];
         edges.value = [];
@@ -163,6 +166,7 @@ export const useWorkflowStore = defineStore('workflow', () => {
 
         const payload = {
             name: workflowName.value,
+            description: workflowDescription.value || undefined,
             nodes: cleanNodes,
             edges: edgesWithIds,
         };
@@ -267,6 +271,7 @@ export const useWorkflowStore = defineStore('workflow', () => {
         nodes,
         edges,
         workflowName,
+        workflowDescription,
         currentWorkflowId,
         savedWorkflows,
         hasUnsavedChanges,

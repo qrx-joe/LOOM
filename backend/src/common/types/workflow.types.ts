@@ -95,6 +95,7 @@ export interface WorkflowEdge {
 export interface WorkflowDefinition {
   id: string
   name: string
+  description?: string
   nodes: WorkflowNode[]
   edges: WorkflowEdge[]
   createdAt?: string
