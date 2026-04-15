@@ -67,19 +67,15 @@ export class DocumentProcessorService {
   }
 
   private async processPdf(buffer: Buffer): Promise<ProcessedDocument> {
-    // 动态加载 pdf-parse
-    let pdfParse: any;
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
-      pdfParse = require('pdf-parse');
-    } catch (error) {
-      this.logger.error('pdf-parse module not installed');
-      throw new Error('pdf-parse module not installed. Run: npm install pdf-parse');
-    }
-
     try {
       this.logger.log(`Parsing PDF, buffer size: ${buffer.length} bytes`);
-      const data = await pdfParse(buffer);
+
+      // 使用 pdf-parse 解析 PDF
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const pdf = require('pdf-parse');
+
+      // pdf-parse 导出的是对象，PDFParse 是解析方法
+      const data = await pdf.PDFParse(buffer);
       const content = data.text || '';
 
       this.logger.log(`PDF parsed successfully. Pages: ${data.numpages}, Text length: ${content.length}`);

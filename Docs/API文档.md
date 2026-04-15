@@ -334,7 +334,7 @@ Content-Type: multipart/form-data
 
 **参数**：
 - `kbId` (path): 知识库 ID
-- `file` (file): 文档文件（PDF、DOCX、TXT）
+- `file` (file): 文档文件（PDF、DOCX、Markdown、TXT）
 
 **响应示例**：
 ```json

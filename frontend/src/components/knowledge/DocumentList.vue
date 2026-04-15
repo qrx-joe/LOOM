@@ -148,7 +148,7 @@ const cancelBatchMode = () => {
       <div class="empty-icon">
         <FolderOpen :size="48" />
       </div>
-      <p>暂无文档，支持 PDF、Word 和纯文本格式。</p>
+      <p>暂无文档，支持 PDF、Word、Markdown 和纯文本格式。</p>
     </div>
 
     <!-- 文档列表 -->
