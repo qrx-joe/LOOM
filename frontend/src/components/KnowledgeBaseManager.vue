@@ -7,6 +7,7 @@ import DocumentList from './knowledge/DocumentList.vue'
 import SearchInput from './knowledge/SearchInput.vue'
 import DocumentPreview from './knowledge/DocumentPreview.vue'
 import KbCardSkeleton from './knowledge/KbCardSkeleton.vue'
+import EmptyState from './knowledge/EmptyState.vue'
 
 // 使用组合式函数
 const {
@@ -50,6 +51,17 @@ const handleCreateKb = async () => {
   try {
     await createKb(newKbName.value)
     newKbName.value = ''
+  } catch (err: any) {
+    alert(err.message)
+  }
+}
+
+// 从空状态创建知识库
+const handleCreateFromEmpty = async () => {
+  const name = prompt('请输入知识库名称：')
+  if (!name?.trim()) return
+  try {
+    await createKb(name.trim())
   } catch (err: any) {
     alert(err.message)
   }
@@ -243,6 +255,12 @@ onUnmounted(() => {
         <template v-if="isLoading">
           <KbCardSkeleton v-for="i in 6" :key="`skeleton-${i}`" />
         </template>
+
+        <!-- 空状态 -->
+        <EmptyState
+          v-else-if="kbs.length === 0"
+          @create="handleCreateFromEmpty"
+        />
 
         <!-- 实际卡片 -->
         <KbCard
