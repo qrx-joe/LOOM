@@ -70,20 +70,29 @@ export class DocumentProcessorService {
     try {
       this.logger.log(`Parsing PDF, buffer size: ${buffer.length} bytes`);
 
-      // 使用 pdf-parse 解析 PDF
+      // 使用 pdf-parse v2 解析 PDF
       // eslint-disable-next-line @typescript-eslint/no-var-requires
-      const pdf = require('pdf-parse');
+      const { PDFParse } = require('pdf-parse');
 
-      // pdf-parse 导出的是对象，PDFParse 是解析方法
-      const data = await pdf.PDFParse(buffer);
-      const content = data.text || '';
+      // 创建解析器实例
+      const parser = new PDFParse({ data: buffer });
 
-      this.logger.log(`PDF parsed successfully. Pages: ${data.numpages}, Text length: ${content.length}`);
+      // 获取文本内容
+      const result = await parser.getText();
+      const content = result.text || '';
+
+      // 获取页面信息
+      const info = await parser.getInfo();
+
+      // 释放资源
+      await parser.destroy();
+
+      this.logger.log(`PDF parsed successfully. Pages: ${info.total}, Text length: ${content.length}`);
 
       return {
         content,
         metadata: {
-          pageCount: data.numpages,
+          pageCount: info.total,
           wordCount: this.countWords(content),
           format: 'pdf',
         },
