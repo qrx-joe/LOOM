@@ -1,5 +1,6 @@
 import { ref, computed } from 'vue'
 import { api } from '../utils/api-client'
+import { useDebounce } from './useDebounce'
 import {
   getKnowledgeBasesUrl,
   getKnowledgeBaseUrl,
@@ -35,10 +36,13 @@ export function useKnowledgeBases() {
   // 搜索关键词
   const searchQuery = ref('')
 
+  // 防抖后的搜索关键词（300ms 延迟）
+  const debouncedSearchQuery = useDebounce(searchQuery, 300)
+
   // 过滤后的知识库列表
   const filteredKbs = computed(() => {
-    if (!searchQuery.value.trim()) return kbs.value
-    const query = searchQuery.value.toLowerCase()
+    if (!debouncedSearchQuery.value.trim()) return kbs.value
+    const query = debouncedSearchQuery.value.toLowerCase()
     return kbs.value.filter(kb =>
       kb.name.toLowerCase().includes(query) ||
       (kb.description?.toLowerCase().includes(query) ?? false)
