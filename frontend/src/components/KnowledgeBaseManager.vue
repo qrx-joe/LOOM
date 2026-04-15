@@ -290,13 +290,25 @@ onUnmounted(() => {
                 <h2>文档详情 - {{ selectedKb.name }}</h2>
                 <p class="doc-count">共 {{ selectedKb.documents?.length || 0 }} 个文档</p>
               </div>
-              <button class="close-btn" @click="selectedKb = null" title="关闭">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                  <line x1="18" y1="6" x2="6" y2="18"></line>
-                  <line x1="6" y1="6" x2="18" y2="18"></line>
-                </svg>
-                <span class="close-text">关闭</span>
-              </button>
+              <div class="drawer-actions">
+                <label class="upload-btn-inline" @click.stop>
+                  <Plus :size="16" />
+                  上传文档
+                  <input
+                    type="file"
+                    accept=".txt,.md,.pdf,.doc,.docx"
+                    @change="handleUpload(selectedKb.id, $event)"
+                    hidden
+                  />
+                </label>
+                <button class="close-btn" @click="selectedKb = null" title="关闭">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                  </svg>
+                  <span class="close-text">关闭</span>
+                </button>
+              </div>
             </header>
 
             <div class="drawer-divider"></div>
@@ -509,6 +521,32 @@ onUnmounted(() => {
 
 .close-text {
   margin-left: 2px;
+}
+
+.drawer-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.upload-btn-inline {
+  height: 32px;
+  padding: 0 12px;
+  border-radius: 8px;
+  background: var(--primary);
+  border: none;
+  color: white;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.upload-btn-inline:hover {
+  opacity: 0.9;
 }
 
 .drawer-divider {
