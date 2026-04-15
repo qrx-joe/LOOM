@@ -265,11 +265,21 @@ export class ChatService {
         return '';
     }
 
-    // 流式发送消息
+    // 流式发送消息（公开API）
     async sendMessageStream(
         sessionId: string,
         content: string,
         onToken: (data: any) => void
+    ) {
+        return this.sendMessageStreamInternal(sessionId, content, onToken, true);
+    }
+
+    // 流式发送消息内部实现
+    private async sendMessageStreamInternal(
+        sessionId: string,
+        content: string,
+        onToken: (data: any) => void,
+        saveUserMessage: boolean = true
     ) {
         this.validateContent(content);
 
@@ -279,13 +289,16 @@ export class ChatService {
         });
         if (!session) throw new Error('Session not found');
 
-        // 1. 保存用户消息
-        const userMsg = this.messageRepository.create({
-            role: 'user',
-            content,
-            session,
-        });
-        await this.messageRepository.save(userMsg);
+        // 1. 保存用户消息（仅在需要时）
+        if (saveUserMessage) {
+            const userMsg = this.messageRepository.create({
+                role: 'user',
+                content,
+                session,
+            });
+            await this.messageRepository.save(userMsg);
+            this.logger.debug(`[sendMessageStream] Saved user message: ${content.substring(0, 100)}`);
+        }
 
         // 2. 转换工作流定义
         const workflow = session.workflow;
@@ -330,7 +343,11 @@ export class ChatService {
         let assistantReply = '';
 
         if (lastLog && lastLog.output) {
+            this.logger.debug(`[sendMessageStream] OUTPUT node output: ${JSON.stringify(lastLog.output)}`);
             assistantReply = this.extractTextFromOutput(lastLog.output);
+            this.logger.debug(`[sendMessageStream] Extracted assistantReply: ${assistantReply.substring(0, 200)}`);
+        } else {
+            this.logger.warn(`[sendMessageStream] No completed log found. Logs: ${logs.map(l => ({ nodeId: l.nodeId, status: l.status }))}`);
         }
 
         // 验证响应内容
@@ -364,6 +381,7 @@ export class ChatService {
             metadata: sourceDocs.length > 0 ? { sourceDocs } : undefined,
         });
         await this.messageRepository.save(assistantMsg);
+        this.logger.log(`[sendMessageStream] Saved assistant message (${assistantReply.length} chars): ${assistantReply.substring(0, 100)}...`);
 
         // 9. 如果是第一条消息，异步生成会话标题（不阻塞响应）
         this.generateSessionTitle(sessionId, content).catch(err => {
@@ -430,8 +448,8 @@ export class ChatService {
             await this.messageRepository.remove(msg);
         }
 
-        // 重新执行工作流
-        await this.sendMessageStream(sessionId, lastUserMsg.content, onToken);
+        // 重新执行工作流，跳过保存用户消息（因为已经存在）
+        await this.sendMessageStreamInternal(sessionId, lastUserMsg.content, onToken, false);
     }
 
     /**
