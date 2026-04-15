@@ -72,7 +72,11 @@ export class KnowledgeController {
   // ==================== 文档管理 ====================
 
   @Post('bases/:id/upload')
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(FileInterceptor('file', {
+    limits: {
+      fileSize: 50 * 1024 * 1024, // 50MB 文件大小限制
+    },
+  }))
   async uploadDocument(
     @Param('id') id: string,
     @UploadedFile() file: any,
@@ -81,6 +85,8 @@ export class KnowledgeController {
 
     // 修复中文文件名编码
     const filename = decodeFilename(file.originalname);
+
+    console.log(`[Upload] File: ${filename}, Size: ${file.size}, MimeType: ${file.mimetype}`);
 
     return this.knowledgeBaseService.processDocument(
       id,

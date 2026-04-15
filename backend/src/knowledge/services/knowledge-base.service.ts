@@ -193,9 +193,13 @@ export class KnowledgeBaseService {
     if (!doc) return;
 
     try {
+      this.logger.log(`Starting document processing for ${doc.name} (${mimeType}, ${buffer.length} bytes)`);
+
       // Step 1: 解析文档
+      this.logger.log(`[${doc.name}] Step 1/4: Parsing document...`);
       await this.updateProgress(doc, 'parsing', 10);
       const processed = await this.documentProcessor.process(buffer, mimeType, doc.name);
+      this.logger.log(`[${doc.name}] Document parsed. Words: ${processed.metadata.wordCount}, Pages: ${processed.metadata.pageCount || 'N/A'}`);
 
       // 更新元数据
       doc.metadata = {
@@ -206,9 +210,10 @@ export class KnowledgeBaseService {
       await this.docRepository.save(doc);
 
       // Step 2: 分片
+      this.logger.log(`[${doc.name}] Step 2/4: Chunking document...`);
       await this.updateProgress(doc, 'chunking', 30);
       const chunks = await this.chunkingService.chunk(processed.content, DEFAULT_CHUNKING_CONFIG);
-      this.logger.log(`Document ${doc.name} split into ${chunks.length} chunks`);
+      this.logger.log(`[${doc.name}] Document split into ${chunks.length} chunks`);
 
       // Step 3: 生成 Embedding
       await this.updateProgress(doc, 'embedding', 50);
@@ -257,6 +262,7 @@ export class KnowledgeBaseService {
       doc.errorMessage = error.message;
       await this.docRepository.save(doc);
       this.logger.error(`Failed to process document ${doc.name}: ${error.message}`);
+      this.logger.error(`Error stack: ${error.stack}`);
       throw error;
     }
   }
