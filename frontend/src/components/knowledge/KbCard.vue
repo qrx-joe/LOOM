@@ -87,17 +87,27 @@ const onUpload = (e: Event) => {
     <template v-else>
       <div class="kb-card-header">
         <div class="kb-icon">
-          <BookOpen :size="24" />
+          <BookOpen :size="20" />
         </div>
-        <div class="kb-meta">
-          <h3>{{ kb.name }}</h3>
-          <p v-if="kb.description" class="kb-desc">{{ kb.description }}</p>
-          <span class="kb-tag">{{ kb.documents?.length || 0 }} Docs</span>
+        <div class="kb-card-actions">
+          <button class="action-btn" @click="onStartEdit" title="编辑">
+            <Pencil :size="16" />
+          </button>
+          <button class="action-btn delete" @click="onDelete" title="删除">
+            <Trash2 :size="16" />
+          </button>
         </div>
       </div>
-      <div class="kb-card-actions">
+      <div class="kb-card-body">
+        <h3 class="card-title">{{ kb.name }}</h3>
+        <p v-if="kb.description" class="kb-desc">{{ kb.description }}</p>
+        <div class="kb-stats">
+          <span>{{ kb.documents?.length || 0 }} 个文档</span>
+        </div>
+      </div>
+      <div class="kb-card-footer">
         <label class="upload-btn" @click.stop>
-          <Upload :size="16" />
+          <Upload :size="14" />
           上传文档
           <input
             type="file"
@@ -106,12 +116,6 @@ const onUpload = (e: Event) => {
             hidden
           />
         </label>
-        <button class="icon-btn" @click="onStartEdit" title="编辑">
-          <Pencil :size="16" />
-        </button>
-        <button class="icon-btn danger" @click="onDelete" title="删除">
-          <Trash2 :size="16" />
-        </button>
       </div>
     </template>
   </div>
@@ -119,24 +123,23 @@ const onUpload = (e: Event) => {
 
 <style scoped>
 .kb-card {
-  padding: 24px;
-  border-radius: 20px;
-  border: 2px solid var(--border-subtle);
+  padding: 20px;
+  border-radius: 12px;
+  border: 1px solid var(--border-subtle);
   cursor: pointer;
-  transition: all 0.3s ease;
-  background: white;
+  transition: all 0.2s ease;
+  background: var(--bg-surface);
 }
 
 .kb-card:hover {
-  transform: translateY(-4px);
-  box-shadow: var(--shadow-lg);
   border-color: var(--primary);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  transform: translateY(-2px);
 }
 
 .kb-card.active {
   background: var(--primary-light);
   border-color: var(--primary);
-  box-shadow: 0 0 0 3px rgba(71, 118, 246, 0.2);
 }
 
 .kb-card.editing {
@@ -146,79 +149,143 @@ const onUpload = (e: Event) => {
 
 .kb-card-header {
   display: flex;
-  gap: 16px;
-  margin-bottom: 24px;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 16px;
 }
 
 .kb-icon {
-  font-size: 2rem;
-  background: white;
-  width: 56px;
-  height: 56px;
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  background: var(--bg-hover);
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 12px;
-  box-shadow: var(--shadow-sm);
   color: var(--primary);
   flex-shrink: 0;
+}
+
+.kb-card.active .kb-icon {
+  background: var(--primary);
+  color: white;
 }
 
 .kb-meta {
   min-width: 0;
   flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .kb-meta h3 {
-  margin: 0 0 4px 0;
-  font-size: 1.2rem;
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-main);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .kb-desc {
-  margin: 4px 0;
+  margin: 0;
   font-size: 13px;
   color: var(--text-muted);
-  white-space: nowrap;
+  line-height: 1.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
   overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 200px;
 }
 
-.kb-tag {
-  font-size: 12px;
-  background: #eee;
-  padding: 2px 8px;
-  border-radius: 4px;
-  color: var(--text-muted);
+.kb-stats {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.kb-card-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.card-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-main);
+  margin: 0;
+  word-break: break-word;
 }
 
 .kb-card-actions {
   display: flex;
-  gap: 12px;
+  gap: 4px;
+  opacity: 0;
+  transition: opacity 0.2s;
 }
 
-.upload-btn {
-  flex: 1;
+.kb-card:hover .kb-card-actions {
+  opacity: 1;
+}
+
+.action-btn {
+  padding: 6px;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-radius: var(--radius-sm);
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  background: white;
-  border: 1px solid var(--border-subtle);
-  padding: 10px;
-  border-radius: 10px;
-  font-size: 14px;
-  font-weight: 600;
+}
+
+.action-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-main);
+}
+
+.action-btn.delete:hover {
+  color: var(--error);
+}
+
+.kb-card-footer {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.upload-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 16px;
+  background: var(--bg-hover);
+  border: none;
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .upload-btn:hover {
-  border-color: var(--primary);
-  color: var(--primary);
+  background: var(--primary);
+  color: white;
+}
+
+.kb-card.active .upload-btn {
+  background: var(--primary);
+  color: white;
 }
 
 .icon-btn {

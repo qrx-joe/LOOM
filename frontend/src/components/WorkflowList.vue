@@ -201,9 +201,8 @@ const formatDate = (dateStr?: string) => {
 
 <style scoped>
 .workflow-list-page {
-  min-height: 100vh;
   background: var(--bg-app);
-  padding: 0 24px 24px;
+  padding: 24px;
 }
 
 /* 页面头部 */

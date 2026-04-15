@@ -240,8 +240,8 @@ const cancelBatchMode = () => {
   align-items: center;
   justify-content: space-between;
   padding: 12px 16px;
-  background: white;
-  border-radius: 12px;
+  background: var(--bg-app);
+  border-radius: 8px;
   border: 1px solid var(--border-subtle);
   margin-bottom: 8px;
 }

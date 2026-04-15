@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, watch } from 'vue'
-import { Plus } from 'lucide-vue-next'
+import { Plus, X } from 'lucide-vue-next'
 import { useKnowledgeBases, type KnowledgeBase, type ProcessingStatus, type Document } from '../composables/useKnowledgeBases'
 import KbCard from './knowledge/KbCard.vue'
 import DocumentList from './knowledge/DocumentList.vue'
@@ -262,25 +262,36 @@ onUnmounted(() => {
         />
       </div>
 
-      <!-- 文档详情面板 -->
-      <div v-if="selectedKb" class="kb-detail-panel">
-        <header class="detail-header">
-          <h2>文档详情 - {{ selectedKb.name }}</h2>
-          <p v-if="selectedKb.description" class="detail-desc">{{ selectedKb.description }}</p>
-          <p v-else class="detail-desc empty">暂无描述</p>
-          <p v-if="(selectedKb.documents?.length || 0) > 0" class="doc-count">
-            共 {{ selectedKb.documents?.length || 0 }} 个文档
-          </p>
-        </header>
+      <!-- 文档详情抽屉 -->
+    <Teleport to="body">
+      <Transition name="drawer">
+        <div v-if="selectedKb" class="drawer-overlay" @click.self="selectedKb = null">
+          <div class="drawer-panel">
+            <header class="drawer-header">
+              <div class="drawer-title">
+                <h2>文档详情 - {{ selectedKb.name }}</h2>
+                <p class="doc-count">共 {{ selectedKb.documents?.length || 0 }} 个文档</p>
+              </div>
+              <button class="close-btn" @click="selectedKb = null">
+                <X :size="18" />
+              </button>
+            </header>
 
-        <DocumentList
-          :documents="selectedKb.documents || []"
-          :document-statuses="documentStatuses"
-          @delete="handleDeleteDoc"
-          @delete-batch="handleDeleteDocs"
-          @preview="openPreview"
-        />
-      </div>
+            <div class="drawer-divider"></div>
+
+            <div class="drawer-content">
+              <DocumentList
+                :documents="selectedKb.documents || []"
+                :document-statuses="documentStatuses"
+                @delete="handleDeleteDoc"
+                @delete-batch="handleDeleteDocs"
+                @preview="openPreview"
+              />
+            </div>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
     </div>
 
     <!-- 文档预览弹窗 -->
@@ -294,29 +305,33 @@ onUnmounted(() => {
 
 <style scoped>
 .kb-container {
-  padding: 40px;
-  max-width: 1400px;
+  padding: 24px;
+  max-width: 1200px;
   margin: 0 auto;
 }
 
 .kb-header {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 48px;
+  align-items: center;
+  padding-bottom: 24px;
+  border-bottom: 1px solid var(--border-subtle);
+  margin-bottom: 24px;
   gap: 24px;
   flex-wrap: wrap;
 }
 
 .header-main h1 {
-  font-size: 2.4rem;
-  margin-bottom: 8px;
+  font-size: 24px;
+  font-weight: 600;
+  margin: 0 0 4px 0;
   color: var(--text-main);
 }
 
 .subtitle {
   color: var(--text-muted);
-  font-size: 1.1rem;
+  font-size: 14px;
+  margin: 0;
 }
 
 .header-actions {
@@ -341,9 +356,8 @@ onUnmounted(() => {
 
 .kb-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-  gap: 24px;
-  margin-bottom: 60px;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
 }
 
 .kb-detail-panel {
@@ -403,5 +417,100 @@ onUnmounted(() => {
 .primary-btn:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+/* 抽屉遮罩层 */
+.drawer-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.3);
+  z-index: 100;
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* 抽屉面板 */
+.drawer-panel {
+  width: 480px;
+  height: 100vh;
+  background: var(--bg-surface);
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.drawer-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 16px;
+}
+
+.drawer-title h2 {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--primary);
+  margin: 0 0 4px 0;
+}
+
+.drawer-title .doc-count {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.close-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  background: var(--bg-hover);
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.close-btn:hover {
+  background: var(--border-default);
+  color: var(--text-main);
+}
+
+.drawer-divider {
+  height: 1px;
+  background: var(--border-subtle);
+  margin-bottom: 16px;
+}
+
+.drawer-content {
+  flex: 1;
+  overflow-y: auto;
+}
+
+/* 抽屉动画 */
+.drawer-enter-active,
+.drawer-leave-active {
+  transition: opacity 0.3s ease;
+}
+
+.drawer-enter-from,
+.drawer-leave-to {
+  opacity: 0;
+}
+
+.drawer-enter-active .drawer-panel,
+.drawer-leave-active .drawer-panel {
+  transition: transform 0.3s ease;
+}
+
+.drawer-enter-from .drawer-panel,
+.drawer-leave-to .drawer-panel {
+  transform: translateX(100%);
 }
 </style>
