@@ -37,3 +37,9 @@ service-account*.json
 # misc
 .DS_Store
 Thumbs.db
+
+# process id files
+*.pid
+
+# windows null device
+nul
