@@ -60,7 +60,7 @@ export class WorkflowController {
     }
 
     @Post(':id/run')
-    async run(@Param('id') id: string) {
+    async run(@Param('id') id: string, @Body() body: { input?: string }) {
         const workflow = await this.workflowService.findOne(id);
         if (!workflow) throw new Error('Workflow not found');
 
@@ -72,7 +72,9 @@ export class WorkflowController {
             edges: workflow.edges,
         };
 
-        return await this.executorService.runWorkflow(definition);
+        const inputValue = body?.input || '';
+        const initialInput = inputValue ? { input: inputValue } : {};
+        return await this.executorService.runWorkflow(definition, initialInput);
     }
 
     // SSE: 工作流执行并实时推送状态

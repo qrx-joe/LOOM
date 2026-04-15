@@ -343,8 +343,6 @@ export class ExecutorService {
      * 将值格式化为适合prompt的字符串
      */
     private formatValueForPrompt(val: any): string {
-        this.logger.debug(`[formatValueForPrompt] Input: ${JSON.stringify(val)}`);
-
         if (val === null || val === undefined) {
             return '';
         }
@@ -379,9 +377,7 @@ export class ExecutorService {
 
         // 5. 默认使用 JSON.stringify，但格式化得更友好
         try {
-            const result = JSON.stringify(val, null, 2);
-            this.logger.debug(`[formatValueForPrompt] JSON.stringify result: ${result}`);
-            return result;
+            return JSON.stringify(val, null, 2);
         } catch {
             return '[无法序列化的对象]';
         }
@@ -568,12 +564,10 @@ export class ExecutorService {
 
         // 处理变量插值
         if (input._context) {
-            this.logger.debug(`[HTTP Node ${node.id}] Context keys: ${Object.keys(input._context).join(', ')}`);
             Object.entries(input._context).forEach(([key, val]: [string, any]) => {
                 const search1 = `{{${key}}}`;
                 const search2 = `{{${key}.output}}`;
                 const replace = this.formatValueForPrompt(val);
-                this.logger.debug(`[HTTP Node ${node.id}] Replacing ${search1} with: ${replace}`);
                 url = url.split(search1).join(replace);
                 if (typeof body === 'string') {
                     body = body.split(search1).join(replace);
