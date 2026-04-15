@@ -26,12 +26,8 @@ export const useWorkflowStore = defineStore('workflow', () => {
     const history = ref<{ nodes: WorkflowNode[]; edges: WorkflowEdge[]; timestamp: number }[]>([]);
     const historyIndex = ref(-1);
 
-    // 结构化克隆 - 比 JSON.parse(JSON.stringify) 更高效
+    // 深度克隆 - 使用 JSON 方法确保数据可序列化
     const deepClone = <T>(obj: T): T => {
-        if (typeof structuredClone === 'function') {
-            return structuredClone(obj);
-        }
-        // 降级方案
         return JSON.parse(JSON.stringify(obj));
     };
 

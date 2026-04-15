@@ -2,6 +2,7 @@
 import { VueFlow, useVueFlow } from '@vue-flow/core'
 import { Background } from '@vue-flow/background'
 import { Controls } from '@vue-flow/controls'
+import '@vue-flow/controls/dist/style.css'
 import { ref, onMounted, onUnmounted, markRaw, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useWorkflowStore } from '../store/workflow'
@@ -774,7 +775,7 @@ const handleBack = () => {
 
 <style scoped>
 .flow-editor {
-  height: 100vh;
+  height: 100%;
   display: flex;
   flex-direction: column;
   background: var(--bg-app);

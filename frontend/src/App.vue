@@ -148,11 +148,11 @@ const activeView = computed(() => {
 .content-box {
   flex: 1;
   position: relative;
-  overflow-y: auto;
+  overflow: hidden;
 }
 
 .view-wrapper {
-  min-height: 100%;
+  height: 100%;
   width: 100%;
 }
 </style>
