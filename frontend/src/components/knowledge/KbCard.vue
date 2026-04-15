@@ -111,7 +111,7 @@ const onUpload = (e: Event) => {
           上传文档
           <input
             type="file"
-            accept=".txt,.pdf,.doc,.docx"
+            accept=".txt,.md,.pdf,.doc,.docx"
             @change="onUpload"
             hidden
           />

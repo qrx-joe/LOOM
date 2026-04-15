@@ -15,6 +15,7 @@ export class DocumentProcessorService {
 
   private readonly supportedMimeTypes = [
     'text/plain',
+    'text/markdown',
     'application/pdf',
     'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // .docx
     'application/msword', // .doc
@@ -30,7 +31,8 @@ export class DocumentProcessorService {
     try {
       switch (mimeType) {
         case 'text/plain':
-          return this.processText(buffer);
+        case 'text/markdown':
+          return this.processText(buffer, mimeType);
         case 'application/pdf':
           return this.processPdf(buffer);
         case 'application/vnd.openxmlformats-officedocument.wordprocessingml.document':
@@ -45,13 +47,14 @@ export class DocumentProcessorService {
     }
   }
 
-  private async processText(buffer: Buffer): Promise<ProcessedDocument> {
+  private async processText(buffer: Buffer, mimeType?: string): Promise<ProcessedDocument> {
     const content = buffer.toString('utf-8');
+    const format = mimeType === 'text/markdown' ? 'markdown' : 'text';
     return {
       content,
       metadata: {
         wordCount: this.countWords(content),
-        format: 'text',
+        format,
       },
     };
   }
@@ -104,6 +107,7 @@ export class DocumentProcessorService {
   private getFormatFromMime(mimeType: string): string {
     const map: Record<string, string> = {
       'text/plain': 'txt',
+      'text/markdown': 'md',
       'application/pdf': 'pdf',
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'docx',
       'application/msword': 'doc',
