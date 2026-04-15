@@ -22,15 +22,26 @@ export const useWorkflowStore = defineStore('workflow', () => {
     const isLoading = ref(false);
 
     // 历史记录（撤销/重做）
-    const MAX_HISTORY = 50;
-    const history = ref<{ nodes: WorkflowNode[]; edges: WorkflowEdge[] }[]>([]);
+    const MAX_HISTORY = 30; // 减少最大历史记录数以降低内存占用
+    const history = ref<{ nodes: WorkflowNode[]; edges: WorkflowEdge[]; timestamp: number }[]>([]);
     const historyIndex = ref(-1);
+
+    // 结构化克隆 - 比 JSON.parse(JSON.stringify) 更高效
+    const deepClone = <T>(obj: T): T => {
+        if (typeof structuredClone === 'function') {
+            return structuredClone(obj);
+        }
+        // 降级方案
+        return JSON.parse(JSON.stringify(obj));
+    };
 
     // 保存当前状态到历史记录
     const saveHistory = () => {
+        // 只保存节点和边的必要字段，避免存储 Vue 响应式额外属性
         const currentState = {
-            nodes: JSON.parse(JSON.stringify(nodes.value)),
-            edges: JSON.parse(JSON.stringify(edges.value)),
+            nodes: nodes.value.map(n => deepClone(n)),
+            edges: edges.value.map(e => deepClone(e)),
+            timestamp: Date.now(),
         };
 
         // 如果当前不在历史记录末尾，截断后面的历史
@@ -56,10 +67,10 @@ export const useWorkflowStore = defineStore('workflow', () => {
     const undo = () => {
         if (historyIndex.value > 0) {
             historyIndex.value--;
-            const state = history.value[historyIndex.value]
+            const state = history.value[historyIndex.value];
             if (state) {
-                nodes.value = JSON.parse(JSON.stringify(state.nodes));
-                edges.value = JSON.parse(JSON.stringify(state.edges));
+                nodes.value = deepClone(state.nodes);
+                edges.value = deepClone(state.edges);
             }
         }
     };
@@ -68,10 +79,10 @@ export const useWorkflowStore = defineStore('workflow', () => {
     const redo = () => {
         if (historyIndex.value < history.value.length - 1) {
             historyIndex.value++;
-            const state = history.value[historyIndex.value]
+            const state = history.value[historyIndex.value];
             if (state) {
-                nodes.value = JSON.parse(JSON.stringify(state.nodes));
-                edges.value = JSON.parse(JSON.stringify(state.edges));
+                nodes.value = deepClone(state.nodes);
+                edges.value = deepClone(state.edges);
             }
         }
     };
@@ -111,12 +122,13 @@ export const useWorkflowStore = defineStore('workflow', () => {
         // 确保边有 ID
         edges.value = (workflow.edges || []).map((edge, index) => ({
             ...edge,
-            id: edge.id || `edge-${index}`,
+            id: edge.id || `edge-${Date.now()}-${index}`,
         }));
         // 初始化历史记录
         history.value = [{
-            nodes: JSON.parse(JSON.stringify(nodes.value)),
-            edges: JSON.parse(JSON.stringify(edges.value)),
+            nodes: deepClone(nodes.value),
+            edges: deepClone(edges.value),
+            timestamp: Date.now(),
         }];
         historyIndex.value = 0;
         // 加载的是已保存的数据
@@ -134,8 +146,12 @@ export const useWorkflowStore = defineStore('workflow', () => {
         history.value = [{
             nodes: [],
             edges: [],
+            timestamp: Date.now(),
         }];
         historyIndex.value = 0;
+        // 重置 ID 计数器
+        nodeIdCounter = 0;
+        edgeIdCounter = 0;
         // 新建的工作流还未保存
         hasUnsavedChanges.value = true;
     };
@@ -143,13 +159,13 @@ export const useWorkflowStore = defineStore('workflow', () => {
     // 保存工作流（创建或更新）
     const saveWorkflow = async () => {
         // 深度克隆并清理数据，移除 Vue 响应式额外属性
-        const cleanNodes = JSON.parse(JSON.stringify(nodes.value));
-        const cleanEdges = JSON.parse(JSON.stringify(edges.value));
+        const cleanNodes = deepClone(nodes.value);
+        const cleanEdges = deepClone(edges.value);
 
         // 确保每条边都有 ID
         const edgesWithIds = cleanEdges.map((edge: any, index: number) => ({
             ...edge,
-            id: edge.id || `edge-${Date.now()}-${index}`,
+            id: edge.id || `edge-${Date.now()}-${index}-${Math.random().toString(36).substr(2, 4)}`,
         }));
 
         const payload = {

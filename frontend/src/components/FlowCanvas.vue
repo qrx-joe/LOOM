@@ -28,6 +28,12 @@ const showLogPanel = ref(false)
 const knowledgeBases = ref<{ id: string; name: string }[]>([])
 let currentEventSource: EventSource | null = null
 
+// ID 生成器 - 使用递增计数器 + 时间戳 + 随机数确保唯一性
+let nodeIdCounter = 0
+let edgeIdCounter = 0
+const generateNodeId = () => `node-${++nodeIdCounter}-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`
+const generateEdgeId = () => `edge-${++edgeIdCounter}-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`
+
 // 节点运行结果预览
 const nodeResults = ref<Map<string, any>>(new Map())
 const showNodeResultModal = ref(false)
@@ -115,7 +121,7 @@ onNodeClick((event) => {
 // 监听连接
 onConnect((params) => {
   const newEdge = {
-    id: `edge-${Date.now()}`,
+    id: generateEdgeId(),
     source: params.source,
     target: params.target,
     sourceHandle: params.sourceHandle || undefined,
@@ -220,7 +226,7 @@ const handleAddNode = (nodeType: string) => {
   }
 
   const newNode = {
-    id: `node-${Date.now()}`,
+    id: generateNodeId(),
     type: nodeType,
     label: nodeTypes.find(n => n.type === nodeType)?.label || '新节点',
     position,
@@ -268,6 +274,12 @@ const handleRun = async () => {
   if (!store.currentWorkflowId) {
     alert('请先保存工作流')
     return
+  }
+
+  // 关闭之前的 SSE 连接（如果有）
+  if (currentEventSource) {
+    currentEventSource.close()
+    currentEventSource = null
   }
 
   isRunning.value = true
