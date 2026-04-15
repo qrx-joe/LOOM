@@ -149,9 +149,6 @@ export const useWorkflowStore = defineStore('workflow', () => {
             timestamp: Date.now(),
         }];
         historyIndex.value = 0;
-        // 重置 ID 计数器
-        nodeIdCounter = 0;
-        edgeIdCounter = 0;
         // 新建的工作流还未保存
         hasUnsavedChanges.value = true;
     };

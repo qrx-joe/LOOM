@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Handle, Position } from '@vue-flow/core'
-import { Bot, BookOpen, GitBranch, PlayCircle, Square } from 'lucide-vue-next'
+import { Bot, BookOpen, GitBranch, PlayCircle, Square, Globe } from 'lucide-vue-next'
 import type { NodeProps } from '@vue-flow/core'
 
 // 禁用继承 attrs，让 Vue Flow 的事件监听器能正确传递
@@ -24,7 +24,13 @@ type ConditionNodeData = {
   expression?: string
 }
 
-type CustomNodeData = AiNodeData | KnowledgeNodeData | ConditionNodeData
+type HttpNodeData = {
+  nodeType: 'HTTP_REQUEST'
+  url?: string
+  method?: string
+}
+
+type CustomNodeData = AiNodeData | KnowledgeNodeData | ConditionNodeData | HttpNodeData
 
 interface Props extends NodeProps<CustomNodeData> {
   label?: string
@@ -99,6 +105,19 @@ const isOutputNode = () => ['output', 'END', 'OUTPUT'].includes(props.type || ''
       <span class="handle-label true-label">True</span>
       <span class="handle-label false-label">False</span>
     </div>
+  </div>
+
+  <!-- HTTP Request Node -->
+  <div v-else-if="data?.nodeType === 'HTTP_REQUEST'" class="custom-node http-node" v-bind="$attrs">
+    <div class="node-header">
+      <Globe :size="14" />
+      <span>{{ label || 'HTTP 请求' }}</span>
+    </div>
+    <div class="node-body">
+      <span class="method-tag">{{ data?.method || 'GET' }}</span>
+    </div>
+    <Handle type="target" :position="Position.Left" />
+    <Handle type="source" :position="Position.Right" />
   </div>
 </template>
 
@@ -205,5 +224,22 @@ const isOutputNode = () => ['output', 'END', 'OUTPUT'].includes(props.type || ''
 
 .false-label {
   color: #EF4444;
+}
+
+.http-node {
+  border-left: 3px solid #8B5CF6;
+}
+
+.http-node .node-header {
+  color: #8B5CF6;
+}
+
+.method-tag {
+  background: #EDE9FE;
+  color: #7C3AED;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 500;
 }
 </style>

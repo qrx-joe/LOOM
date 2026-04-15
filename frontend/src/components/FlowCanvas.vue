@@ -10,7 +10,7 @@ import axios from 'axios'
 import {
   Save, Play, Trash2,
   PlayCircle, Bot, BookOpen, GitBranch, Square,
-  ArrowLeft, FolderOpen, AlertCircle
+  ArrowLeft, FolderOpen, AlertCircle, Globe
 } from 'lucide-vue-next'
 import CustomNodes from './CustomNodes.vue'
 
@@ -89,6 +89,7 @@ const nodeTypes = [
   { type: 'input', label: '开始', icon: 'PlayCircle', color: '#10B981' },
   { type: 'AI_AGENT', label: 'AI 节点', icon: 'Bot', color: '#4776F6' },
   { type: 'KNOWLEDGE_RETRIEVAL', label: '知识检索', icon: 'BookOpen', color: '#F59E0B' },
+  { type: 'HTTP_REQUEST', label: 'HTTP 请求', icon: 'Globe', color: '#8B5CF6' },
   { type: 'CONDITION', label: '条件分支', icon: 'GitBranch', color: '#EC4899' },
   { type: 'output', label: '结束', icon: 'Square', color: '#EF4444' },
 ]
@@ -99,6 +100,7 @@ const flowNodeTypes = {
   output: markRaw(CustomNodes),
   AI_AGENT: markRaw(CustomNodes),
   KNOWLEDGE_RETRIEVAL: markRaw(CustomNodes),
+  HTTP_REQUEST: markRaw(CustomNodes),
   CONDITION: markRaw(CustomNodes),
   START: markRaw(CustomNodes),
   END: markRaw(CustomNodes),
@@ -188,7 +190,7 @@ onUnmounted(() => {
 
 // 获取图标组件
 const getIconComponent = (iconName: string) => {
-  const icons: Record<string, any> = { PlayCircle, Bot, BookOpen, GitBranch, Square }
+  const icons: Record<string, any> = { PlayCircle, Bot, BookOpen, GitBranch, Square, Globe }
   return icons[iconName] || Square
 }
 
@@ -199,6 +201,8 @@ const getDefaultNodeData = (type: string): any => {
       return { nodeType: 'AI_AGENT', prompt: '基于上下文回答问题：\n{{START_INPUT}}', model: 'deepseek-ai/DeepSeek-V3', temperature: 0.7 }
     case 'KNOWLEDGE_RETRIEVAL':
       return { nodeType: 'KNOWLEDGE_RETRIEVAL', kbId: '', query: '{{START_INPUT}}' }
+    case 'HTTP_REQUEST':
+      return { nodeType: 'HTTP_REQUEST', url: '', method: 'GET', headers: {}, body: '', timeout: 30000, retryCount: 0, retryDelay: 1000 }
     case 'CONDITION':
       return { nodeType: 'CONDITION', expression: '' }
     default:
@@ -389,6 +393,14 @@ const validateWorkflow = (): { valid: boolean; errors: string[] } => {
     }
   })
 
+  // 检查 HTTP 请求节点是否配置了 URL
+  const httpNodes = nodes.filter(n => n.type === 'HTTP_REQUEST' || n.data?.nodeType === 'HTTP_REQUEST')
+  httpNodes.forEach(node => {
+    if (!node.data?.url || node.data.url.trim() === '') {
+      errors.push(`节点"${node.label}"未配置请求 URL`)
+    }
+  })
+
   return { valid: errors.length === 0, errors }
 }
 
@@ -561,6 +573,46 @@ const handleBack = () => {
                 <input v-model="selectedNode.data.expression" placeholder="e.g. score > 10" @change="onPropertyChange" />
               </div>
             </template>
+            <template v-if="selectedNode.type === 'HTTP_REQUEST' || selectedNode.data?.nodeType === 'HTTP_REQUEST'">
+              <div class="form-group">
+                <label>请求 URL</label>
+                <input v-model="selectedNode.data.url" placeholder="https://api.example.com/data" @change="onPropertyChange" />
+              </div>
+              <div class="form-group">
+                <label>请求方法</label>
+                <select v-model="selectedNode.data.method" @change="onPropertyChange">
+                  <option value="GET">GET</option>
+                  <option value="POST">POST</option>
+                  <option value="PUT">PUT</option>
+                  <option value="DELETE">DELETE</option>
+                  <option value="PATCH">PATCH</option>
+                  <option value="HEAD">HEAD</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>请求头 (JSON)</label>
+                <textarea v-model="selectedNode.data.headers" rows="3" placeholder='{"Content-Type": "application/json"}' @change="onPropertyChange"></textarea>
+              </div>
+              <div class="form-group" v-if="selectedNode.data.method !== 'GET' && selectedNode.data.method !== 'HEAD'">
+                <label>请求体</label>
+                <textarea v-model="selectedNode.data.body" rows="4" placeholder='{"key": "value"} 或原始文本' @change="onPropertyChange"></textarea>
+              </div>
+              <div class="form-group">
+                <label>超时时间 (毫秒)</label>
+                <input type="number" v-model="selectedNode.data.timeout" min="1000" max="120000" step="1000" @change="onPropertyChange" />
+              </div>
+              <div class="form-group">
+                <label>重试次数</label>
+                <input type="number" v-model="selectedNode.data.retryCount" min="0" max="5" step="1" @change="onPropertyChange" />
+              </div>
+              <div class="form-group">
+                <label>重试延迟 (毫秒)</label>
+                <input type="number" v-model="selectedNode.data.retryDelay" min="0" max="10000" step="500" @change="onPropertyChange" />
+              </div>
+              <div class="form-hint">
+                <p v-pre>支持变量插值：{{START_INPUT}}、{{nodeId.output}}</p>
+              </div>
+            </template>
           </template>
           <template v-if="selectedEdge">
             <div class="form-group">
@@ -635,6 +687,39 @@ const handleBack = () => {
               <div v-else class="empty-result">
                 <FolderOpen :size="32" />
                 <p>未检索到相关文档</p>
+              </div>
+            </div>
+            <div v-else class="no-result">
+              <p>暂无运行结果，请先运行工作流</p>
+            </div>
+          </template>
+
+          <!-- HTTP 请求节点展示 -->
+          <template v-else-if="selectedNodeForResult.type === 'HTTP_REQUEST' || selectedNodeForResult.data?.nodeType === 'HTTP_REQUEST'">
+            <div class="result-section">
+              <h4>请求配置</h4>
+              <div class="config-info">
+                <p><strong>URL：</strong>{{ selectedNodeForResult.data?.url || '未配置' }}</p>
+                <p><strong>方法：</strong>{{ selectedNodeForResult.data?.method || 'GET' }}</p>
+                <p><strong>超时：</strong>{{ selectedNodeForResult.data?.timeout || 30000 }}ms</p>
+              </div>
+            </div>
+            <div v-if="getNodeResult(selectedNodeForResult.id)" class="result-section">
+              <h4>响应结果</h4>
+              <div v-if="getNodeResult(selectedNodeForResult.id)?.data" class="output-content">
+                <p><strong>状态码：</strong>
+                  <span :class="getNodeResult(selectedNodeForResult.id).success ? 'status-success' : 'status-error'">
+                    {{ getNodeResult(selectedNodeForResult.id).status }}
+                  </span>
+                </p>
+                <pre class="json-output">{{ JSON.stringify(getNodeResult(selectedNodeForResult.id).data, null, 2) }}</pre>
+              </div>
+              <div v-else-if="getNodeResult(selectedNodeForResult.id)?.error" class="error-message">
+                <AlertCircle :size="16" />
+                <span>{{ getNodeResult(selectedNodeForResult.id).error }}</span>
+              </div>
+              <div v-else class="empty-result">
+                <p>无响应数据</p>
               </div>
             </div>
             <div v-else class="no-result">
@@ -1278,6 +1363,29 @@ const handleBack = () => {
 }
 
 .no-result p {
+  margin: 0;
+}
+
+/* HTTP 节点状态样式 */
+.status-success {
+  color: #10B981;
+  font-weight: 600;
+}
+
+.status-error {
+  color: #EF4444;
+  font-weight: 600;
+}
+
+.form-hint {
+  padding: 12px;
+  background: var(--bg-app);
+  border-radius: var(--radius-md);
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.form-hint p {
   margin: 0;
 }
 </style>
