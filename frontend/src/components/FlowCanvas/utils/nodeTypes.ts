@@ -12,6 +12,7 @@ import {
   isAINodeType,
   isKnowledgeNodeType,
   isConditionNodeType,
+  isHttpNodeType,
   DEFAULT_NODE_CONFIG,
   NODE_LABELS,
   NODE_ICONS,
@@ -61,6 +62,13 @@ export function isKnowledgeNode(node: WorkflowNode | null | undefined): boolean 
  */
 export function isConditionNode(node: WorkflowNode | null | undefined): boolean {
   return isConditionNodeType(getNodeType(node))
+}
+
+/**
+ * 判断是否为 HTTP 请求节点
+ */
+export function isHttpNode(node: WorkflowNode | null | undefined): boolean {
+  return isHttpNodeType(getNodeType(node))
 }
 
 /**

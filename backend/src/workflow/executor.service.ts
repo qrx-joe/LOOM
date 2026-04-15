@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 import { OpenAI } from 'openai';
+import axios, { AxiosRequestConfig, AxiosResponse } from 'axios';
 import { WorkflowDefinition, NodeData, ExecutionLog, NodeType } from './interfaces/workflow.interface';
 import { SearchService } from '../knowledge/services/search.service';
 import { DEFAULT_SEARCH_CONFIG } from '../knowledge/interfaces';
@@ -289,6 +290,9 @@ export class ExecutorService {
             case 'condition':
             case NodeType.CONDITION:
                 return this.handleCondition(node, config, input);
+            case 'HTTP_REQUEST':
+            case NodeType.HTTP_REQUEST:
+                return this.handleHttpRequest(node, config, input);
             case 'output':
             case 'OUTPUT':
             case NodeType.OUTPUT: {
@@ -541,5 +545,140 @@ export class ExecutorService {
 
         this.logger.log(`Condition node ${node.id} result: ${conditionResult} (using ${strategy} strategy)`);
         return { conditionResult, ...input };
+    }
+
+    private async handleHttpRequest(node: NodeData, config: any, input: any): Promise<any> {
+        this.logger.log(`Executing HTTP Request node: ${node.id}`);
+
+        // 获取配置，支持变量插值
+        let url = config.url || '';
+        const method = config.method || 'GET';
+        const headers = config.headers || {};
+        let body = config.body || '';
+        const timeout = config.timeout || 30000;
+        const retryCount = config.retryCount || 0;
+        const retryDelay = config.retryDelay || 1000;
+
+        // 处理变量插值
+        if (input._context) {
+            Object.entries(input._context).forEach(([key, val]: [string, any]) => {
+                const search1 = `{{${key}}}`;
+                const search2 = `{{${key}.output}}`;
+                const replace = this.formatValueForPrompt(val);
+                url = url.split(search1).join(replace);
+                if (typeof body === 'string') {
+                    body = body.split(search1).join(replace);
+                }
+            });
+        }
+
+        // 处理 {{START_INPUT}} 和 {{input}}
+        if (input.input !== undefined) {
+            const userInput = this.formatValueForPrompt(input.input);
+            url = url.split('{{START_INPUT}}').join(userInput).split('{{input}}').join(userInput);
+            if (typeof body === 'string') {
+                body = body.split('{{START_INPUT}}').join(userInput).split('{{input}}').join(userInput);
+            }
+        }
+
+        // URL 校验
+        if (!url) {
+            throw new Error('HTTP 请求 URL 不能为空');
+        }
+
+        // 如果不是完整 URL，添加 http:// 前缀
+        if (!url.startsWith('http://') && !url.startsWith('https://')) {
+            url = 'https://' + url;
+        }
+
+        this.logger.log(`[HTTP Node ${node.id}] ${method} ${url}`);
+
+        // 构建请求配置
+        const requestConfig: AxiosRequestConfig = {
+            method,
+            url,
+            headers: { ...headers },
+            timeout,
+            validateStatus: () => true, // 允许任何状态码，手动处理
+        };
+
+        // 添加请求体（非 GET 请求）
+        if (method !== 'GET' && method !== 'HEAD' && body) {
+            // 尝试解析 JSON
+            if (typeof body === 'string') {
+                try {
+                    requestConfig.data = JSON.parse(body);
+                    if (!requestConfig.headers!['Content-Type']) {
+                        requestConfig.headers!['Content-Type'] = 'application/json';
+                    }
+                } catch {
+                    requestConfig.data = body;
+                }
+            } else {
+                requestConfig.data = body;
+            }
+        }
+
+        // 执行请求，支持重试
+        let lastError: Error | null = null;
+        let response: AxiosResponse | null = null;
+
+        for (let attempt = 0; attempt <= retryCount; attempt++) {
+            try {
+                if (attempt > 0) {
+                    this.logger.log(`[HTTP Node ${node.id}] 第 ${attempt} 次重试...`);
+                    await new Promise(resolve => setTimeout(resolve, retryDelay * attempt));
+                }
+
+                const resp = await axios(requestConfig);
+                response = resp;
+
+                // 2xx 状态码视为成功
+                if (resp.status >= 200 && resp.status < 300) {
+                    break;
+                }
+
+                // 4xx 客户端错误不重试
+                if (resp.status >= 400 && resp.status < 500) {
+                    this.logger.warn(`[HTTP Node ${node.id}] 客户端错误 ${resp.status}，停止重试`);
+                    break;
+                }
+
+                lastError = new Error(`HTTP ${resp.status}: ${resp.statusText}`);
+            } catch (error: any) {
+                lastError = error;
+                this.logger.warn(`[HTTP Node ${node.id}] 请求失败: ${error.message}`);
+
+                // 网络错误继续重试，其他错误停止
+                if (!error.code || !['ECONNRESET', 'ETIMEDOUT', 'ECONNREFUSED', 'ENOTFOUND'].includes(error.code)) {
+                    break;
+                }
+            }
+        }
+
+        // 构建响应结果
+        if (!response) {
+            throw new Error(`HTTP 请求失败: ${lastError?.message || '未知错误'}`);
+        }
+
+        const result = {
+            status: response.status,
+            statusText: response.statusText,
+            headers: response.headers,
+            data: response.data,
+            success: response.status >= 200 && response.status < 300,
+        };
+
+        this.logger.log(`[HTTP Node ${node.id}] 响应状态: ${response.status}`);
+
+        // 非 2xx 状态码视为错误（但返回结果以便条件判断）
+        if (response.status >= 400) {
+            return {
+                ...result,
+                error: `HTTP ${response.status}: ${response.statusText}`,
+            };
+        }
+
+        return result;
     }
 }

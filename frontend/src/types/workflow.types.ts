@@ -12,6 +12,7 @@ export const NodeType = {
   AI_AGENT: 'AI_AGENT',
   KNOWLEDGE_RETRIEVAL: 'KNOWLEDGE_RETRIEVAL',
   CONDITION: 'CONDITION',
+  HTTP_REQUEST: 'HTTP_REQUEST',
 } as const
 
 export type NodeTypeValue = typeof NodeType[keyof typeof NodeType]
@@ -37,6 +38,10 @@ export function isConditionNodeType(type: string): boolean {
   return type === NodeType.CONDITION
 }
 
+export function isHttpNodeType(type: string): boolean {
+  return type === NodeType.HTTP_REQUEST
+}
+
 // ============ 节点数据结构 ============
 export interface NodePosition {
   x: number
@@ -56,6 +61,15 @@ export interface NodeData {
 
   // 条件节点配置
   expression?: string
+
+  // HTTP 请求节点配置
+  url?: string
+  method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
+  headers?: Record<string, string>
+  body?: string | Record<string, any>
+  timeout?: number
+  retryCount?: number
+  retryDelay?: number
 
   // 扩展字段
   [key: string]: any
@@ -139,6 +153,16 @@ export const DEFAULT_NODE_CONFIG: Record<string, NodeData> = {
     nodeType: NodeType.CONDITION,
     expression: '',
   },
+  [NodeType.HTTP_REQUEST]: {
+    nodeType: NodeType.HTTP_REQUEST,
+    url: '',
+    method: 'GET',
+    headers: {},
+    body: '',
+    timeout: 30000,
+    retryCount: 0,
+    retryDelay: 1000,
+  },
 }
 
 export const NODE_LABELS: Record<string, string> = {
@@ -149,6 +173,7 @@ export const NODE_LABELS: Record<string, string> = {
   [NodeType.AI_AGENT]: 'AI 回答',
   [NodeType.KNOWLEDGE_RETRIEVAL]: '知识检索',
   [NodeType.CONDITION]: '条件判断',
+  [NodeType.HTTP_REQUEST]: 'HTTP 请求',
 }
 
 // ============ 图标映射 ============
@@ -160,4 +185,5 @@ export const NODE_ICONS: Record<string, string> = {
   [NodeType.AI_AGENT]: 'Bot',
   [NodeType.KNOWLEDGE_RETRIEVAL]: 'BookOpen',
   [NodeType.CONDITION]: 'GitBranch',
+  [NodeType.HTTP_REQUEST]: 'Globe',
 }

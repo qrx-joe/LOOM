@@ -1,4 +1,4 @@
-import { isStartNode, isEndNode, isAINode, isKnowledgeNode } from '../utils/nodeTypes'
+import { isStartNode, isEndNode, isAINode, isKnowledgeNode, isHttpNode } from '../utils/nodeTypes'
 
 export interface ValidationResult {
   valid: boolean
@@ -46,6 +46,9 @@ export function useWorkflowValidation() {
 
     // 检查知识检索节点配置
     errors.push(...validateKnowledgeNodes(nodes))
+
+    // 检查 HTTP 请求节点配置
+    errors.push(...validateHttpNodes(nodes))
 
     return {
       valid: errors.length === 0,
@@ -111,6 +114,28 @@ export function useWorkflowValidation() {
     knowledgeNodes.forEach(node => {
       if (!node.data?.kbId) {
         errors.push(`节点"${node.label}"未选择知识库`)
+      }
+    })
+
+    return errors
+  }
+
+  /**
+   * 验证 HTTP 请求节点配置
+   */
+  function validateHttpNodes(nodes: any[]): string[] {
+    const errors: string[] = []
+    const httpNodes = nodes.filter(isHttpNode)
+
+    httpNodes.forEach(node => {
+      if (!node.data?.url || node.data.url.trim() === '') {
+        errors.push(`节点"${node.label}"未配置请求 URL`)
+      }
+      if (node.data?.timeout !== undefined && (node.data.timeout < 1000 || node.data.timeout > 120000)) {
+        errors.push(`节点"${node.label}"超时时间需在 1-120 秒之间`)
+      }
+      if (node.data?.retryCount !== undefined && (node.data.retryCount < 0 || node.data.retryCount > 5)) {
+        errors.push(`节点"${node.label}"重试次数需在 0-5 之间`)
       }
     })
 

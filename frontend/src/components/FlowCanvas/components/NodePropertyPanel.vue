@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { BookOpen, AlertCircle } from 'lucide-vue-next'
-import { isAINode, isKnowledgeNode, isConditionNode } from '../utils/nodeTypes'
+import { isAINode, isKnowledgeNode, isConditionNode, isHttpNode } from '../utils/nodeTypes'
 
 const props = defineProps<{
   node: any | null
@@ -24,6 +24,7 @@ const getKnowledgeBaseName = (kbId: string) => {
 const showAIGroup = computed(() => props.node && isAINode(props.node))
 const showKnowledgeGroup = computed(() => props.node && isKnowledgeNode(props.node))
 const showConditionGroup = computed(() => props.node && isConditionNode(props.node))
+const showHttpGroup = computed(() => props.node && isHttpNode(props.node))
 
 // 更新节点数据
 const updateNodeData = (key: string, value: any) => {
@@ -147,6 +148,118 @@ const updateNodeData = (key: string, value: any) => {
               placeholder="e.g. {{input}} > 10"
             />
             <span class="hint">示例: {{'{{score}}'}} > 10, {{'{{name}}'}} == 'test'</span>
+          </div>
+        </div>
+      </template>
+
+      <!-- HTTP 请求节点配置 -->
+      <template v-if="showHttpGroup">
+        <div class="panel-section">
+          <h4>HTTP 配置</h4>
+          <div class="form-group">
+            <label>请求 URL</label>
+            <input
+              :value="node.data?.url"
+              @input="e => updateNodeData('url', (e.target as HTMLInputElement).value)"
+              @change="$emit('update', node.data)"
+              class="form-input"
+              placeholder="https://api.example.com/data"
+            />
+            <span class="hint">支持变量: {{'{{START_INPUT}}'}} 表示用户输入</span>
+          </div>
+
+          <div class="form-group">
+            <label>请求方法</label>
+            <select
+              :value="node.data?.method || 'GET'"
+              @change="e => updateNodeData('method', (e.target as HTMLSelectElement).value)"
+              class="form-select"
+            >
+              <option value="GET">GET</option>
+              <option value="POST">POST</option>
+              <option value="PUT">PUT</option>
+              <option value="PATCH">PATCH</option>
+              <option value="DELETE">DELETE</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label>请求头 (JSON)</label>
+            <textarea
+              :value="JSON.stringify(node.data?.headers || {}, null, 2)"
+              @input="e => {
+                try {
+                  const headers = JSON.parse((e.target as HTMLTextAreaElement).value)
+                  updateNodeData('headers', headers)
+                } catch {}
+              }"
+              @change="$emit('update', node.data)"
+              class="form-textarea"
+              rows="3"
+              placeholder='{ "Content-Type": "application/json" }'
+            />
+          </div>
+
+          <div class="form-group" v-if="node.data?.method !== 'GET'">
+            <label>请求体 (JSON)</label>
+            <textarea
+              :value="typeof node.data?.body === 'object' ? JSON.stringify(node.data?.body, null, 2) : (node.data?.body || '')"
+              @input="e => {
+                const value = (e.target as HTMLTextAreaElement).value
+                try {
+                  const body = JSON.parse(value)
+                  updateNodeData('body', body)
+                } catch {
+                  updateNodeData('body', value)
+                }
+              }"
+              @change="$emit('update', node.data)"
+              class="form-textarea"
+              rows="4"
+              placeholder='{ "key": "value" }'
+            />
+          </div>
+
+          <div class="form-group">
+            <label>超时时间 (毫秒)</label>
+            <input
+              type="number"
+              :value="node.data?.timeout || 30000"
+              @input="e => updateNodeData('timeout', parseInt((e.target as HTMLInputElement).value))"
+              @change="$emit('update', node.data)"
+              class="form-input"
+              min="1000"
+              max="120000"
+              step="1000"
+            />
+          </div>
+
+          <div class="form-row">
+            <div class="form-group half">
+              <label>重试次数</label>
+              <input
+                type="number"
+                :value="node.data?.retryCount || 0"
+                @input="e => updateNodeData('retryCount', parseInt((e.target as HTMLInputElement).value))"
+                @change="$emit('update', node.data)"
+                class="form-input"
+                min="0"
+                max="5"
+              />
+            </div>
+            <div class="form-group half">
+              <label>重试延迟 (毫秒)</label>
+              <input
+                type="number"
+                :value="node.data?.retryDelay || 1000"
+                @input="e => updateNodeData('retryDelay', parseInt((e.target as HTMLInputElement).value))"
+                @change="$emit('update', node.data)"
+                class="form-input"
+                min="100"
+                max="10000"
+                step="100"
+              />
+            </div>
           </div>
         </div>
       </template>
@@ -276,5 +389,15 @@ const updateNodeData = (key: string, value: any) => {
 
 .btn-danger:hover {
   background: #fecaca;
+}
+
+.form-row {
+  display: flex;
+  gap: 12px;
+}
+
+.form-row .form-group.half {
+  flex: 1;
+  min-width: 0;
 }
 </style>

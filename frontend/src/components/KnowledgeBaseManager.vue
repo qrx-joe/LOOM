@@ -20,6 +20,7 @@ const {
   deleteKb,
   uploadDocument,
   deleteDocument,
+  deleteDocuments,
   getDocumentStatus,
 } = useKnowledgeBases()
 
@@ -120,6 +121,17 @@ const handleDeleteDoc = async (docId: string) => {
   try {
     await deleteDocument(docId)
     documentStatuses.value.delete(docId)
+  } catch (err: any) {
+    alert(err.message)
+  }
+}
+
+// 批量删除文档
+const handleDeleteDocs = async (docIds: string[]) => {
+  try {
+    await deleteDocuments(docIds)
+    // 清除已删除文档的状态
+    docIds.forEach(id => documentStatuses.value.delete(id))
   } catch (err: any) {
     alert(err.message)
   }
@@ -265,6 +277,7 @@ onUnmounted(() => {
           :documents="selectedKb.documents || []"
           :document-statuses="documentStatuses"
           @delete="handleDeleteDoc"
+          @delete-batch="handleDeleteDocs"
           @preview="openPreview"
         />
       </div>

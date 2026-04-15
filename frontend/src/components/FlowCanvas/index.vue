@@ -317,6 +317,10 @@ const getNodeResult = (nodeId: string) => {
             <div class="palette-icon condition">◈</div>
             <span>条件判断</span>
           </div>
+          <div class="palette-item" @click="addNode('HTTP_REQUEST')">
+            <div class="palette-icon http">🌐</div>
+            <span>HTTP 请求</span>
+          </div>
           <div class="palette-item" @click="addNode('END')">
             <div class="palette-icon end">■</div>
             <span>结束</span>
@@ -508,6 +512,7 @@ const getNodeResult = (nodeId: string) => {
 .palette-icon.knowledge { background: #fef3c7; color: #d97706; }
 .palette-icon.ai { background: #dbeafe; color: #7c3aed; }
 .palette-icon.condition { background: #fce7f3; color: #db2777; }
+.palette-icon.http { background: #d1fae5; color: #059669; }
 .palette-icon.end { background: #fee2e2; color: #dc2626; }
 
 .palette-item span {

@@ -125,6 +125,21 @@ export function useKnowledgeBases() {
     }
   }
 
+  // 批量删除文档
+  const deleteDocuments = async (docIds: string[]) => {
+    try {
+      // 并行删除所有文档
+      await Promise.all(
+        docIds.map(docId =>
+          api.delete(`${getKnowledgeBasesUrl().replace('/bases', '')}/documents/${docId}`)
+        )
+      )
+      await fetchKbs()
+    } catch (err: any) {
+      throw new Error(err.message || '批量删除失败')
+    }
+  }
+
   // 获取文档状态
   const getDocumentStatus = async (docId: string) => {
     try {
@@ -154,6 +169,7 @@ export function useKnowledgeBases() {
     deleteKb,
     uploadDocument,
     deleteDocument,
+    deleteDocuments,
     getDocumentStatus,
   }
 }
