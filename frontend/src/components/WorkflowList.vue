@@ -1,20 +1,32 @@
 <script setup lang="ts">
-import { ref, onMounted, nextTick } from 'vue'
+import { ref, onMounted, nextTick, computed } from 'vue'
 import { useWorkflowStore } from '../store/workflow'
+import { useChatStore } from '../store/chat'
 import { Plus, FileCode, Trash2, Play, Clock, Pencil, Check, X } from 'lucide-vue-next'
+import WorkflowCardSkeleton from './workflow/WorkflowCardSkeleton.vue'
 
 const emit = defineEmits<{
   (e: 'select', workflow: any): void
 }>()
 
 const store = useWorkflowStore()
+const chatStore = useChatStore()
 const isCreating = ref(false)
 const editingId = ref<string | null>(null)
 const editingName = ref('')
 const editInputRef = ref<HTMLInputElement | null>(null)
 
+// 使用计算属性统一数据源，优先使用 workflow store
+const workflows = computed(() => store.savedWorkflows)
+const isLoading = computed(() => store.isLoading)
+
 onMounted(async () => {
-  await store.fetchWorkflows()
+  // 如果已有数据，不重复请求
+  if (store.savedWorkflows.length === 0 && !store.isLoading) {
+    await store.fetchWorkflows()
+  }
+  // 同步到 chat store（保持兼容性）
+  chatStore.workflows = store.savedWorkflows
 })
 
 const handleCreateWorkflow = () => {
@@ -79,7 +91,7 @@ const formatDate = (dateStr?: string) => {
       <div class="header-content">
         <div class="header-title">
           <h1>工作流</h1>
-          <p class="header-subtitle">共 {{ store.savedWorkflows.length }} 个工作流</p>
+          <p class="header-subtitle">共 {{ workflows.length }} 个工作流</p>
         </div>
         <button class="create-btn" @click="handleCreateWorkflow">
           <Plus :size="18" />
@@ -88,8 +100,19 @@ const formatDate = (dateStr?: string) => {
       </div>
     </header>
 
+    <!-- 骨架屏加载状态 -->
+    <div v-if="isLoading" class="workflow-grid">
+      <div class="workflow-card create-card" @click="handleCreateWorkflow">
+        <div class="create-icon">
+          <Plus :size="32" />
+        </div>
+        <span>创建新工作流</span>
+      </div>
+      <WorkflowCardSkeleton v-for="i in 6" :key="`skeleton-${i}`" />
+    </div>
+
     <!-- 工作流列表 -->
-    <div class="workflow-grid">
+    <div v-else class="workflow-grid">
       <!-- 新建工作流卡片 -->
       <div class="workflow-card create-card" @click="handleCreateWorkflow">
         <div class="create-icon">
@@ -100,7 +123,7 @@ const formatDate = (dateStr?: string) => {
 
       <!-- 工作流卡片 -->
       <div
-        v-for="wf in store.savedWorkflows"
+        v-for="wf in workflows"
         :key="wf.id"
         class="workflow-card"
         :class="{ active: store.currentWorkflowId === wf.id, editing: editingId === wf.id }"
@@ -165,8 +188,8 @@ const formatDate = (dateStr?: string) => {
       </div>
     </div>
 
-    <!-- 空状态 -->
-    <div v-if="store.savedWorkflows.length === 0 && !isCreating" class="empty-state">
+    <!-- 空状态（仅在非加载状态下显示） -->
+    <div v-if="!isLoading && workflows.length === 0 && !isCreating" class="empty-state">
       <div class="empty-icon">
         <FileCode :size="64" />
       </div>

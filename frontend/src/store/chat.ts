@@ -2,6 +2,7 @@ import { defineStore } from 'pinia';
 import { ref } from 'vue';
 import { api } from '../utils/api-client';
 import { showError, showSuccess } from '../utils/toast';
+import { useWorkflowStore } from './workflow';
 
 
 // 格式化相对时间
@@ -34,9 +35,23 @@ export const useChatStore = defineStore('chat', () => {
     let abortController: AbortController | null = null;
 
     const fetchWorkflows = async () => {
+        // 优先从 workflow store 获取数据，避免重复请求
+        const workflowStore = useWorkflowStore();
+        if (workflowStore.savedWorkflows.length > 0) {
+            workflows.value = workflowStore.savedWorkflows;
+            // 自动选择第一个工作流
+            if (!currentWorkflowId.value) {
+                currentWorkflowId.value = workflows.value[0].id;
+            }
+            return;
+        }
+
+        // workflow store 没有数据时才发起请求
         try {
             const data = await api.get<any[]>('/workflows');
             workflows.value = Array.isArray(data) ? data : [];
+            // 同步到 workflow store
+            workflowStore.savedWorkflows = workflows.value;
             console.log('Workflows fetched:', workflows.value);
             // 自动选择第一个工作流
             if (workflows.value.length > 0 && !currentWorkflowId.value) {

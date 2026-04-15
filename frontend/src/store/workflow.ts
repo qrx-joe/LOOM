@@ -19,6 +19,7 @@ export const useWorkflowStore = defineStore('workflow', () => {
     const currentWorkflowId = ref<string | null>(null);
     const savedWorkflows = ref<Workflow[]>([]);
     const hasUnsavedChanges = ref(false);
+    const isLoading = ref(false);
 
     // 历史记录（撤销/重做）
     const MAX_HISTORY = 50;
@@ -81,6 +82,10 @@ export const useWorkflowStore = defineStore('workflow', () => {
 
     // 加载所有已保存的工作流
     const fetchWorkflows = async () => {
+        // 防止重复请求
+        if (isLoading.value) return;
+
+        isLoading.value = true;
         try {
             const data = await api.get<Workflow[]>('/workflows');
             savedWorkflows.value = Array.isArray(data) ? data : [];
@@ -93,6 +98,8 @@ export const useWorkflowStore = defineStore('workflow', () => {
             console.error('Failed to fetch workflows', err);
             showError(err);
             savedWorkflows.value = [];
+        } finally {
+            isLoading.value = false;
         }
     };
 
@@ -254,6 +261,7 @@ export const useWorkflowStore = defineStore('workflow', () => {
         currentWorkflowId,
         savedWorkflows,
         hasUnsavedChanges,
+        isLoading,
         history,
         historyIndex,
         fetchWorkflows,
