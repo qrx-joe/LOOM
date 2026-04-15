@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, watch } from 'vue'
-import { Plus, X } from 'lucide-vue-next'
+import { Plus } from 'lucide-vue-next'
 import { useKnowledgeBases, type KnowledgeBase, type ProcessingStatus, type Document } from '../composables/useKnowledgeBases'
 import KbCard from './knowledge/KbCard.vue'
 import DocumentList from './knowledge/DocumentList.vue'
@@ -290,8 +290,12 @@ onUnmounted(() => {
                 <h2>文档详情 - {{ selectedKb.name }}</h2>
                 <p class="doc-count">共 {{ selectedKb.documents?.length || 0 }} 个文档</p>
               </div>
-              <button class="close-btn" @click="selectedKb = null">
-                <X :size="18" />
+              <button class="close-btn" @click="selectedKb = null" title="关闭">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="18" y1="6" x2="6" y2="18"></line>
+                  <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+                <span class="close-text">关闭</span>
               </button>
             </header>
 
@@ -482,22 +486,29 @@ onUnmounted(() => {
 }
 
 .close-btn {
-  width: 32px;
   height: 32px;
-  border-radius: 6px;
-  background: var(--bg-hover);
-  border: none;
-  color: var(--text-muted);
+  padding: 0 12px;
+  border-radius: 8px;
+  background: white;
+  border: 1px solid var(--border-default, #d1d5db);
+  color: var(--text-muted, #6b7280);
   cursor: pointer;
   display: flex;
   align-items: center;
-  justify-content: center;
+  gap: 6px;
   transition: all 0.2s;
+  font-size: 13px;
+  font-weight: 500;
 }
 
 .close-btn:hover {
-  background: var(--border-default);
-  color: var(--text-main);
+  background: #fee2e2;
+  border-color: #ef4444;
+  color: #dc2626;
+}
+
+.close-text {
+  margin-left: 2px;
 }
 
 .drawer-divider {
