@@ -22,24 +22,31 @@ export class DocumentProcessorService {
   ];
 
   async process(buffer: Buffer, mimeType: string, fileName: string): Promise<ProcessedDocument> {
-    if (!this.supportedMimeTypes.includes(mimeType)) {
-      throw new BadRequestException(`Unsupported file type: ${mimeType}`);
+    // 如果 MIME 类型是通用的 application/octet-stream，尝试从文件扩展名推断
+    let detectedMimeType = mimeType;
+    if (mimeType === 'application/octet-stream') {
+      detectedMimeType = this.detectMimeTypeFromExtension(fileName);
+      this.logger.log(`Detected MIME type from extension: ${detectedMimeType} for file: ${fileName}`);
     }
 
-    const format = this.getFormatFromMime(mimeType);
+    if (!this.supportedMimeTypes.includes(detectedMimeType)) {
+      throw new BadRequestException(`Unsupported file type: ${mimeType} (detected: ${detectedMimeType})`);
+    }
+
+    const format = this.getFormatFromMime(detectedMimeType);
 
     try {
-      switch (mimeType) {
+      switch (detectedMimeType) {
         case 'text/plain':
         case 'text/markdown':
-          return this.processText(buffer, mimeType);
+          return this.processText(buffer, detectedMimeType);
         case 'application/pdf':
           return this.processPdf(buffer);
         case 'application/vnd.openxmlformats-officedocument.wordprocessingml.document':
         case 'application/msword':
-          return this.processWord(buffer, mimeType);
+          return this.processWord(buffer, detectedMimeType);
         default:
-          throw new BadRequestException(`Unsupported file type: ${mimeType}`);
+          throw new BadRequestException(`Unsupported file type: ${detectedMimeType}`);
       }
     } catch (error) {
       this.logger.error(`Failed to process document ${fileName}: ${error.message}`);
@@ -66,20 +73,29 @@ export class DocumentProcessorService {
       // eslint-disable-next-line @typescript-eslint/no-var-requires
       pdfParse = require('pdf-parse');
     } catch (error) {
+      this.logger.error('pdf-parse module not installed');
       throw new Error('pdf-parse module not installed. Run: npm install pdf-parse');
     }
 
-    const data = await pdfParse(buffer);
-    const content = data.text;
+    try {
+      this.logger.log(`Parsing PDF, buffer size: ${buffer.length} bytes`);
+      const data = await pdfParse(buffer);
+      const content = data.text || '';
 
-    return {
-      content,
-      metadata: {
-        pageCount: data.numpages,
-        wordCount: this.countWords(content),
-        format: 'pdf',
-      },
-    };
+      this.logger.log(`PDF parsed successfully. Pages: ${data.numpages}, Text length: ${content.length}`);
+
+      return {
+        content,
+        metadata: {
+          pageCount: data.numpages,
+          wordCount: this.countWords(content),
+          format: 'pdf',
+        },
+      };
+    } catch (error) {
+      this.logger.error(`Failed to parse PDF: ${error.message}`);
+      throw new Error(`PDF parsing failed: ${error.message}`);
+    }
   }
 
   private async processWord(buffer: Buffer, mimeType: string): Promise<ProcessedDocument> {
@@ -113,6 +129,19 @@ export class DocumentProcessorService {
       'application/msword': 'doc',
     };
     return map[mimeType] || 'unknown';
+  }
+
+  private detectMimeTypeFromExtension(fileName: string): string {
+    const ext = fileName.toLowerCase().split('.').pop();
+    const mimeMap: Record<string, string> = {
+      'txt': 'text/plain',
+      'md': 'text/markdown',
+      'markdown': 'text/markdown',
+      'pdf': 'application/pdf',
+      'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'doc': 'application/msword',
+    };
+    return mimeMap[ext || ''] || 'application/octet-stream';
   }
 
   private countWords(text: string): number {
