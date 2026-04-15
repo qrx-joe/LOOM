@@ -6,6 +6,7 @@ import KbCard from './knowledge/KbCard.vue'
 import DocumentList from './knowledge/DocumentList.vue'
 import SearchInput from './knowledge/SearchInput.vue'
 import DocumentPreview from './knowledge/DocumentPreview.vue'
+import KbCardSkeleton from './knowledge/KbCardSkeleton.vue'
 
 // 使用组合式函数
 const {
@@ -226,6 +227,12 @@ onUnmounted(() => {
     <div class="kb-main">
       <!-- 知识库卡片网格 -->
       <div class="kb-grid">
+        <!-- 骨架屏 -->
+        <template v-if="isLoading">
+          <KbCardSkeleton v-for="i in 6" :key="`skeleton-${i}`" />
+        </template>
+
+        <!-- 实际卡片 -->
         <KbCard
           v-for="kb in filteredKbs"
           :key="kb.id"
