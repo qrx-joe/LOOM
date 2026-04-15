@@ -295,7 +295,10 @@ export class ExecutorService {
                 return this.handleHttpRequest(node, config, input);
             case 'output':
             case 'OUTPUT':
-            case NodeType.OUTPUT: {
+            case NodeType.OUTPUT:
+            case 'end':
+            case 'END':
+            case NodeType.END: {
                 // OUTPUT 节点：遍历所有输入值，找到 AI 节点的 text 输出
                 // 注意：绝对不能直接返回含有 input 字段的原始 input 对象，
                 // 否则 extractTextFromOutput 的 input 字段兜底逻辑会把用户原话当成 AI 回复
@@ -340,6 +343,8 @@ export class ExecutorService {
      * 将值格式化为适合prompt的字符串
      */
     private formatValueForPrompt(val: any): string {
+        this.logger.debug(`[formatValueForPrompt] Input: ${JSON.stringify(val)}`);
+
         if (val === null || val === undefined) {
             return '';
         }
@@ -374,7 +379,9 @@ export class ExecutorService {
 
         // 5. 默认使用 JSON.stringify，但格式化得更友好
         try {
-            return JSON.stringify(val, null, 2);
+            const result = JSON.stringify(val, null, 2);
+            this.logger.debug(`[formatValueForPrompt] JSON.stringify result: ${result}`);
+            return result;
         } catch {
             return '[无法序列化的对象]';
         }
@@ -561,10 +568,12 @@ export class ExecutorService {
 
         // 处理变量插值
         if (input._context) {
+            this.logger.debug(`[HTTP Node ${node.id}] Context keys: ${Object.keys(input._context).join(', ')}`);
             Object.entries(input._context).forEach(([key, val]: [string, any]) => {
                 const search1 = `{{${key}}}`;
                 const search2 = `{{${key}.output}}`;
                 const replace = this.formatValueForPrompt(val);
+                this.logger.debug(`[HTTP Node ${node.id}] Replacing ${search1} with: ${replace}`);
                 url = url.split(search1).join(replace);
                 if (typeof body === 'string') {
                     body = body.split(search1).join(replace);
