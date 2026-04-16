@@ -10,7 +10,7 @@ interface Props {
   editDescription: string
 }
 
-const props = defineProps<Props>()
+defineProps<Props>()
 
 const emit = defineEmits<{
   click: []
@@ -59,25 +59,25 @@ const onUpload = (e: Event) => {
     <div v-if="isEditing" class="kb-edit-form" @click.stop>
       <input
         :value="editName"
-        @input="e => emit('update:editName', (e.target as HTMLInputElement).value)"
         type="text"
         placeholder="知识库名称"
         class="edit-input"
+        @input="e => emit('update:editName', (e.target as HTMLInputElement).value)"
         @keyup.enter="onSaveEdit"
       />
       <input
         :value="editDescription"
-        @input="e => emit('update:editDescription', (e.target as HTMLInputElement).value)"
         type="text"
         placeholder="描述（可选）"
         class="edit-input"
+        @input="e => emit('update:editDescription', (e.target as HTMLInputElement).value)"
         @keyup.enter="onSaveEdit"
       />
       <div class="edit-actions">
-        <button class="icon-btn success" @click="onSaveEdit" title="保存">
+        <button class="icon-btn success" title="保存" @click="onSaveEdit">
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
         </button>
-        <button class="icon-btn" @click="onCancelEdit" title="取消">
+        <button class="icon-btn" title="取消" @click="onCancelEdit">
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
         </button>
       </div>
@@ -90,10 +90,10 @@ const onUpload = (e: Event) => {
           <BookOpen :size="20" />
         </div>
         <div class="kb-card-actions">
-          <button class="action-btn" @click="onStartEdit" title="编辑">
+          <button class="action-btn" title="编辑" @click="onStartEdit">
             <Pencil :size="16" />
           </button>
-          <button class="action-btn delete" @click="onDelete" title="删除">
+          <button class="action-btn delete" title="删除" @click="onDelete">
             <Trash2 :size="16" />
           </button>
         </div>
@@ -112,8 +112,8 @@ const onUpload = (e: Event) => {
           <input
             type="file"
             accept=".txt,.md,.pdf,.doc,.docx"
-            @change="onUpload"
             hidden
+            @change="onUpload"
           />
         </label>
       </div>

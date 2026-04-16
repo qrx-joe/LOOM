@@ -61,7 +61,11 @@ export class KnowledgeController {
     @Param('id') id: string,
     @Body() body: { name?: string; description?: string },
   ) {
-    return this.knowledgeBaseService.updateBase(id, body.name, body.description);
+    return this.knowledgeBaseService.updateBase(
+      id,
+      body.name,
+      body.description,
+    );
   }
 
   @Get('stats')
@@ -72,21 +76,22 @@ export class KnowledgeController {
   // ==================== 文档管理 ====================
 
   @Post('bases/:id/upload')
-  @UseInterceptors(FileInterceptor('file', {
-    limits: {
-      fileSize: 50 * 1024 * 1024, // 50MB 文件大小限制
-    },
-  }))
-  async uploadDocument(
-    @Param('id') id: string,
-    @UploadedFile() file: any,
-  ) {
+  @UseInterceptors(
+    FileInterceptor('file', {
+      limits: {
+        fileSize: 50 * 1024 * 1024, // 50MB 文件大小限制
+      },
+    }),
+  )
+  async uploadDocument(@Param('id') id: string, @UploadedFile() file: any) {
     if (!file) throw new Error('No file uploaded');
 
     // 修复中文文件名编码
     const filename = decodeFilename(file.originalname);
 
-    console.log(`[Upload] File: ${filename}, Size: ${file.size}, MimeType: ${file.mimetype}`);
+    console.log(
+      `[Upload] File: ${filename}, Size: ${file.size}, MimeType: ${file.mimetype}`,
+    );
 
     return this.knowledgeBaseService.processDocument(
       id,
@@ -115,7 +120,10 @@ export class KnowledgeController {
 
   @Post('search')
   async search(@Body() body: { kbId: string; query: string; topK?: number }) {
-    const config = { ...DEFAULT_SEARCH_CONFIG, topK: body.topK || DEFAULT_SEARCH_CONFIG.topK };
+    const config = {
+      ...DEFAULT_SEARCH_CONFIG,
+      topK: body.topK || DEFAULT_SEARCH_CONFIG.topK,
+    };
     return this.searchService.search(body.kbId, body.query, config);
   }
 }

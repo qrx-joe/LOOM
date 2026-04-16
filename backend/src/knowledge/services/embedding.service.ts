@@ -1,7 +1,11 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import OpenAI from 'openai';
-import { EmbeddingConfig, EmbeddingResult, BatchEmbeddingResult } from '../interfaces';
+import {
+  EmbeddingConfig,
+  EmbeddingResult,
+  BatchEmbeddingResult,
+} from '../interfaces';
 
 @Injectable()
 export class EmbeddingService {
@@ -12,10 +16,19 @@ export class EmbeddingService {
   constructor(private configService: ConfigService) {
     this.config = {
       provider: this.configService.get('EMBEDDING_PROVIDER') || 'siliconflow',
-      model: this.configService.get('EMBEDDING_MODEL') || 'BAAI/bge-large-zh-v1.5',
-      apiKey: this.configService.get('EMBEDDING_API_KEY') || this.configService.get('DEEPSEEK_API_KEY') || '',
-      baseUrl: this.configService.get('EMBEDDING_BASE_URL') || 'https://api.siliconflow.cn/v1',
-      dimensions: parseInt(this.configService.get('EMBEDDING_DIMENSIONS') || '1024', 10),
+      model:
+        this.configService.get('EMBEDDING_MODEL') || 'BAAI/bge-large-zh-v1.5',
+      apiKey:
+        this.configService.get('EMBEDDING_API_KEY') ||
+        this.configService.get('DEEPSEEK_API_KEY') ||
+        '',
+      baseUrl:
+        this.configService.get('EMBEDDING_BASE_URL') ||
+        'https://api.siliconflow.cn/v1',
+      dimensions: parseInt(
+        this.configService.get('EMBEDDING_DIMENSIONS') || '1024',
+        10,
+      ),
     };
 
     if (this.config.apiKey) {
@@ -24,13 +37,17 @@ export class EmbeddingService {
         baseURL: this.config.baseUrl,
       });
     } else {
-      this.logger.warn('No EMBEDDING_API_KEY configured, embedding service will not work');
+      this.logger.warn(
+        'No EMBEDDING_API_KEY configured, embedding service will not work',
+      );
     }
   }
 
   async getEmbedding(text: string): Promise<EmbeddingResult> {
     if (!this.openai) {
-      throw new Error('Embedding service not configured. Please set EMBEDDING_API_KEY');
+      throw new Error(
+        'Embedding service not configured. Please set EMBEDDING_API_KEY',
+      );
     }
 
     try {
@@ -54,7 +71,9 @@ export class EmbeddingService {
 
   async getEmbeddings(texts: string[]): Promise<BatchEmbeddingResult> {
     if (!this.openai) {
-      throw new Error('Embedding service not configured. Please set EMBEDDING_API_KEY');
+      throw new Error(
+        'Embedding service not configured. Please set EMBEDDING_API_KEY',
+      );
     }
 
     if (texts.length === 0) {
@@ -70,7 +89,7 @@ export class EmbeddingService {
 
       const embeddings = response.data
         .sort((a, b) => a.index - b.index)
-        .map(item => item.embedding);
+        .map((item) => item.embedding);
 
       return {
         embeddings,

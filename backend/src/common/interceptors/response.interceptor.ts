@@ -25,15 +25,21 @@ export interface ApiResponse<T> {
  * 统一所有 API 响应格式
  */
 @Injectable()
-export class ResponseInterceptor<T> implements NestInterceptor<T, ApiResponse<T>> {
+export class ResponseInterceptor<T> implements NestInterceptor<
+  T,
+  ApiResponse<T>
+> {
   constructor(private readonly reflector: Reflector) {}
 
-  intercept(context: ExecutionContext, next: CallHandler): Observable<ApiResponse<T>> {
+  intercept(
+    context: ExecutionContext,
+    next: CallHandler,
+  ): Observable<ApiResponse<T>> {
     // 检查是否设置了跳过拦截器的元数据
-    const noInterceptors = this.reflector.getAllAndOverride<boolean>(NO_INTERCEPTORS_KEY, [
-      context.getHandler(),
-      context.getClass(),
-    ]);
+    const noInterceptors = this.reflector.getAllAndOverride<boolean>(
+      NO_INTERCEPTORS_KEY,
+      [context.getHandler(), context.getClass()],
+    );
 
     // 如果设置了跳过拦截器，直接返回原始数据
     if (noInterceptors) {
@@ -57,7 +63,10 @@ export class ResponseInterceptor<T> implements NestInterceptor<T, ApiResponse<T>
         if (error instanceof HttpException) {
           status = error.getStatus();
           const response = error.getResponse();
-          message = typeof response === 'string' ? response : (response as any).message || JSON.stringify(response);
+          message =
+            typeof response === 'string'
+              ? response
+              : (response as any).message || JSON.stringify(response);
         } else if (error instanceof Error) {
           message = error.message;
         }

@@ -14,10 +14,12 @@ import { SeederModule } from './seeder/seeder.module';
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     // 限流配置: 每分钟最多 100 次请求
-    ThrottlerModule.forRoot([{
-      ttl: 60000, // 1 分钟
-      limit: 100, // 最多 100 次请求
-    }]),
+    ThrottlerModule.forRoot([
+      {
+        ttl: 60000, // 1 分钟
+        limit: 100, // 最多 100 次请求
+      },
+    ]),
     TypeOrmModule.forRoot({
       type: 'sqlite',
       database: process.env.DATABASE_PATH || 'loom.db',
@@ -39,4 +41,4 @@ import { SeederModule } from './seeder/seeder.module';
     },
   ],
 })
-export class AppModule { }
+export class AppModule {}

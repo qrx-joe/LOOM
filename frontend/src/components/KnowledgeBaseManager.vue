@@ -168,7 +168,7 @@ const startStatusPolling = () => {
 
 const pollDocumentStatuses = async () => {
   const pendingDocs = Array.from(documentStatuses.value.entries())
-    .filter(([_, data]) => data.status !== 'completed' && data.status !== 'failed')
+    .filter(([, data]) => data.status !== 'completed' && data.status !== 'failed')
 
   if (pendingDocs.length === 0) {
     if (statusPollingInterval) {
@@ -178,7 +178,7 @@ const pollDocumentStatuses = async () => {
     return
   }
 
-  for (const [docId, _] of pendingDocs) {
+  for (const [docId] of pendingDocs) {
     try {
       const result = await getDocumentStatus(docId)
       documentStatuses.value.set(docId, {
@@ -240,7 +240,7 @@ onUnmounted(() => {
             placeholder="起个好记的名字..."
             @keyup.enter="handleCreateKb"
           />
-          <button class="primary-btn" @click="handleCreateKb" :disabled="isLoading">
+          <button class="primary-btn" :disabled="isLoading" @click="handleCreateKb">
             <Plus :size="20" />
             创建知识库
           </button>
@@ -266,11 +266,11 @@ onUnmounted(() => {
         <KbCard
           v-for="kb in filteredKbs"
           :key="kb.id"
+          v-model:edit-name="editKbName"
+          v-model:edit-description="editKbDescription"
           :kb="kb"
           :is-active="selectedKb?.id === kb.id"
           :is-editing="editingKbId === kb.id"
-          v-model:edit-name="editKbName"
-          v-model:edit-description="editKbDescription"
           @click="selectKb(kb)"
           @start-edit="startEditKb(kb)"
           @cancel-edit="cancelEditKb"
@@ -297,11 +297,11 @@ onUnmounted(() => {
                   <input
                     type="file"
                     accept=".txt,.md,.pdf,.doc,.docx"
-                    @change="handleUpload(selectedKb.id, $event)"
                     hidden
+                    @change="handleUpload(selectedKb.id, $event)"
                   />
                 </label>
-                <button class="close-btn" @click="selectedKb = null" title="关闭">
+                <button class="close-btn" title="关闭" @click="selectedKb = null">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                     <line x1="18" y1="6" x2="6" y2="18"></line>
                     <line x1="6" y1="6" x2="18" y2="18"></line>

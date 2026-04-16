@@ -1,7 +1,12 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { KnowledgeBase, KnowledgeDocument, KnowledgeChunk, ProcessingStatus } from '../entities';
+import {
+  KnowledgeBase,
+  KnowledgeDocument,
+  KnowledgeChunk,
+  ProcessingStatus,
+} from '../entities';
 import { EmbeddingService } from './embedding.service';
 import { ChunkingService } from './chunking.service';
 import { DocumentProcessorService } from './document-processor.service';
@@ -60,7 +65,11 @@ export class KnowledgeBaseService {
     return { success: true };
   }
 
-  async updateBase(id: string, name?: string, description?: string): Promise<KnowledgeBase> {
+  async updateBase(
+    id: string,
+    name?: string,
+    description?: string,
+  ): Promise<KnowledgeBase> {
     const kb = await this.kbRepository.findOne({
       where: { id },
       relations: ['documents'],
@@ -77,7 +86,11 @@ export class KnowledgeBaseService {
     return this.kbRepository.save(kb);
   }
 
-  async getStats(): Promise<{ totalBases: number; totalDocuments: number; totalChunks: number }> {
+  async getStats(): Promise<{
+    totalBases: number;
+    totalDocuments: number;
+    totalChunks: number;
+  }> {
     const totalBases = await this.kbRepository.count();
     const totalDocuments = await this.docRepository.count();
     const totalChunks = await this.chunkRepository.count();
@@ -142,7 +155,7 @@ export class KnowledgeBaseService {
       return aIndex - bIndex;
     });
 
-    const fullContent = sortedChunks.map(chunk => chunk.content).join('\n\n');
+    const fullContent = sortedChunks.map((chunk) => chunk.content).join('\n\n');
 
     return {
       id: doc.id,
@@ -177,8 +190,10 @@ export class KnowledgeBaseService {
     await this.docRepository.save(doc);
 
     // 异步处理文档
-    this.processDocumentAsync(doc.id, buffer, mimeType).catch(error => {
-      this.logger.error(`Failed to process document ${doc.id}: ${error.message}`);
+    this.processDocumentAsync(doc.id, buffer, mimeType).catch((error) => {
+      this.logger.error(
+        `Failed to process document ${doc.id}: ${error.message}`,
+      );
     });
 
     return doc;
@@ -193,13 +208,21 @@ export class KnowledgeBaseService {
     if (!doc) return;
 
     try {
-      this.logger.log(`Starting document processing for ${doc.name} (${mimeType}, ${buffer.length} bytes)`);
+      this.logger.log(
+        `Starting document processing for ${doc.name} (${mimeType}, ${buffer.length} bytes)`,
+      );
 
       // Step 1: 解析文档
       this.logger.log(`[${doc.name}] Step 1/4: Parsing document...`);
       await this.updateProgress(doc, 'parsing', 10);
-      const processed = await this.documentProcessor.process(buffer, mimeType, doc.name);
-      this.logger.log(`[${doc.name}] Document parsed. Words: ${processed.metadata.wordCount}, Pages: ${processed.metadata.pageCount || 'N/A'}`);
+      const processed = await this.documentProcessor.process(
+        buffer,
+        mimeType,
+        doc.name,
+      );
+      this.logger.log(
+        `[${doc.name}] Document parsed. Words: ${processed.metadata.wordCount}, Pages: ${processed.metadata.pageCount || 'N/A'}`,
+      );
 
       // 更新元数据
       doc.metadata = {
@@ -212,15 +235,20 @@ export class KnowledgeBaseService {
       // Step 2: 分片
       this.logger.log(`[${doc.name}] Step 2/4: Chunking document...`);
       await this.updateProgress(doc, 'chunking', 30);
-      const chunks = await this.chunkingService.chunk(processed.content, DEFAULT_CHUNKING_CONFIG);
-      this.logger.log(`[${doc.name}] Document split into ${chunks.length} chunks`);
+      const chunks = await this.chunkingService.chunk(
+        processed.content,
+        DEFAULT_CHUNKING_CONFIG,
+      );
+      this.logger.log(
+        `[${doc.name}] Document split into ${chunks.length} chunks`,
+      );
 
       // Step 3: 生成 Embedding
       await this.updateProgress(doc, 'embedding', 50);
-      const chunkTexts = chunks.map(c => c.content);
+      const chunkTexts = chunks.map((c) => c.content);
       const embeddingModel = this.embeddingService.getConfig().model;
 
-      let embeddings: number[][] = [];
+      const embeddings: number[][] = [];
       if (this.embeddingService.isConfigured()) {
         try {
           // 批量获取 embedding
@@ -235,10 +263,14 @@ export class KnowledgeBaseService {
             await this.updateProgress(doc, 'embedding', progress);
           }
         } catch (error) {
-          this.logger.warn(`Failed to get embeddings: ${error.message}, chunks will have no embeddings`);
+          this.logger.warn(
+            `Failed to get embeddings: ${error.message}, chunks will have no embeddings`,
+          );
         }
       } else {
-        this.logger.warn('Embedding service not configured, chunks will have no embeddings');
+        this.logger.warn(
+          'Embedding service not configured, chunks will have no embeddings',
+        );
       }
 
       // Step 4: 保存 chunks
@@ -261,13 +293,19 @@ export class KnowledgeBaseService {
       doc.processingStatus = 'failed';
       doc.errorMessage = error.message;
       await this.docRepository.save(doc);
-      this.logger.error(`Failed to process document ${doc.name}: ${error.message}`);
+      this.logger.error(
+        `Failed to process document ${doc.name}: ${error.message}`,
+      );
       this.logger.error(`Error stack: ${error.stack}`);
       throw error;
     }
   }
 
-  private async updateProgress(doc: KnowledgeDocument, status: ProcessingStatus, progress: number): Promise<void> {
+  private async updateProgress(
+    doc: KnowledgeDocument,
+    status: ProcessingStatus,
+    progress: number,
+  ): Promise<void> {
     doc.processingStatus = status;
     doc.progress = progress;
     await this.docRepository.save(doc);

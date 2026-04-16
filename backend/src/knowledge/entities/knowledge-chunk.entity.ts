@@ -1,4 +1,10 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, CreateDateColumn } from 'typeorm';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  ManyToOne,
+  CreateDateColumn,
+} from 'typeorm';
 import { KnowledgeDocument } from './knowledge-document.entity';
 
 @Entity()
@@ -21,7 +27,9 @@ export class KnowledgeChunk {
     endIndex: number;
   };
 
-  @ManyToOne(() => KnowledgeDocument, doc => doc.chunks, { onDelete: 'CASCADE' })
+  @ManyToOne(() => KnowledgeDocument, (doc) => doc.chunks, {
+    onDelete: 'CASCADE',
+  })
   document: KnowledgeDocument;
 
   @CreateDateColumn()

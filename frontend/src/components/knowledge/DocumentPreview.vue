@@ -77,7 +77,7 @@ watch(() => props.docId, (newId) => {
                 <FileText :size="20" class="preview-icon" />
                 <h3>{{ docName }}</h3>
               </div>
-              <button class="close-btn" @click="emit('close')" title="关闭">
+              <button class="close-btn" title="关闭" @click="emit('close')">
                 <X :size="20" />
               </button>
             </header>

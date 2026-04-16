@@ -11,7 +11,7 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  (e: 'close'): void
+  close: []
 }>()
 
 // 获取知识库名称
@@ -34,12 +34,12 @@ const fragments = computed(() => props.result?.fragments || [])
 </script>
 
 <template>
-  <div v-if="show && node" class="modal-overlay" @click.self="$emit('close')">
+  <div v-if="show && node" class="modal-overlay" @click.self="emit('close')">
     <div class="modal-content">
       <!-- 头部 -->
       <div class="modal-header">
         <h3>节点运行结果 - {{ node.label || node.type }}</h3>
-        <button class="close-btn" @click="$emit('close')">
+        <button class="close-btn" @click="emit('close')">
           <X :size="18" />
         </button>
       </div>

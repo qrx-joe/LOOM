@@ -1,4 +1,10 @@
-import { Entity, PrimaryGeneratedColumn, Column, OneToMany, CreateDateColumn } from 'typeorm';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  OneToMany,
+  CreateDateColumn,
+} from 'typeorm';
 import { KnowledgeDocument } from './knowledge-document.entity';
 
 @Entity()
@@ -12,7 +18,9 @@ export class KnowledgeBase {
   @Column({ nullable: true })
   description: string;
 
-  @OneToMany(() => KnowledgeDocument, doc => doc.knowledgeBase, { cascade: true })
+  @OneToMany(() => KnowledgeDocument, (doc) => doc.knowledgeBase, {
+    cascade: true,
+  })
   documents: KnowledgeDocument[];
 
   @CreateDateColumn()

@@ -16,7 +16,7 @@ import NodeResultModal from './components/NodeResultModal.vue'
 import ValidationErrors from './components/ValidationErrors.vue'
 
 const emit = defineEmits<{
-  (e: 'back'): void
+  back: []
 }>()
 
 const store = useWorkflowStore()
@@ -134,7 +134,7 @@ const handleSave = async () => {
       store.currentWorkflowId = data.id
     }
     alert('保存成功')
-  } catch (err) {
+  } catch {
     alert('保存失败')
   }
   isSaving.value = false
@@ -290,13 +290,13 @@ const getNodeResult = (nodeId: string) => {
       </div>
 
       <div class="toolbar-actions">
-        <button class="btn btn-secondary" @click="handleSave" :disabled="isSaving">
+        <button class="btn btn-secondary" :disabled="isSaving" @click="handleSave">
           {{ isSaving ? '保存中...' : '保存' }}
         </button>
         <button
           class="btn btn-primary"
-          @click="handleRun"
           :disabled="isRunning || localNodes.length === 0"
+          @click="handleRun"
         >
           {{ isRunning ? '运行中...' : '运行' }}
         </button>

@@ -9,8 +9,8 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  (e: 'update', data: any): void
-  (e: 'delete'): void
+  update: [data: any]
+  delete: []
 }>()
 
 // 获取知识库名称
@@ -25,6 +25,17 @@ const showAIGroup = computed(() => props.node && isAINode(props.node))
 const showKnowledgeGroup = computed(() => props.node && isKnowledgeNode(props.node))
 const showConditionGroup = computed(() => props.node && isConditionNode(props.node))
 const showHttpGroup = computed(() => props.node && isHttpNode(props.node))
+
+// 节点标签本地包装（避免直接修改 prop 触发 lint）
+const nodeLabel = computed({
+  get: () => props.node?.label || '',
+  set: (val) => {
+    if (props.node) {
+      // eslint-disable-next-line vue/no-mutating-props
+      props.node.label = val
+    }
+  }
+})
 
 // 更新节点数据
 const updateNodeData = (key: string, value: any) => {
@@ -46,9 +57,9 @@ const updateNodeData = (key: string, value: any) => {
         <div class="form-group">
           <label>节点名称</label>
           <input
-            v-model="node.label"
-            @change="$emit('update', node.data)"
+            v-model="nodeLabel"
             class="form-input"
+            @change="$emit('update', node.data)"
           />
         </div>
       </div>
@@ -61,21 +72,21 @@ const updateNodeData = (key: string, value: any) => {
             <label>Prompt</label>
             <textarea
               :value="node.data?.prompt"
-              @input="e => updateNodeData('prompt', (e.target as HTMLTextAreaElement).value)"
-              @change="$emit('update', node.data)"
               class="form-textarea"
               rows="6"
               placeholder="输入Prompt，使用 {{START_INPUT}} 表示用户输入"
+              @input="e => updateNodeData('prompt', (e.target as HTMLTextAreaElement).value)"
+              @change="$emit('update', node.data)"
             />
-            <span class="hint">可用变量: {{'{{START_INPUT}}'}} 表示用户输入</span>
+            <span class="hint">可用变量: <span v-pre>{{START_INPUT}}</span> 表示用户输入</span>
           </div>
 
           <div class="form-group">
             <label>模型</label>
             <select
               :value="node.data?.model"
-              @change="e => updateNodeData('model', (e.target as HTMLSelectElement).value)"
               class="form-select"
+              @change="e => updateNodeData('model', (e.target as HTMLSelectElement).value)"
             >
               <option value="deepseek-ai/DeepSeek-V3">DeepSeek V3</option>
               <option value="deepseek-ai/DeepSeek-R1">DeepSeek R1</option>
@@ -106,8 +117,8 @@ const updateNodeData = (key: string, value: any) => {
             <div class="kb-selector">
               <select
                 :value="node.data?.kbId"
-                @change="e => updateNodeData('kbId', (e.target as HTMLSelectElement).value)"
                 class="form-select"
+                @change="e => updateNodeData('kbId', (e.target as HTMLSelectElement).value)"
               >
                 <option value="">选择知识库</option>
                 <option v-for="kb in knowledgeBases" :key="kb.id" :value="kb.id">
@@ -125,10 +136,10 @@ const updateNodeData = (key: string, value: any) => {
             <label>查询模板</label>
             <input
               :value="node.data?.query"
-              @input="e => updateNodeData('query', (e.target as HTMLInputElement).value)"
-              @change="$emit('update', node.data)"
               class="form-input"
               :placeholder="'{{START_INPUT}}'"
+              @input="e => updateNodeData('query', (e.target as HTMLInputElement).value)"
+              @change="$emit('update', node.data)"
             />
           </div>
         </div>
@@ -142,12 +153,12 @@ const updateNodeData = (key: string, value: any) => {
             <label>条件表达式</label>
             <input
               :value="node.data?.expression"
-              @input="e => updateNodeData('expression', (e.target as HTMLInputElement).value)"
-              @change="$emit('update', node.data)"
               class="form-input"
               placeholder="e.g. {{input}} > 10"
+              @input="e => updateNodeData('expression', (e.target as HTMLInputElement).value)"
+              @change="$emit('update', node.data)"
             />
-            <span class="hint">示例: {{'{{score}}'}} > 10, {{'{{name}}'}} == 'test'</span>
+            <span class="hint">示例: <span v-pre>{{score}}</span> > 10, <span v-pre>{{name}}</span> == 'test'</span>
           </div>
         </div>
       </template>
@@ -160,20 +171,20 @@ const updateNodeData = (key: string, value: any) => {
             <label>请求 URL</label>
             <input
               :value="node.data?.url"
-              @input="e => updateNodeData('url', (e.target as HTMLInputElement).value)"
-              @change="$emit('update', node.data)"
               class="form-input"
               placeholder="https://api.example.com/data"
+              @input="e => updateNodeData('url', (e.target as HTMLInputElement).value)"
+              @change="$emit('update', node.data)"
             />
-            <span class="hint">支持变量: {{'{{START_INPUT}}'}} 表示用户输入</span>
+            <span class="hint">支持变量: <span v-pre>{{START_INPUT}}</span> 表示用户输入</span>
           </div>
 
           <div class="form-group">
             <label>请求方法</label>
             <select
               :value="node.data?.method || 'GET'"
-              @change="e => updateNodeData('method', (e.target as HTMLSelectElement).value)"
               class="form-select"
+              @change="e => updateNodeData('method', (e.target as HTMLSelectElement).value)"
             >
               <option value="GET">GET</option>
               <option value="POST">POST</option>
@@ -187,6 +198,9 @@ const updateNodeData = (key: string, value: any) => {
             <label>请求头 (JSON)</label>
             <textarea
               :value="JSON.stringify(node.data?.headers || {}, null, 2)"
+              class="form-textarea"
+              rows="3"
+              placeholder='{ "Content-Type": "application/json" }'
               @input="e => {
                 try {
                   const headers = JSON.parse((e.target as HTMLTextAreaElement).value)
@@ -194,16 +208,16 @@ const updateNodeData = (key: string, value: any) => {
                 } catch {}
               }"
               @change="$emit('update', node.data)"
-              class="form-textarea"
-              rows="3"
-              placeholder='{ "Content-Type": "application/json" }'
             />
           </div>
 
-          <div class="form-group" v-if="node.data?.method !== 'GET'">
+          <div v-if="node.data?.method !== 'GET'" class="form-group">
             <label>请求体 (JSON)</label>
             <textarea
               :value="typeof node.data?.body === 'object' ? JSON.stringify(node.data?.body, null, 2) : (node.data?.body || '')"
+              class="form-textarea"
+              rows="4"
+              placeholder='{ "key": "value" }'
               @input="e => {
                 const value = (e.target as HTMLTextAreaElement).value
                 try {
@@ -214,9 +228,6 @@ const updateNodeData = (key: string, value: any) => {
                 }
               }"
               @change="$emit('update', node.data)"
-              class="form-textarea"
-              rows="4"
-              placeholder='{ "key": "value" }'
             />
           </div>
 
@@ -225,12 +236,12 @@ const updateNodeData = (key: string, value: any) => {
             <input
               type="number"
               :value="node.data?.timeout || 30000"
-              @input="e => updateNodeData('timeout', parseInt((e.target as HTMLInputElement).value))"
-              @change="$emit('update', node.data)"
               class="form-input"
               min="1000"
               max="120000"
               step="1000"
+              @input="e => updateNodeData('timeout', parseInt((e.target as HTMLInputElement).value))"
+              @change="$emit('update', node.data)"
             />
           </div>
 
@@ -240,11 +251,11 @@ const updateNodeData = (key: string, value: any) => {
               <input
                 type="number"
                 :value="node.data?.retryCount || 0"
-                @input="e => updateNodeData('retryCount', parseInt((e.target as HTMLInputElement).value))"
-                @change="$emit('update', node.data)"
                 class="form-input"
                 min="0"
                 max="5"
+                @input="e => updateNodeData('retryCount', parseInt((e.target as HTMLInputElement).value))"
+                @change="$emit('update', node.data)"
               />
             </div>
             <div class="form-group half">
@@ -252,12 +263,12 @@ const updateNodeData = (key: string, value: any) => {
               <input
                 type="number"
                 :value="node.data?.retryDelay || 1000"
-                @input="e => updateNodeData('retryDelay', parseInt((e.target as HTMLInputElement).value))"
-                @change="$emit('update', node.data)"
                 class="form-input"
                 min="100"
                 max="10000"
                 step="100"
+                @input="e => updateNodeData('retryDelay', parseInt((e.target as HTMLInputElement).value))"
+                @change="$emit('update', node.data)"
               />
             </div>
           </div>

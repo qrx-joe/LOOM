@@ -1,8 +1,21 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, OneToMany, CreateDateColumn } from 'typeorm';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  ManyToOne,
+  OneToMany,
+  CreateDateColumn,
+} from 'typeorm';
 import { KnowledgeBase } from './knowledge-base.entity';
 import { KnowledgeChunk } from './knowledge-chunk.entity';
 
-export type ProcessingStatus = 'pending' | 'parsing' | 'chunking' | 'embedding' | 'completed' | 'failed';
+export type ProcessingStatus =
+  | 'pending'
+  | 'parsing'
+  | 'chunking'
+  | 'embedding'
+  | 'completed'
+  | 'failed';
 
 @Entity()
 export class KnowledgeDocument {
@@ -37,10 +50,10 @@ export class KnowledgeDocument {
   @Column({ nullable: true })
   errorMessage: string;
 
-  @ManyToOne(() => KnowledgeBase, kb => kb.documents, { onDelete: 'CASCADE' })
+  @ManyToOne(() => KnowledgeBase, (kb) => kb.documents, { onDelete: 'CASCADE' })
   knowledgeBase: KnowledgeBase;
 
-  @OneToMany(() => KnowledgeChunk, chunk => chunk.document, { cascade: true })
+  @OneToMany(() => KnowledgeChunk, (chunk) => chunk.document, { cascade: true })
   chunks: KnowledgeChunk[];
 
   @CreateDateColumn()

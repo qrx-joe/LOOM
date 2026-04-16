@@ -9,9 +9,12 @@ import { KnowledgeModule } from '../knowledge/knowledge.module';
 import { Session, Message } from '../chat/chat.entity';
 
 @Module({
-    imports: [TypeOrmModule.forFeature([Workflow, WorkflowLog, Session, Message]), KnowledgeModule],
-    controllers: [WorkflowController],
-    providers: [ExecutorService, WorkflowService],
-    exports: [ExecutorService, WorkflowService],
+  imports: [
+    TypeOrmModule.forFeature([Workflow, WorkflowLog, Session, Message]),
+    KnowledgeModule,
+  ],
+  controllers: [WorkflowController],
+  providers: [ExecutorService, WorkflowService],
+  exports: [ExecutorService, WorkflowService],
 })
-export class WorkflowModule { }
+export class WorkflowModule {}

@@ -21,12 +21,14 @@ jest.mock('openai', () => {
 
 describe('ExecutorService', () => {
   let service: ExecutorService;
-  let workflowLogRepo: Repository<WorkflowLog>;
-  let searchService: SearchService;
+  let _workflowLogRepo: Repository<WorkflowLog>;
+  let _searchService: SearchService;
 
   const mockWorkflowLogRepo = {
     create: jest.fn((data) => ({ ...data, id: 'log-id' })),
-    save: jest.fn((data) => Promise.resolve({ ...data, id: data.id || 'log-id' })),
+    save: jest.fn((data) =>
+      Promise.resolve({ ...data, id: data.id || 'log-id' }),
+    ),
     update: jest.fn(() => Promise.resolve()),
     findOneBy: jest.fn(() => Promise.resolve({ id: 'log-id' })),
   };
@@ -62,8 +64,10 @@ describe('ExecutorService', () => {
     }).compile();
 
     service = module.get<ExecutorService>(ExecutorService);
-    workflowLogRepo = module.get<Repository<WorkflowLog>>(getRepositoryToken(WorkflowLog));
-    searchService = module.get<SearchService>(SearchService);
+    _workflowLogRepo = module.get<Repository<WorkflowLog>>(
+      getRepositoryToken(WorkflowLog),
+    );
+    _searchService = module.get<SearchService>(SearchService);
 
     jest.clearAllMocks();
   });
@@ -74,8 +78,18 @@ describe('ExecutorService', () => {
         id: 'wf-1',
         name: 'Test Workflow',
         nodes: [
-          { id: 'input', type: NodeType.INPUT, label: '输入', position: { x: 0, y: 0 } },
-          { id: 'output', type: NodeType.OUTPUT, label: '输出', position: { x: 100, y: 0 } },
+          {
+            id: 'input',
+            type: NodeType.INPUT,
+            label: '输入',
+            position: { x: 0, y: 0 },
+          },
+          {
+            id: 'output',
+            type: NodeType.OUTPUT,
+            label: '输出',
+            position: { x: 100, y: 0 },
+          },
         ],
         edges: [{ id: 'e1', source: 'input', target: 'output' }],
       };
@@ -93,8 +107,18 @@ describe('ExecutorService', () => {
         id: 'wf-1',
         name: 'Data Flow Test',
         nodes: [
-          { id: 'input', type: NodeType.INPUT, label: '输入', position: { x: 0, y: 0 } },
-          { id: 'output', type: NodeType.OUTPUT, label: '输出', position: { x: 100, y: 0 } },
+          {
+            id: 'input',
+            type: NodeType.INPUT,
+            label: '输入',
+            position: { x: 0, y: 0 },
+          },
+          {
+            id: 'output',
+            type: NodeType.OUTPUT,
+            label: '输出',
+            position: { x: 100, y: 0 },
+          },
         ],
         edges: [{ id: 'e1', source: 'input', target: 'output' }],
       };
@@ -112,9 +136,24 @@ describe('ExecutorService', () => {
         id: 'wf-1',
         name: 'Branch Workflow',
         nodes: [
-          { id: 'input', type: NodeType.INPUT, label: '输入', position: { x: 0, y: 0 } },
-          { id: 'node1', type: NodeType.OUTPUT, label: '节点1', position: { x: 100, y: -50 } },
-          { id: 'node2', type: NodeType.OUTPUT, label: '节点2', position: { x: 100, y: 50 } },
+          {
+            id: 'input',
+            type: NodeType.INPUT,
+            label: '输入',
+            position: { x: 0, y: 0 },
+          },
+          {
+            id: 'node1',
+            type: NodeType.OUTPUT,
+            label: '节点1',
+            position: { x: 100, y: -50 },
+          },
+          {
+            id: 'node2',
+            type: NodeType.OUTPUT,
+            label: '节点2',
+            position: { x: 100, y: 50 },
+          },
         ],
         edges: [
           { id: 'e1', source: 'input', target: 'node1' },
@@ -136,9 +175,24 @@ describe('ExecutorService', () => {
         id: 'wf-1',
         name: 'Chain Workflow',
         nodes: [
-          { id: 'a', type: NodeType.INPUT, label: 'A', position: { x: 0, y: 0 } },
-          { id: 'b', type: NodeType.OUTPUT, label: 'B', position: { x: 100, y: 0 } },
-          { id: 'c', type: NodeType.OUTPUT, label: 'C', position: { x: 200, y: 0 } },
+          {
+            id: 'a',
+            type: NodeType.INPUT,
+            label: 'A',
+            position: { x: 0, y: 0 },
+          },
+          {
+            id: 'b',
+            type: NodeType.OUTPUT,
+            label: 'B',
+            position: { x: 100, y: 0 },
+          },
+          {
+            id: 'c',
+            type: NodeType.OUTPUT,
+            label: 'C',
+            position: { x: 200, y: 0 },
+          },
         ],
         edges: [
           { id: 'e1', source: 'a', target: 'b' },
@@ -158,7 +212,12 @@ describe('ExecutorService', () => {
         id: 'wf-1',
         name: 'Conditional Workflow',
         nodes: [
-          { id: 'input', type: NodeType.INPUT, label: '输入', position: { x: 0, y: 0 } },
+          {
+            id: 'input',
+            type: NodeType.INPUT,
+            label: '输入',
+            position: { x: 0, y: 0 },
+          },
           {
             id: 'condition',
             type: NodeType.CONDITION,
@@ -166,7 +225,12 @@ describe('ExecutorService', () => {
             position: { x: 100, y: 0 },
             data: { expression: '{{score}} > 50' },
           },
-          { id: 'output', type: NodeType.OUTPUT, label: '输出', position: { x: 200, y: 0 } },
+          {
+            id: 'output',
+            type: NodeType.OUTPUT,
+            label: '输出',
+            position: { x: 200, y: 0 },
+          },
         ],
         edges: [
           { id: 'e1', source: 'input', target: 'condition' },
@@ -174,7 +238,9 @@ describe('ExecutorService', () => {
         ],
       };
 
-      const logs = await service.runWorkflow(workflow, { input: { score: 75 } });
+      const logs = await service.runWorkflow(workflow, {
+        input: { score: 75 },
+      });
 
       const conditionLog = logs.find((l) => l.nodeId === 'condition');
       expect(conditionLog).toBeDefined();
@@ -188,8 +254,18 @@ describe('ExecutorService', () => {
         id: 'wf-1',
         name: 'Event Test',
         nodes: [
-          { id: 'input', type: NodeType.INPUT, label: '输入', position: { x: 0, y: 0 } },
-          { id: 'output', type: NodeType.OUTPUT, label: '输出', position: { x: 100, y: 0 } },
+          {
+            id: 'input',
+            type: NodeType.INPUT,
+            label: '输入',
+            position: { x: 0, y: 0 },
+          },
+          {
+            id: 'output',
+            type: NodeType.OUTPUT,
+            label: '输出',
+            position: { x: 100, y: 0 },
+          },
         ],
         edges: [{ id: 'e1', source: 'input', target: 'output' }],
       };
@@ -200,7 +276,9 @@ describe('ExecutorService', () => {
       await service.runWorkflow(workflow, { input: 'test' }, onEvent);
 
       const nodeStartEvents = events.filter((e) => e.type === 'node_start');
-      const nodeCompleteEvents = events.filter((e) => e.type === 'node_complete');
+      const nodeCompleteEvents = events.filter(
+        (e) => e.type === 'node_complete',
+      );
 
       expect(nodeStartEvents).toHaveLength(2);
       expect(nodeCompleteEvents).toHaveLength(2);
@@ -214,15 +292,25 @@ describe('ExecutorService', () => {
         id: 'wf-1',
         name: 'Error Test',
         nodes: [
-          { id: 'input', type: NodeType.INPUT, label: '输入', position: { x: 0, y: 0 } },
+          {
+            id: 'input',
+            type: NodeType.INPUT,
+            label: '输入',
+            position: { x: 0, y: 0 },
+          },
           {
             id: 'knowledge',
             type: NodeType.KNOWLEDGE_RETRIEVAL,
             label: '知识检索',
             position: { x: 100, y: 0 },
-            data: { kbId: null }, // 故意设置为 null 导致错误
+            data: { kbId: undefined }, // 故意不设置 kbId 导致错误
           },
-          { id: 'output', type: NodeType.OUTPUT, label: '输出', position: { x: 200, y: 0 } },
+          {
+            id: 'output',
+            type: NodeType.OUTPUT,
+            label: '输出',
+            position: { x: 200, y: 0 },
+          },
         ],
         edges: [
           { id: 'e1', source: 'input', target: 'knowledge' },
@@ -244,11 +332,20 @@ describe('ExecutorService', () => {
       const workflow: WorkflowDefinition = {
         id: 'wf-1',
         name: 'DB Error Test',
-        nodes: [{ id: 'input', type: NodeType.INPUT, label: '输入', position: { x: 0, y: 0 } }],
+        nodes: [
+          {
+            id: 'input',
+            type: NodeType.INPUT,
+            label: '输入',
+            position: { x: 0, y: 0 },
+          },
+        ],
         edges: [],
       };
 
-      await expect(service.runWorkflow(workflow, { input: 'test' })).rejects.toThrow('DB Error');
+      await expect(
+        service.runWorkflow(workflow, { input: 'test' }),
+      ).rejects.toThrow('DB Error');
     });
   });
 
@@ -258,8 +355,18 @@ describe('ExecutorService', () => {
         id: 'wf-1',
         name: 'Logging Test',
         nodes: [
-          { id: 'input', type: NodeType.INPUT, label: '输入', position: { x: 0, y: 0 } },
-          { id: 'output', type: NodeType.OUTPUT, label: '输出', position: { x: 100, y: 0 } },
+          {
+            id: 'input',
+            type: NodeType.INPUT,
+            label: '输入',
+            position: { x: 0, y: 0 },
+          },
+          {
+            id: 'output',
+            type: NodeType.OUTPUT,
+            label: '输出',
+            position: { x: 100, y: 0 },
+          },
         ],
         edges: [{ id: 'e1', source: 'input', target: 'output' }],
       };
@@ -274,7 +381,14 @@ describe('ExecutorService', () => {
       const workflow: WorkflowDefinition = {
         id: 'wf-1',
         name: 'Update Log Test',
-        nodes: [{ id: 'input', type: NodeType.INPUT, label: '输入', position: { x: 0, y: 0 } }],
+        nodes: [
+          {
+            id: 'input',
+            type: NodeType.INPUT,
+            label: '输入',
+            position: { x: 0, y: 0 },
+          },
+        ],
         edges: [],
       };
 

@@ -6,9 +6,9 @@
 // ============ 节点类型 ============
 export enum NodeType {
   START = 'START',
-  INPUT = 'INPUT',  // 兼容旧版本
+  INPUT = 'INPUT', // 兼容旧版本
   END = 'END',
-  OUTPUT = 'OUTPUT',  // 兼容旧版本
+  OUTPUT = 'OUTPUT', // 兼容旧版本
   AI_AGENT = 'AI_AGENT',
   KNOWLEDGE_RETRIEVAL = 'KNOWLEDGE_RETRIEVAL',
   CONDITION = 'CONDITION',
@@ -17,122 +17,122 @@ export enum NodeType {
 
 // 节点类型判断函数
 export function isStartNodeType(type: string): boolean {
-  return type === NodeType.START || type === NodeType.INPUT
+  return type === NodeType.START || type === NodeType.INPUT;
 }
 
 export function isEndNodeType(type: string): boolean {
-  return type === NodeType.END || type === NodeType.OUTPUT
+  return type === NodeType.END || type === NodeType.OUTPUT;
 }
 
 export function isAINodeType(type: string): boolean {
-  return type === NodeType.AI_AGENT
+  return type === NodeType.AI_AGENT;
 }
 
 export function isKnowledgeNodeType(type: string): boolean {
-  return type === NodeType.KNOWLEDGE_RETRIEVAL
+  return type === NodeType.KNOWLEDGE_RETRIEVAL;
 }
 
 export function isConditionNodeType(type: string): boolean {
-  return type === NodeType.CONDITION
+  return type === NodeType.CONDITION;
 }
 
 export function isHttpNodeType(type: string): boolean {
-  return type === NodeType.HTTP_REQUEST
+  return type === NodeType.HTTP_REQUEST;
 }
 
 // ============ 节点数据结构 ============
 export interface NodePosition {
-  x: number
-  y: number
+  x: number;
+  y: number;
 }
 
 export interface NodeData {
   // AI 节点配置
-  nodeType?: string
-  prompt?: string
-  model?: string
-  temperature?: number
+  nodeType?: string;
+  prompt?: string;
+  model?: string;
+  temperature?: number;
 
   // 知识检索节点配置
-  kbId?: string
-  query?: string
+  kbId?: string;
+  query?: string;
 
   // 条件节点配置
-  expression?: string
+  expression?: string;
 
   // HTTP 请求节点配置
-  url?: string
-  method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
-  headers?: Record<string, string>
-  body?: string | Record<string, any>
-  timeout?: number
-  retryCount?: number
-  retryDelay?: number
+  url?: string;
+  method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
+  headers?: Record<string, string>;
+  body?: string | Record<string, any>;
+  timeout?: number;
+  retryCount?: number;
+  retryDelay?: number;
 
   // 扩展字段
-  [key: string]: any
+  [key: string]: any;
 }
 
 export interface WorkflowNode {
-  id: string
-  type: string
-  label: string
-  position: NodePosition
-  data?: NodeData
+  id: string;
+  type: string;
+  label: string;
+  position: NodePosition;
+  data?: NodeData;
 }
 
 // ============ 边数据结构 ============
 export interface WorkflowEdge {
-  id: string
-  source: string
-  target: string
-  sourceHandle?: string | null
-  targetHandle?: string | null
-  condition?: string  // 条件分支
+  id: string;
+  source: string;
+  target: string;
+  sourceHandle?: string | null;
+  targetHandle?: string | null;
+  condition?: string; // 条件分支
 }
 
 // ============ 工作流定义 ============
 export interface WorkflowDefinition {
-  id: string
-  name: string
-  description?: string
-  nodes: WorkflowNode[]
-  edges: WorkflowEdge[]
-  createdAt?: string
+  id: string;
+  name: string;
+  description?: string;
+  nodes: WorkflowNode[];
+  edges: WorkflowEdge[];
+  createdAt?: string;
 }
 
 // ============ 执行日志 ============
 export interface ExecutionLog {
-  nodeId: string
-  status: 'RUNNING' | 'COMPLETED' | 'FAILED'
-  input: any
-  output: any
-  error?: string
-  startTime: number
-  endTime?: number
+  nodeId: string;
+  status: 'RUNNING' | 'COMPLETED' | 'FAILED';
+  input: any;
+  output: any;
+  error?: string;
+  startTime: number;
+  endTime?: number;
 }
 
 // ============ 知识检索结果 ============
 export interface KnowledgeFragment {
-  id: string
-  content: string
-  score: number
-  documentName: string
-  documentId?: string
+  id: string;
+  content: string;
+  score: number;
+  documentName: string;
+  documentId?: string;
 }
 
 export interface KnowledgeSearchResult {
-  fragments: KnowledgeFragment[]
-  query: string
-  total: number
+  fragments: KnowledgeFragment[];
+  query: string;
+  total: number;
 }
 
 // ============ API 响应 ============
 export interface ApiResponse<T> {
-  success: boolean
-  data?: T
-  error?: string
-  message?: string
+  success: boolean;
+  data?: T;
+  error?: string;
+  message?: string;
 }
 
 // ============ 默认配置 ============
@@ -162,7 +162,7 @@ export const DEFAULT_NODE_CONFIG: Record<string, NodeData> = {
     retryCount: 0,
     retryDelay: 1000,
   },
-}
+};
 
 export const NODE_LABELS: Record<string, string> = {
   [NodeType.START]: '开始',
@@ -173,4 +173,4 @@ export const NODE_LABELS: Record<string, string> = {
   [NodeType.KNOWLEDGE_RETRIEVAL]: '知识检索',
   [NodeType.CONDITION]: '条件判断',
   [NodeType.HTTP_REQUEST]: 'HTTP 请求',
-}
+};

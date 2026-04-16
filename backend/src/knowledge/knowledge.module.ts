@@ -14,7 +14,11 @@ import {
 @Module({
   imports: [
     ConfigModule,
-    TypeOrmModule.forFeature([KnowledgeBase, KnowledgeDocument, KnowledgeChunk]),
+    TypeOrmModule.forFeature([
+      KnowledgeBase,
+      KnowledgeDocument,
+      KnowledgeChunk,
+    ]),
   ],
   controllers: [KnowledgeController],
   providers: [

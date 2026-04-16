@@ -133,10 +133,10 @@ const formatDate = (dateStr?: string) => {
             <FileCode :size="20" />
           </div>
           <div class="card-actions">
-            <button class="action-btn" @click="(e) => startEdit(e, wf)" title="重命名">
+            <button class="action-btn" title="重命名" @click="(e) => startEdit(e, wf)">
               <Pencil :size="16" />
             </button>
-            <button class="action-btn delete" @click="(e) => { e.stopPropagation(); handleDeleteWorkflow(wf.id); }" title="删除">
+            <button class="action-btn delete" title="删除" @click="(e) => { e.stopPropagation(); handleDeleteWorkflow(wf.id); }">
               <Trash2 :size="16" />
             </button>
           </div>
@@ -154,10 +154,10 @@ const formatDate = (dateStr?: string) => {
               @keydown.escape="cancelEdit($event)"
             />
             <div class="edit-name-actions">
-              <button class="edit-action-btn save" @click="saveEdit($event, wf)" title="保存">
+              <button class="edit-action-btn save" title="保存" @click="saveEdit($event, wf)">
                 <Check :size="14" />
               </button>
-              <button class="edit-action-btn cancel" @click="cancelEdit($event)" title="取消">
+              <button class="edit-action-btn cancel" title="取消" @click="cancelEdit($event)">
                 <X :size="14" />
               </button>
             </div>

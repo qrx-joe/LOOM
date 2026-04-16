@@ -5,14 +5,13 @@ import { ExecutorService } from '../workflow/executor.service';
 import { WorkflowService } from '../workflow/workflow.service';
 import { Repository } from 'typeorm';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { Workflow } from '../workflow/workflow.entity';
 
 describe('ChatService', () => {
   let service: ChatService;
-  let sessionRepo: Repository<Session>;
-  let messageRepo: Repository<Message>;
-  let executorService: ExecutorService;
-  let workflowService: WorkflowService;
+  let _sessionRepo: Repository<Session>;
+  let _messageRepo: Repository<Message>;
+  let _executorService: ExecutorService;
+  let _workflowService: WorkflowService;
 
   const mockSession = {
     id: 'session-1',
@@ -26,8 +25,19 @@ describe('ChatService', () => {
     name: 'Test Workflow',
     nodes: [
       { id: 'input', type: 'INPUT', label: '输入', position: { x: 0, y: 0 } },
-      { id: 'ai', type: 'AI_AGENT', label: 'AI', position: { x: 100, y: 0 }, data: { prompt: 'Hello' } },
-      { id: 'output', type: 'OUTPUT', label: '输出', position: { x: 200, y: 0 } },
+      {
+        id: 'ai',
+        type: 'AI_AGENT',
+        label: 'AI',
+        position: { x: 100, y: 0 },
+        data: { prompt: 'Hello' },
+      },
+      {
+        id: 'output',
+        type: 'OUTPUT',
+        label: '输出',
+        position: { x: 200, y: 0 },
+      },
     ],
     edges: [
       { id: 'e1', source: 'input', target: 'ai' },
@@ -39,7 +49,9 @@ describe('ChatService', () => {
     find: jest.fn(() => Promise.resolve([mockSession])),
     findOne: jest.fn(() => Promise.resolve(mockSession)),
     create: jest.fn((data) => ({ ...data, id: 'session-1' })),
-    save: jest.fn((data) => Promise.resolve({ ...data, id: data.id || 'session-1' })),
+    save: jest.fn((data) =>
+      Promise.resolve({ ...data, id: data.id || 'session-1' }),
+    ),
     remove: jest.fn(() => Promise.resolve()),
   };
 
@@ -47,17 +59,23 @@ describe('ChatService', () => {
     find: jest.fn(() => Promise.resolve([])),
     findAndCount: jest.fn(() => Promise.resolve([[], 0])),
     create: jest.fn((data) => ({ ...data, id: 'msg-1' })),
-    save: jest.fn((data) => Promise.resolve({ ...data, id: data.id || 'msg-1' })),
+    save: jest.fn((data) =>
+      Promise.resolve({ ...data, id: data.id || 'msg-1' }),
+    ),
     remove: jest.fn(() => Promise.resolve()),
   };
 
   const mockExecutorService = {
-    runWorkflow: jest.fn(() =>
+    runWorkflow: jest.fn<any, any>(() =>
       Promise.resolve([
         { nodeId: 'input', status: 'COMPLETED', output: { input: 'hello' } },
         { nodeId: 'ai', status: 'COMPLETED', output: { text: 'AI response' } },
-        { nodeId: 'output', status: 'COMPLETED', output: { text: 'AI response' } },
-      ]),
+        {
+          nodeId: 'output',
+          status: 'COMPLETED',
+          output: { text: 'AI response' },
+        },
+      ] as any),
     ),
   };
 
@@ -89,10 +107,10 @@ describe('ChatService', () => {
     }).compile();
 
     service = module.get<ChatService>(ChatService);
-    sessionRepo = module.get<Repository<Session>>(getRepositoryToken(Session));
-    messageRepo = module.get<Repository<Message>>(getRepositoryToken(Message));
-    executorService = module.get<ExecutorService>(ExecutorService);
-    workflowService = module.get<WorkflowService>(WorkflowService);
+    _sessionRepo = module.get<Repository<Session>>(getRepositoryToken(Session));
+    _messageRepo = module.get<Repository<Message>>(getRepositoryToken(Message));
+    _executorService = module.get<ExecutorService>(ExecutorService);
+    _workflowService = module.get<WorkflowService>(WorkflowService);
 
     jest.clearAllMocks();
   });
@@ -122,17 +140,27 @@ describe('ChatService', () => {
     });
 
     it('工作流不存在时应该抛出错误', async () => {
-      mockWorkflowService.findOne.mockResolvedValueOnce(null);
+      mockWorkflowService.findOne.mockResolvedValueOnce(null as any);
 
-      await expect(service.createSession('invalid-wf', 'Test')).rejects.toThrow('Workflow not found');
+      await expect(service.createSession('invalid-wf', 'Test')).rejects.toThrow(
+        'Workflow not found',
+      );
     });
 
     it('应该获取会话消息（带分页）', async () => {
       const mockMessages = [
         { id: 'msg-1', role: 'user', content: 'Hello', createdAt: new Date() },
-        { id: 'msg-2', role: 'assistant', content: 'Hi', createdAt: new Date() },
+        {
+          id: 'msg-2',
+          role: 'assistant',
+          content: 'Hi',
+          createdAt: new Date(),
+        },
       ];
-      mockMessageRepo.findAndCount.mockResolvedValueOnce([mockMessages, 2]);
+      mockMessageRepo.findAndCount.mockResolvedValueOnce([
+        mockMessages as any,
+        2,
+      ]);
 
       const result = await service.getMessages('session-1', 1, 50);
 
@@ -176,9 +204,11 @@ describe('ChatService', () => {
     });
 
     it('会话不存在时应该抛出错误', async () => {
-      mockSessionRepo.findOne.mockResolvedValueOnce(null);
+      mockSessionRepo.findOne.mockResolvedValueOnce(null as any);
 
-      await expect(service.sendMessage('invalid-session', 'Hello')).rejects.toThrow('Session not found');
+      await expect(
+        service.sendMessage('invalid-session', 'Hello'),
+      ).rejects.toThrow('Session not found');
     });
 
     it('应该处理知识检索结果溯源', async () => {
@@ -189,21 +219,35 @@ describe('ChatService', () => {
           status: 'COMPLETED',
           output: {
             fragments: [
-              { id: 'chunk-1', content: 'Test content', score: 0.95, documentName: 'doc.pdf' },
+              {
+                id: 'chunk-1',
+                content: 'Test content',
+                score: 0.95,
+                documentName: 'doc.pdf',
+              },
             ],
           },
         },
-        { nodeId: 'ai', status: 'COMPLETED', output: { text: 'Answer based on knowledge' } },
+        {
+          nodeId: 'ai',
+          status: 'COMPLETED',
+          output: { text: 'Answer based on knowledge' },
+        },
       ]);
 
-      const result = await service.sendMessage('session-1', 'test');
+      const _result = await service.sendMessage('session-1', 'test');
 
       // 验证消息包含了溯源元数据
       expect(mockMessageRepo.create).toHaveBeenCalledWith(
         expect.objectContaining({
           metadata: {
             sourceDocs: [
-              { id: 'chunk-1', content: 'Test content', score: 0.95, documentName: 'doc.pdf' },
+              {
+                id: 'chunk-1',
+                content: 'Test content',
+                score: 0.95,
+                documentName: 'doc.pdf',
+              },
             ],
           },
         }),
@@ -211,10 +255,10 @@ describe('ChatService', () => {
     });
 
     it('应该保存用户消息并返回AI回复', async () => {
-      const result = await service.sendMessage('session-1', 'Hello AI');
+      const msgResult = await service.sendMessage('session-1', 'Hello AI');
 
       expect(mockMessageRepo.save).toHaveBeenCalledTimes(2);
-      expect(result.role).toBe('assistant');
+      expect(msgResult.role).toBe('assistant');
     });
 
     it('工作流无输出时应该返回友好提示', async () => {
@@ -233,22 +277,31 @@ describe('ChatService', () => {
     it('应该支持流式发送', async () => {
       const onToken = jest.fn();
 
-      mockExecutorService.runWorkflow.mockImplementationOnce((wf, input, onEvent, onTokenCb) => {
-        // 模拟流式调用
-        if (onTokenCb) {
-          onTokenCb('Hello');
-          onTokenCb(' World');
-        }
-        return Promise.resolve([
-          { nodeId: 'input', status: 'COMPLETED', output: { input: 'test' } },
-          { nodeId: 'ai', status: 'COMPLETED', output: { text: 'Hello World' } },
-        ]);
-      });
+      mockExecutorService.runWorkflow.mockImplementationOnce(
+        (wf, input, onEvent, onTokenCb) => {
+          // 模拟流式调用
+          if (onTokenCb) {
+            onTokenCb('Hello');
+            onTokenCb(' World');
+          }
+          return Promise.resolve([
+            { nodeId: 'input', status: 'COMPLETED', output: { input: 'test' } },
+            {
+              nodeId: 'ai',
+              status: 'COMPLETED',
+              output: { text: 'Hello World' },
+            },
+          ]);
+        },
+      );
 
       await service.sendMessageStream('session-1', 'test', onToken);
 
       expect(onToken).toHaveBeenCalledWith({ type: 'token', content: 'Hello' });
-      expect(onToken).toHaveBeenCalledWith({ type: 'token', content: ' World' });
+      expect(onToken).toHaveBeenCalledWith({
+        type: 'token',
+        content: ' World',
+      });
       expect(onToken).toHaveBeenCalledWith(
         expect.objectContaining({
           type: 'done',
@@ -282,7 +335,11 @@ describe('ChatService', () => {
 
     it('应该从 content 字段提取内容', async () => {
       mockExecutorService.runWorkflow.mockResolvedValueOnce([
-        { nodeId: 'ai', status: 'COMPLETED', output: { content: 'Content field' } },
+        {
+          nodeId: 'ai',
+          status: 'COMPLETED',
+          output: { content: 'Content field' },
+        },
       ]);
 
       const result = await service.sendMessage('session-1', 'test');
@@ -308,7 +365,11 @@ describe('ChatService', () => {
 
     it('应该处理嵌套对象提取', async () => {
       mockExecutorService.runWorkflow.mockResolvedValueOnce([
-        { nodeId: 'ai', status: 'COMPLETED', output: { nested: { text: 'Nested value' } } },
+        {
+          nodeId: 'ai',
+          status: 'COMPLETED',
+          output: { nested: { text: 'Nested value' } },
+        },
       ]);
 
       const result = await service.sendMessage('session-1', 'test');
@@ -327,13 +388,19 @@ describe('ChatService', () => {
     });
 
     it('空消息内容应该抛出错误', async () => {
-      await expect(service.sendMessage('session-1', '')).rejects.toThrow('Message content cannot be empty');
-      await expect(service.sendMessage('session-1', '   ')).rejects.toThrow('Message content cannot be empty');
+      await expect(service.sendMessage('session-1', '')).rejects.toThrow(
+        'Message content cannot be empty',
+      );
+      await expect(service.sendMessage('session-1', '   ')).rejects.toThrow(
+        'Message content cannot be empty',
+      );
     });
 
     it('超长消息内容应该抛出错误', async () => {
       const longContent = 'a'.repeat(10001);
-      await expect(service.sendMessage('session-1', longContent)).rejects.toThrow('exceeds maximum length');
+      await expect(
+        service.sendMessage('session-1', longContent),
+      ).rejects.toThrow('exceeds maximum length');
     });
   });
 
@@ -349,9 +416,11 @@ describe('ChatService', () => {
     });
 
     it('会话不存在时应该抛出错误', async () => {
-      mockSessionRepo.findOne.mockResolvedValueOnce(null);
+      mockSessionRepo.findOne.mockResolvedValueOnce(null as any);
 
-      await expect(service.findSessionById('invalid-id')).rejects.toThrow('Session not found');
+      await expect(service.findSessionById('invalid-id')).rejects.toThrow(
+        'Session not found',
+      );
     });
   });
 
@@ -365,37 +434,52 @@ describe('ChatService', () => {
 
       const result = await service.deleteSession('session-1');
 
-      expect(mockMessageRepo.remove).toHaveBeenCalledWith(mockSessionWithMessages.messages);
-      expect(mockSessionRepo.remove).toHaveBeenCalledWith(mockSessionWithMessages);
+      expect(mockMessageRepo.remove).toHaveBeenCalledWith(
+        mockSessionWithMessages.messages,
+      );
+      expect(mockSessionRepo.remove).toHaveBeenCalledWith(
+        mockSessionWithMessages,
+      );
       expect(result.success).toBe(true);
     });
 
     it('删除不存在会话应该抛出错误', async () => {
-      mockSessionRepo.findOne.mockResolvedValueOnce(null);
+      mockSessionRepo.findOne.mockResolvedValueOnce(null as any);
 
-      await expect(service.deleteSession('invalid-id')).rejects.toThrow('Session not found');
+      await expect(service.deleteSession('invalid-id')).rejects.toThrow(
+        'Session not found',
+      );
     });
   });
 
   describe('会话重命名', () => {
     it('应该更新会话名称', async () => {
-      mockSessionRepo.findOne.mockResolvedValueOnce({ ...mockSession, name: 'Old Name' });
+      mockSessionRepo.findOne.mockResolvedValueOnce({
+        ...mockSession,
+        name: 'Old Name',
+      });
 
-      const result = await service.updateSession('session-1', 'New Name');
+      const _result = await service.updateSession('session-1', 'New Name');
 
       expect(mockSessionRepo.save).toHaveBeenCalledWith(
-        expect.objectContaining({ name: 'New Name' })
+        expect.objectContaining({ name: 'New Name' }),
       );
     });
 
     it('空名称应该抛出错误', async () => {
-      await expect(service.updateSession('session-1', '')).rejects.toThrow('Session name cannot be empty');
-      await expect(service.updateSession('session-1', '   ')).rejects.toThrow('Session name cannot be empty');
+      await expect(service.updateSession('session-1', '')).rejects.toThrow(
+        'Session name cannot be empty',
+      );
+      await expect(service.updateSession('session-1', '   ')).rejects.toThrow(
+        'Session name cannot be empty',
+      );
     });
 
     it('超长名称应该抛出错误', async () => {
       const longName = 'a'.repeat(101);
-      await expect(service.updateSession('session-1', longName)).rejects.toThrow('exceeds maximum length');
+      await expect(
+        service.updateSession('session-1', longName),
+      ).rejects.toThrow('exceeds maximum length');
     });
   });
 });

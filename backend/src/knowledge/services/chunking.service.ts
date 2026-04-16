@@ -1,11 +1,18 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { ChunkingConfig, ChunkResult, DEFAULT_CHUNKING_CONFIG, ChunkingStrategy } from '../interfaces';
+import {
+  ChunkingConfig,
+  ChunkResult,
+  DEFAULT_CHUNKING_CONFIG,
+} from '../interfaces';
 
 @Injectable()
 export class ChunkingService {
   private readonly logger = new Logger(ChunkingService.name);
 
-  async chunk(text: string, config: ChunkingConfig = DEFAULT_CHUNKING_CONFIG): Promise<ChunkResult[]> {
+  async chunk(
+    text: string,
+    config: ChunkingConfig = DEFAULT_CHUNKING_CONFIG,
+  ): Promise<ChunkResult[]> {
     switch (config.strategy) {
       case 'fixed':
         return this.fixedChunk(text, config.chunkSize, config.chunkOverlap);
@@ -18,7 +25,11 @@ export class ChunkingService {
     }
   }
 
-  private fixedChunk(text: string, chunkSize: number, overlap: number): ChunkResult[] {
+  private fixedChunk(
+    text: string,
+    chunkSize: number,
+    overlap: number,
+  ): ChunkResult[] {
     const chunks: ChunkResult[] = [];
     let start = 0;
 
@@ -35,9 +46,13 @@ export class ChunkingService {
     return chunks;
   }
 
-  private semanticChunk(text: string, chunkSize: number, overlap: number): ChunkResult[] {
+  private semanticChunk(
+    text: string,
+    chunkSize: number,
+    overlap: number,
+  ): ChunkResult[] {
     // 按段落分割，保留语义完整性
-    const paragraphs = text.split(/\n\n+/).filter(p => p.trim().length > 0);
+    const paragraphs = text.split(/\n\n+/).filter((p) => p.trim().length > 0);
     const chunks: ChunkResult[] = [];
     let currentChunk = '';
     let currentStart = 0;
@@ -52,7 +67,10 @@ export class ChunkingService {
         if (currentChunk) {
           chunks.push({
             content: currentChunk,
-            metadata: { startIndex: currentStart, endIndex: currentStart + currentChunk.length },
+            metadata: {
+              startIndex: currentStart,
+              endIndex: currentStart + currentChunk.length,
+            },
           });
 
           // 处理重叠：保留上一块的末尾部分
@@ -71,7 +89,10 @@ export class ChunkingService {
             const subStart = text.indexOf(sub.content, paraStart) || paraStart;
             chunks.push({
               content: sub.content,
-              metadata: { startIndex: subStart, endIndex: subStart + sub.content.length },
+              metadata: {
+                startIndex: subStart,
+                endIndex: subStart + sub.content.length,
+              },
             });
           }
           currentChunk = '';
@@ -83,30 +104,62 @@ export class ChunkingService {
     if (currentChunk) {
       chunks.push({
         content: currentChunk,
-        metadata: { startIndex: currentStart, endIndex: currentStart + currentChunk.length },
+        metadata: {
+          startIndex: currentStart,
+          endIndex: currentStart + currentChunk.length,
+        },
       });
     }
 
-    return chunks.length > 0 ? chunks : [{
-      content: text.slice(0, chunkSize),
-      metadata: { startIndex: 0, endIndex: Math.min(chunkSize, text.length) },
-    }];
+    return chunks.length > 0
+      ? chunks
+      : [
+          {
+            content: text.slice(0, chunkSize),
+            metadata: {
+              startIndex: 0,
+              endIndex: Math.min(chunkSize, text.length),
+            },
+          },
+        ];
   }
 
-  private recursiveChunk(text: string, chunkSize: number, overlap: number): ChunkResult[] {
-    const separators = ['\n\n', '\n', '。', '.', '！', '!', '？', '?', '；', ';', ' ', ''];
+  private recursiveChunk(
+    text: string,
+    chunkSize: number,
+    overlap: number,
+  ): ChunkResult[] {
+    const separators = [
+      '\n\n',
+      '\n',
+      '。',
+      '.',
+      '！',
+      '!',
+      '？',
+      '?',
+      '；',
+      ';',
+      ' ',
+      '',
+    ];
 
     const splitBySeparator = (t: string, sep: string): string[] => {
       if (sep === '') return [t];
-      return t.split(sep).filter(s => s.trim().length > 0).map(s => sep === ' ' ? s : s + sep);
+      return t
+        .split(sep)
+        .filter((s) => s.trim().length > 0)
+        .map((s) => (sep === ' ' ? s : s + sep));
     };
 
     const chunkRecursive = (t: string, sepIndex: number): ChunkResult[] => {
       if (t.length <= chunkSize) {
-        return [{
-          content: t,
-          metadata: { startIndex: 0, endIndex: t.length },
-        }];
+        return [
+          {
+            content: t,
+            metadata: { startIndex: 0, endIndex: t.length },
+          },
+        ];
       }
 
       const separator = separators[sepIndex];
@@ -119,7 +172,6 @@ export class ChunkingService {
       const chunks: ChunkResult[] = [];
       let current = '';
       let currentStart = 0;
-      let pos = 0;
 
       for (const part of parts) {
         if (current.length + part.length <= chunkSize) {
@@ -128,7 +180,10 @@ export class ChunkingService {
           if (current) {
             chunks.push({
               content: current,
-              metadata: { startIndex: currentStart, endIndex: currentStart + current.length },
+              metadata: {
+                startIndex: currentStart,
+                endIndex: currentStart + current.length,
+              },
             });
             currentStart += current.length - overlap;
           }
@@ -136,25 +191,29 @@ export class ChunkingService {
           if (part.length > chunkSize) {
             // 需要更细粒度的分割
             const subChunks = chunkRecursive(part, sepIndex + 1);
-            chunks.push(...subChunks.map(c => ({
-              ...c,
-              metadata: {
-                startIndex: currentStart + c.metadata.startIndex,
-                endIndex: currentStart + c.metadata.endIndex,
-              },
-            })));
+            chunks.push(
+              ...subChunks.map((c) => ({
+                ...c,
+                metadata: {
+                  startIndex: currentStart + c.metadata.startIndex,
+                  endIndex: currentStart + c.metadata.endIndex,
+                },
+              })),
+            );
             current = '';
           } else {
             current = part;
           }
         }
-        pos += part.length;
       }
 
       if (current) {
         chunks.push({
           content: current,
-          metadata: { startIndex: currentStart, endIndex: currentStart + current.length },
+          metadata: {
+            startIndex: currentStart,
+            endIndex: currentStart + current.length,
+          },
         });
       }
 
@@ -164,7 +223,11 @@ export class ChunkingService {
     return chunkRecursive(text, 0);
   }
 
-  private splitLongParagraph(para: string, chunkSize: number, overlap: number): ChunkResult[] {
+  private splitLongParagraph(
+    para: string,
+    chunkSize: number,
+    _overlap: number,
+  ): ChunkResult[] {
     // 按句子分割长段落
     const sentences = para.split(/(?<=[。！？.!?])/);
     const chunks: ChunkResult[] = [];
@@ -174,11 +237,19 @@ export class ChunkingService {
       if (current.length + sentence.length <= chunkSize) {
         current += sentence;
       } else {
-        if (current) chunks.push({ content: current, metadata: { startIndex: 0, endIndex: current.length } });
+        if (current)
+          chunks.push({
+            content: current,
+            metadata: { startIndex: 0, endIndex: current.length },
+          });
         current = sentence;
       }
     }
-    if (current) chunks.push({ content: current, metadata: { startIndex: 0, endIndex: current.length } });
+    if (current)
+      chunks.push({
+        content: current,
+        metadata: { startIndex: 0, endIndex: current.length },
+      });
 
     return chunks;
   }

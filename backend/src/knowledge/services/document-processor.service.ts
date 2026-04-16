@@ -21,19 +21,27 @@ export class DocumentProcessorService {
     'application/msword', // .doc
   ];
 
-  async process(buffer: Buffer, mimeType: string, fileName: string): Promise<ProcessedDocument> {
+  async process(
+    buffer: Buffer,
+    mimeType: string,
+    fileName: string,
+  ): Promise<ProcessedDocument> {
     // 如果 MIME 类型是通用的 application/octet-stream，尝试从文件扩展名推断
     let detectedMimeType = mimeType;
     if (mimeType === 'application/octet-stream') {
       detectedMimeType = this.detectMimeTypeFromExtension(fileName);
-      this.logger.log(`Detected MIME type from extension: ${detectedMimeType} for file: ${fileName}`);
+      this.logger.log(
+        `Detected MIME type from extension: ${detectedMimeType} for file: ${fileName}`,
+      );
     }
 
     if (!this.supportedMimeTypes.includes(detectedMimeType)) {
-      throw new BadRequestException(`Unsupported file type: ${mimeType} (detected: ${detectedMimeType})`);
+      throw new BadRequestException(
+        `Unsupported file type: ${mimeType} (detected: ${detectedMimeType})`,
+      );
     }
 
-    const format = this.getFormatFromMime(detectedMimeType);
+    const _format = this.getFormatFromMime(detectedMimeType);
 
     try {
       switch (detectedMimeType) {
@@ -46,15 +54,22 @@ export class DocumentProcessorService {
         case 'application/msword':
           return this.processWord(buffer, detectedMimeType);
         default:
-          throw new BadRequestException(`Unsupported file type: ${detectedMimeType}`);
+          throw new BadRequestException(
+            `Unsupported file type: ${detectedMimeType}`,
+          );
       }
     } catch (error) {
-      this.logger.error(`Failed to process document ${fileName}: ${error.message}`);
+      this.logger.error(
+        `Failed to process document ${fileName}: ${error.message}`,
+      );
       throw error;
     }
   }
 
-  private async processText(buffer: Buffer, mimeType?: string): Promise<ProcessedDocument> {
+  private async processText(
+    buffer: Buffer,
+    mimeType?: string,
+  ): Promise<ProcessedDocument> {
     const content = buffer.toString('utf-8');
     const format = mimeType === 'text/markdown' ? 'markdown' : 'text';
     return {
@@ -71,7 +86,7 @@ export class DocumentProcessorService {
       this.logger.log(`Parsing PDF, buffer size: ${buffer.length} bytes`);
 
       // 使用 pdf-parse v2 解析 PDF
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
+
       const { PDFParse } = require('pdf-parse');
 
       // 创建解析器实例
@@ -87,7 +102,9 @@ export class DocumentProcessorService {
       // 释放资源
       await parser.destroy();
 
-      this.logger.log(`PDF parsed successfully. Pages: ${info.total}, Text length: ${content.length}`);
+      this.logger.log(
+        `PDF parsed successfully. Pages: ${info.total}, Text length: ${content.length}`,
+      );
 
       return {
         content,
@@ -103,13 +120,15 @@ export class DocumentProcessorService {
     }
   }
 
-  private async processWord(buffer: Buffer, mimeType: string): Promise<ProcessedDocument> {
+  private async processWord(
+    buffer: Buffer,
+    mimeType: string,
+  ): Promise<ProcessedDocument> {
     // 动态加载 mammoth
     let mammoth: any;
     try {
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
       mammoth = require('mammoth');
-    } catch (error) {
+    } catch {
       throw new Error('mammoth module not installed. Run: npm install mammoth');
     }
 
@@ -130,7 +149,8 @@ export class DocumentProcessorService {
       'text/plain': 'txt',
       'text/markdown': 'md',
       'application/pdf': 'pdf',
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'docx',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document':
+        'docx',
       'application/msword': 'doc',
     };
     return map[mimeType] || 'unknown';
@@ -139,12 +159,12 @@ export class DocumentProcessorService {
   private detectMimeTypeFromExtension(fileName: string): string {
     const ext = fileName.toLowerCase().split('.').pop();
     const mimeMap: Record<string, string> = {
-      'txt': 'text/plain',
-      'md': 'text/markdown',
-      'markdown': 'text/markdown',
-      'pdf': 'application/pdf',
-      'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-      'doc': 'application/msword',
+      txt: 'text/plain',
+      md: 'text/markdown',
+      markdown: 'text/markdown',
+      pdf: 'application/pdf',
+      docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      doc: 'application/msword',
     };
     return mimeMap[ext || ''] || 'application/octet-stream';
   }

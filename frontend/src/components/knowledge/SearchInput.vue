@@ -6,7 +6,7 @@ interface Props {
   placeholder?: string
 }
 
-const props = withDefaults(defineProps<Props>(), {
+withDefaults(defineProps<Props>(), {
   placeholder: '搜索知识库...'
 })
 
@@ -30,16 +30,16 @@ const onClear = () => {
     <Search :size="18" class="search-icon" />
     <input
       :value="modelValue"
-      @input="onInput"
       type="text"
       :placeholder="placeholder"
       class="search-input"
+      @input="onInput"
     />
     <button
       v-if="modelValue"
       class="clear-btn"
-      @click="onClear"
       title="清空"
+      @click="onClear"
     >
       <X :size="14" />
     </button>

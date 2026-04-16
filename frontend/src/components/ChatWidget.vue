@@ -178,12 +178,12 @@ const handleKeydown = (e: KeyboardEvent) => {
         <transition name="slide">
           <div v-if="showSessionList" class="session-panel">
             <!-- 拖动手柆 - 用于收起侧边栏 -->
-            <div class="panel-resize-handle" @click="toggleSessionList" title="收起侧边栏">
+            <div class="panel-resize-handle" title="收起侧边栏" @click="toggleSessionList">
               <ChevronLeft :size="16" />
             </div>
             <div class="session-panel-header">
               <h4>历史会话</h4>
-              <button @click="handleNewSession" class="new-session-btn" title="新建会话">
+              <button class="new-session-btn" title="新建会话" @click="handleNewSession">
                 <Plus :size="16" />
               </button>
             </div>
@@ -201,8 +201,8 @@ const handleKeydown = (e: KeyboardEvent) => {
                 </div>
                 <button
                   class="delete-session-btn"
-                  @click="(e) => handleDeleteSession(session.id, e)"
                   title="删除会话"
+                  @click="(e) => handleDeleteSession(session.id, e)"
                 >
                   <Trash2 :size="14" />
                 </button>
@@ -216,7 +216,7 @@ const handleKeydown = (e: KeyboardEvent) => {
         </transition>
 
         <!-- 侧边栏收起时的展开手柄 -->
-        <div v-if="!showSessionList" class="panel-expand-handle" @click="toggleSessionList" title="展开历史会话">
+        <div v-if="!showSessionList" class="panel-expand-handle" title="展开历史会话" @click="toggleSessionList">
           <History :size="16" />
           <ChevronLeft :size="12" class="expand-icon" />
         </div>
@@ -236,7 +236,7 @@ const handleKeydown = (e: KeyboardEvent) => {
 
             <!-- 新建会话状态 -->
             <div v-if="!chatStore.currentSessionId && !showSessionList" class="session-start">
-              <button @click="toggleSessionList" class="icon-btn session-icon-btn" title="历史会话">
+              <button class="icon-btn session-icon-btn" title="历史会话" @click="toggleSessionList">
                 <History :size="18" />
               </button>
               <select v-model="chatStore.currentWorkflowId" class="workflow-select">
@@ -245,17 +245,17 @@ const handleKeydown = (e: KeyboardEvent) => {
                   {{ wf.name }}
                 </option>
               </select>
-              <button @click="startNewChat" class="icon-btn primary-icon-btn" title="新建会话">
+              <button class="icon-btn primary-icon-btn" title="新建会话" @click="startNewChat">
                 <Plus :size="18" />
               </button>
             </div>
 
             <!-- 聊天状态工具栏 -->
             <div v-if="chatStore.currentSessionId" class="header-actions">
-              <button @click="chatStore.exportSession" class="icon-btn" title="导出会话">
+              <button class="icon-btn" title="导出会话" @click="chatStore.exportSession">
                 <Download :size="16" />
               </button>
-              <button @click="toggleSessionList" class="icon-btn" title="会话列表">
+              <button class="icon-btn" title="会话列表" @click="toggleSessionList">
                 <History :size="16" />
               </button>
             </div>
@@ -318,7 +318,7 @@ const handleKeydown = (e: KeyboardEvent) => {
                   </div>
                   <!-- 重新生成按钮 -->
                   <div v-if="msg.role === 'assistant' && i === chatStore.messages.length - 1 && !msg.isStreaming && !chatStore.isLoading" class="message-actions">
-                    <button @click="chatStore.regenerateMessage" class="action-btn" title="重新生成">
+                    <button class="action-btn" title="重新生成" @click="chatStore.regenerateMessage">
                       <RefreshCw :size="12" />
                       重新生成
                     </button>
@@ -342,17 +342,17 @@ const handleKeydown = (e: KeyboardEvent) => {
               <input
                 v-model="userInput"
                 placeholder="输入你的问题，按 Enter 发送..."
+                :disabled="chatStore.isLoading"
                 @keyup.enter="handleSend"
                 @keydown="handleKeydown"
-                :disabled="chatStore.isLoading"
               />
               <transition name="btn-switch" mode="out-in">
                 <button
                   v-if="chatStore.isLoading"
-                  @click="handleStop"
+                  key="stop"
                   class="stop-btn"
                   title="停止生成 (Esc)"
-                  key="stop"
+                  @click="handleStop"
                 >
                   <span class="stop-icon">
                     <Square :size="12" fill="currentColor" />
@@ -361,12 +361,12 @@ const handleKeydown = (e: KeyboardEvent) => {
                 </button>
                 <button
                   v-else
-                  @click="handleSend"
+                  key="send"
                   class="send-btn"
                   :disabled="!userInput.trim()"
                   :class="{ 'has-content': userInput.trim() }"
                   title="发送消息 (Enter)"
-                  key="send"
+                  @click="handleSend"
                 >
                   <Send :size="18" />
                 </button>

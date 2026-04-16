@@ -3,7 +3,12 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { KnowledgeChunk } from '../entities';
 import { EmbeddingService } from './embedding.service';
-import { SearchConfig, SearchResult, HybridSearchResult, DEFAULT_SEARCH_CONFIG } from '../interfaces';
+import {
+  SearchConfig,
+  SearchResult,
+  HybridSearchResult,
+  DEFAULT_SEARCH_CONFIG,
+} from '../interfaces';
 
 @Injectable()
 export class SearchService {
@@ -15,10 +20,74 @@ export class SearchService {
 
   // 停用词
   private readonly STOP_WORDS = new Set([
-    '的', '了', '是', '在', '我', '有', '和', '就', '不', '人', '都', '一', '一个', '上', '也', '很', '到', '说', '要', '去', '你',
-    'the', 'a', 'an', 'is', 'are', 'was', 'were', 'be', 'been', 'being', 'have', 'has', 'had', 'do', 'does', 'did', 'will',
-    'would', 'could', 'should', 'may', 'might', 'must', 'shall', 'can', 'need', 'it', 'this', 'that', 'these', 'those',
-    'i', 'you', 'he', 'she', 'we', 'they', 'what', 'which', 'who', 'whom', 'if', 'then', 'because', 'as', 'until', 'while',
+    '的',
+    '了',
+    '是',
+    '在',
+    '我',
+    '有',
+    '和',
+    '就',
+    '不',
+    '人',
+    '都',
+    '一',
+    '一个',
+    '上',
+    '也',
+    '很',
+    '到',
+    '说',
+    '要',
+    '去',
+    '你',
+    'the',
+    'a',
+    'an',
+    'is',
+    'are',
+    'was',
+    'were',
+    'be',
+    'been',
+    'being',
+    'have',
+    'has',
+    'had',
+    'do',
+    'does',
+    'did',
+    'will',
+    'would',
+    'could',
+    'should',
+    'may',
+    'might',
+    'must',
+    'shall',
+    'can',
+    'need',
+    'it',
+    'this',
+    'that',
+    'these',
+    'those',
+    'i',
+    'you',
+    'he',
+    'she',
+    'we',
+    'they',
+    'what',
+    'which',
+    'who',
+    'whom',
+    'if',
+    'then',
+    'because',
+    'as',
+    'until',
+    'while',
   ]);
 
   // 文档频率缓存
@@ -55,21 +124,30 @@ export class SearchService {
       const embeddingResult = await this.embeddingService.getEmbedding(query);
       queryEmbedding = embeddingResult.embedding;
     } catch (error) {
-      this.logger.warn(`Failed to get query embedding, using keyword-only search: ${error.message}`);
+      this.logger.warn(
+        `Failed to get query embedding, using keyword-only search: ${error.message}`,
+      );
     }
 
     // 计算平均文档长度
-    const avgDocLen = chunks.reduce((sum, c) => sum + c.content.length, 0) / chunks.length;
+    const avgDocLen =
+      chunks.reduce((sum, c) => sum + c.content.length, 0) / chunks.length;
 
     // 计算分数
     const queryWords = this.tokenize(query);
-    const results: SearchResult[] = chunks.map(chunk => {
-      const keywordScore = this.calculateBM25(queryWords, chunk.content, avgDocLen);
-      const vectorScore = chunk.embedding && queryEmbedding.length > 0
-        ? this.cosineSimilarity(queryEmbedding, chunk.embedding)
-        : 0;
+    const results: SearchResult[] = chunks.map((chunk) => {
+      const keywordScore = this.calculateBM25(
+        queryWords,
+        chunk.content,
+        avgDocLen,
+      );
+      const vectorScore =
+        chunk.embedding && queryEmbedding.length > 0
+          ? this.cosineSimilarity(queryEmbedding, chunk.embedding)
+          : 0;
 
-      const combinedScore = config.keywordWeight * keywordScore + config.vectorWeight * vectorScore;
+      const combinedScore =
+        config.keywordWeight * keywordScore + config.vectorWeight * vectorScore;
 
       return {
         chunkId: chunk.id,
@@ -101,7 +179,10 @@ export class SearchService {
       const words = this.tokenize(chunk.content);
       const uniqueWords = new Set(words);
       for (const word of uniqueWords) {
-        this.documentFrequency.set(word, (this.documentFrequency.get(word) || 0) + 1);
+        this.documentFrequency.set(
+          word,
+          (this.documentFrequency.get(word) || 0) + 1,
+        );
       }
     }
   }
@@ -111,10 +192,14 @@ export class SearchService {
       .toLowerCase()
       .replace(/[^\w\s\u4e00-\u9fff]/g, ' ')
       .split(/\s+/)
-      .filter(w => w.length > 1 && !this.STOP_WORDS.has(w));
+      .filter((w) => w.length > 1 && !this.STOP_WORDS.has(w));
   }
 
-  private calculateBM25(queryWords: string[], document: string, avgDocLen: number): number {
+  private calculateBM25(
+    queryWords: string[],
+    document: string,
+    avgDocLen: number,
+  ): number {
     if (queryWords.length === 0 || document.length === 0) {
       return 0;
     }
@@ -139,8 +224,10 @@ export class SearchService {
 
       // TF
       const tf = docWordFreq.get(term) || 0;
-      const tfComponent = (this.BM25_K1 + 1) * tf /
-        (this.BM25_K1 * (1 - this.BM25_B + this.BM25_B * docLen / avgDocLen) + tf);
+      const tfComponent =
+        ((this.BM25_K1 + 1) * tf) /
+        (this.BM25_K1 * (1 - this.BM25_B + (this.BM25_B * docLen) / avgDocLen) +
+          tf);
 
       score += idf * tfComponent;
     }

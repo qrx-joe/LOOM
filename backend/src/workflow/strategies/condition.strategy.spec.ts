@@ -87,7 +87,10 @@ describe('ConditionContext', () => {
 
     it('结尾匹配策略：{{email}} endsWith "@example.com"', () => {
       const input = { email: 'user@example.com' };
-      const result = context.evaluate(input, '{{email}} endsWith "@example.com"');
+      const result = context.evaluate(
+        input,
+        '{{email}} endsWith "@example.com"',
+      );
       expect(result.result).toBe(true);
       expect(result.strategy).toBe('endsWith');
     });

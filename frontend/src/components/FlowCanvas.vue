@@ -249,7 +249,7 @@ const handleSave = async () => {
   try {
     await store.saveWorkflow()
     alert('保存成功')
-  } catch (e) {
+  } catch {
     alert('保存失败')
   } finally {
     isSaving.value = false
@@ -269,7 +269,7 @@ const handleRun = async () => {
   isSaving.value = true
   try {
     await store.saveWorkflow()
-  } catch (e) {
+  } catch {
     alert('保存失败，无法运行')
     isSaving.value = false
     return
@@ -446,7 +446,7 @@ const handleBack = () => {
     <!-- 顶部工具栏 -->
     <header class="editor-header">
       <div class="header-left">
-        <button class="back-btn" @click="handleBack" title="返回列表">
+        <button class="back-btn" title="返回列表" @click="handleBack">
           <ArrowLeft :size="18" />
           <span class="back-text">返回</span>
         </button>
@@ -459,29 +459,29 @@ const handleBack = () => {
       </div>
 
       <div class="header-center">
-        <button class="tool-btn" @click="store.undo()" :disabled="!store.canUndo()" title="撤销">
+        <button class="tool-btn" :disabled="!store.canUndo()" title="撤销" @click="store.undo()">
           <span class="btn-icon">↩</span>
         </button>
-        <button class="tool-btn" @click="store.redo()" :disabled="!store.canRedo()" title="重做">
+        <button class="tool-btn" :disabled="!store.canRedo()" title="重做" @click="store.redo()">
           <span class="btn-icon">↪</span>
         </button>
         <button
           class="tool-btn"
           :class="{ danger: selectedNode || selectedEdge }"
-          @click="deleteSelected"
           :disabled="!selectedNode && !selectedEdge"
           title="删除"
+          @click="deleteSelected"
         >
           <Trash2 :size="16" />
         </button>
       </div>
 
       <div class="header-right">
-        <button class="tool-btn" @click="handleSave" :disabled="isSaving">
+        <button class="tool-btn" :disabled="isSaving" @click="handleSave">
           <Save :size="16" />
           {{ isSaving ? '保存中...' : '保存' }}
         </button>
-        <button class="tool-btn primary" @click="handleRun" :disabled="isRunning">
+        <button class="tool-btn primary" :disabled="isRunning" @click="handleRun">
           <Play :size="16" />
           {{ isRunning ? '运行中...' : '运行' }}
         </button>
@@ -550,7 +550,7 @@ const handleBack = () => {
               </div>
               <div class="form-group">
                 <label>温度</label>
-                <input type="number" v-model="selectedNode.data.temperature" min="0" max="2" step="0.1" @change="onPropertyChange" />
+                <input v-model="selectedNode.data.temperature" type="number" min="0" max="2" step="0.1" @change="onPropertyChange" />
               </div>
             </template>
             <template v-if="selectedNode.type === 'KNOWLEDGE_RETRIEVAL' || selectedNode.data?.nodeType === 'KNOWLEDGE_RETRIEVAL'">
@@ -565,7 +565,7 @@ const handleBack = () => {
               </div>
               <div class="form-group">
                 <label>查询模板</label>
-                <input v-model="selectedNode.data.query" @change="onPropertyChange" :placeholder="'{{START_INPUT}}'" />
+                <input v-model="selectedNode.data.query" :placeholder="'{{START_INPUT}}'" @change="onPropertyChange" />
               </div>
             </template>
             <template v-if="selectedNode.type === 'CONDITION' || selectedNode.data?.nodeType === 'CONDITION'">
@@ -594,21 +594,21 @@ const handleBack = () => {
                 <label>请求头 (JSON)</label>
                 <textarea v-model="selectedNode.data.headers" rows="3" placeholder='{"Content-Type": "application/json"}' @change="onPropertyChange"></textarea>
               </div>
-              <div class="form-group" v-if="selectedNode.data.method !== 'GET' && selectedNode.data.method !== 'HEAD'">
+              <div v-if="selectedNode.data.method !== 'GET' && selectedNode.data.method !== 'HEAD'" class="form-group">
                 <label>请求体</label>
                 <textarea v-model="selectedNode.data.body" rows="4" placeholder='{"key": "value"} 或原始文本' @change="onPropertyChange"></textarea>
               </div>
               <div class="form-group">
                 <label>超时时间 (毫秒)</label>
-                <input type="number" v-model="selectedNode.data.timeout" min="1000" max="120000" step="1000" @change="onPropertyChange" />
+                <input v-model="selectedNode.data.timeout" type="number" min="1000" max="120000" step="1000" @change="onPropertyChange" />
               </div>
               <div class="form-group">
                 <label>重试次数</label>
-                <input type="number" v-model="selectedNode.data.retryCount" min="0" max="5" step="1" @change="onPropertyChange" />
+                <input v-model="selectedNode.data.retryCount" type="number" min="0" max="5" step="1" @change="onPropertyChange" />
               </div>
               <div class="form-group">
                 <label>重试延迟 (毫秒)</label>
-                <input type="number" v-model="selectedNode.data.retryDelay" min="0" max="10000" step="500" @change="onPropertyChange" />
+                <input v-model="selectedNode.data.retryDelay" type="number" min="0" max="10000" step="500" @change="onPropertyChange" />
               </div>
               <div class="form-hint">
                 <p v-pre>支持变量插值：{{START_INPUT}}、{{nodeId.output}}</p>
@@ -634,7 +634,7 @@ const handleBack = () => {
       <div class="log-header">
         <span>运行日志</span>
         <div class="log-actions">
-          <button class="log-clear-btn" @click="runLogs = []" :disabled="runLogs.length === 0">
+          <button class="log-clear-btn" :disabled="runLogs.length === 0" @click="runLogs = []">
             清空
           </button>
           <button class="log-close-btn" @click="showLogPanel = false">×</button>

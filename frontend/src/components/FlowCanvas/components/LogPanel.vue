@@ -9,7 +9,7 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  (e: 'close'): void
+  close: []
 }>()
 
 // 过滤系统日志，只显示关键节点事件
@@ -99,7 +99,7 @@ const getLogClass = (log: any) => {
           运行中
         </span>
       </h4>
-      <button class="close-btn" @click="$emit('close')">×</button>
+      <button class="close-btn" @click="emit('close')">×</button>
     </div>
 
     <div class="log-content">

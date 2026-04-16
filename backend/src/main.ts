@@ -1,6 +1,9 @@
 import { NestFactory, Reflector } from '@nestjs/core';
 import { AppModule } from './app.module';
-import { HttpExceptionFilter, AllExceptionsFilter } from './common/filters/http-exception.filter';
+import {
+  HttpExceptionFilter,
+  AllExceptionsFilter,
+} from './common/filters/http-exception.filter';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
 
 async function bootstrap() {
@@ -18,8 +21,8 @@ async function bootstrap() {
 
   // 全局异常过滤器
   app.useGlobalFilters(
-    new AllExceptionsFilter(),    // 捕获所有异常
-    new HttpExceptionFilter(),    // 处理 HTTP 异常
+    new AllExceptionsFilter(), // 捕获所有异常
+    new HttpExceptionFilter(), // 处理 HTTP 异常
   );
 
   const port = process.env.PORT ?? 3001;

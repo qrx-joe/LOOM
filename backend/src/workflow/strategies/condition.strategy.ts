@@ -80,19 +80,24 @@ export class ConditionContext {
    * 执行条件求值
    * 自动选择匹配的策略进行求值
    */
-  evaluate(input: any, expression: string): { result: boolean; strategy: string } {
+  evaluate(
+    input: any,
+    expression: string,
+  ): { result: boolean; strategy: string } {
     if (!expression || expression.trim() === '') {
       this.logger.warn('Empty expression, defaulting to true');
       return { result: true, strategy: 'empty' };
     }
 
     // 查找匹配的策略
-    const strategy = this.strategies.find(s => s.matches(expression));
+    const strategy = this.strategies.find((s) => s.matches(expression));
 
     if (strategy) {
       try {
         const result = strategy.evaluate(input, expression);
-        this.logger.debug(`Evaluated "${expression}" with ${strategy.name}: ${result}`);
+        this.logger.debug(
+          `Evaluated "${expression}" with ${strategy.name}: ${result}`,
+        );
         return { result, strategy: strategy.name };
       } catch (error) {
         this.logger.warn(`Strategy ${strategy.name} failed: ${error.message}`);
@@ -104,7 +109,9 @@ export class ConditionContext {
 
     // 没有匹配的策略，使用默认策略
     const result = this.defaultStrategy.evaluate(input, expression);
-    this.logger.debug(`Evaluated "${expression}" with default strategy: ${result}`);
+    this.logger.debug(
+      `Evaluated "${expression}" with default strategy: ${result}`,
+    );
     return { result, strategy: 'default' };
   }
 
@@ -113,7 +120,7 @@ export class ConditionContext {
    * 用于调试和文档生成
    */
   getRegisteredStrategies(): string[] {
-    return this.strategies.map(s => s.name);
+    return this.strategies.map((s) => s.name);
   }
 }
 
@@ -145,7 +152,10 @@ abstract class BaseConditionStrategy implements ConditionStrategy {
    * 例如："{{score}} > 10" => { varName: 'score', targetValue: 10, isReversed: false }
    * 反向："10 < {{score}}" => { varName: 'score', targetValue: 10, isReversed: true }
    */
-  protected parseExpression(expression: string, operator: string): { varName: string; targetValue: any; isReversed: boolean } | null {
+  protected parseExpression(
+    expression: string,
+    operator: string,
+  ): { varName: string; targetValue: any; isReversed: boolean } | null {
     // 匹配 {{variable}} operator value
     const regex = new RegExp(`\\{\\{(\\w+)\\}\\}\\s*${operator}\\s*(.+?)$`);
     const match = expression.match(regex);
@@ -154,19 +164,21 @@ abstract class BaseConditionStrategy implements ConditionStrategy {
       return {
         varName: match[1],
         targetValue: this.parseValue(match[2].trim()),
-        isReversed: false
+        isReversed: false,
       };
     }
 
     // 尝试反向匹配：value operator {{variable}}
-    const reverseRegex = new RegExp(`^(.+?)\\s*${operator}\\s*\\{\\{(\\w+)\\}\\}`);
+    const reverseRegex = new RegExp(
+      `^(.+?)\\s*${operator}\\s*\\{\\{(\\w+)\\}\\}`,
+    );
     const reverseMatch = expression.match(reverseRegex);
 
     if (reverseMatch) {
       return {
         varName: reverseMatch[2],
         targetValue: this.parseValue(reverseMatch[1].trim()),
-        isReversed: true
+        isReversed: true,
       };
     }
 
@@ -183,8 +195,10 @@ abstract class BaseConditionStrategy implements ConditionStrategy {
     }
 
     // 去除引号（字符串值）
-    if ((valueStr.startsWith('"') && valueStr.endsWith('"')) ||
-        (valueStr.startsWith("'") && valueStr.endsWith("'"))) {
+    if (
+      (valueStr.startsWith('"') && valueStr.endsWith('"')) ||
+      (valueStr.startsWith("'") && valueStr.endsWith("'"))
+    ) {
       return valueStr.slice(1, -1);
     }
 
@@ -264,7 +278,10 @@ class EqualStrategy extends BaseConditionStrategy {
       // 尝试匹配 ===
       const parsedStrict = this.parseExpression(expression, '===');
       if (!parsedStrict) return false;
-      return this.extractValue(input, parsedStrict.varName) === parsedStrict.targetValue;
+      return (
+        this.extractValue(input, parsedStrict.varName) ===
+        parsedStrict.targetValue
+      );
     }
 
     const actualValue = this.extractValue(input, parsed.varName);
@@ -368,7 +385,9 @@ class StartsWithStrategy extends BaseConditionStrategy {
   }
 
   evaluate(input: any, expression: string): boolean {
-    const match = expression.match(/\{\{(\w+)\}\}\s*startsWith\s*["'](.+?)["']/i);
+    const match = expression.match(
+      /\{\{(\w+)\}\}\s*startsWith\s*["'](.+?)["']/i,
+    );
     if (!match) return false;
 
     const varName = match[1];

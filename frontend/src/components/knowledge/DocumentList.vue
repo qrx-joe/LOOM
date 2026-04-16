@@ -206,9 +206,9 @@ const cancelBatchMode = () => {
         <button
           v-if="!isBatchMode"
           class="icon-btn small"
-          @click.stop="emit('preview', doc)"
           title="预览"
           :disabled="doc.processingStatus !== 'completed'"
+          @click.stop="emit('preview', doc)"
         >
           <Eye :size="14" />
         </button>
@@ -217,8 +217,8 @@ const cancelBatchMode = () => {
         <button
           v-if="!isBatchMode"
           class="icon-btn danger small"
-          @click.stop="emit('delete', doc.id)"
           title="删除"
+          @click.stop="emit('delete', doc.id)"
         >
           <Trash2 :size="14" />
         </button>
