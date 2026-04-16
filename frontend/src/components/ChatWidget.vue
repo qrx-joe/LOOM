@@ -226,10 +226,10 @@ const handleKeydown = (e: KeyboardEvent) => {
           <header class="chat-header">
             <div class="header-left">
               <div class="header-info">
-                <div class="bot-avatar"><Sparkles :size="20" /></div>
-                <div class="bot-texts">
-                  <h3>{{ chatStore.currentSessionId ? 'AI 助手' : '选择会话' }}</h3>
-                  <span v-if="chatStore.currentSessionId" class="status">在线中</span>
+                <div class="bot-avatar"><Sparkles :size="16" /></div>
+                <div v-if="chatStore.currentSessionId" class="bot-texts">
+                  <h3>AI 助手</h3>
+                  <span class="status">在线中</span>
                 </div>
               </div>
             </div>
@@ -433,11 +433,12 @@ const handleKeydown = (e: KeyboardEvent) => {
 }
 
 .chat-header {
-  padding: 24px;
+  padding: 16px 20px;
   border-bottom: 1px solid var(--border-subtle);
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 12px;
 }
 
 .header-info {
@@ -456,9 +457,9 @@ const handleKeydown = (e: KeyboardEvent) => {
   width: 32px;
   height: 32px;
   border-radius: 8px;
-  background: white;
-  border: 1px solid var(--border-subtle, #e5e7eb);
-  color: var(--text-muted, #6b7280);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-muted);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -475,20 +476,20 @@ const handleKeydown = (e: KeyboardEvent) => {
 }
 
 .icon-btn:hover {
-  background: var(--primary-light, #eef2ff);
-  color: var(--primary, #4776f6);
-  border-color: var(--primary, #4776f6);
+  background: var(--primary-light);
+  color: var(--primary);
+  border-color: var(--primary);
 }
 
 .bot-avatar {
-  width: 40px;
-  height: 40px;
+  width: 32px;
+  height: 32px;
   background: var(--primary-light);
-  border-radius: 12px;
+  border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.2rem;
+  font-size: 1rem;
 }
 
 .bot-texts h3 {
@@ -518,13 +519,15 @@ const handleKeydown = (e: KeyboardEvent) => {
   display: flex;
   gap: 8px;
   align-items: center;
+  flex: 1;
+  justify-content: flex-end;
 }
 
 .session-start .icon-btn {
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
-  background: white;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: var(--bg-surface);
   border: 1px solid var(--border-subtle);
   color: var(--text-muted);
   display: flex;
@@ -533,6 +536,7 @@ const handleKeydown = (e: KeyboardEvent) => {
   cursor: pointer;
   transition: all 0.2s ease;
   padding: 0;
+  flex-shrink: 0;
 }
 
 .session-start .icon-btn:hover {
@@ -553,23 +557,34 @@ const handleKeydown = (e: KeyboardEvent) => {
 
 .session-start .primary-icon-btn {
   background: var(--primary);
-  color: white;
+  color: var(--bg-surface);
   border-color: var(--primary);
 }
 
 .session-start .primary-icon-btn:hover {
-  background: #3d68e6;
-  box-shadow: 0 4px 12px rgba(71, 118, 246, 0.4);
+  background: var(--primary-hover);
+  box-shadow: 0 4px 12px rgba(67, 56, 202, 0.35);
 }
 
 .workflow-select {
-  padding: 6px 10px;
+  padding: 8px 24px 8px 10px;
   border: 1px solid var(--border-subtle);
   border-radius: 8px;
-  font-size: 12px;
-  background: white;
+  font-size: 13px;
+  background: var(--bg-surface);
   color: var(--text-main);
   cursor: pointer;
+  min-width: 120px;
+  max-width: 170px;
+  font-family: 'Inter', 'Microsoft YaHei', 'PingFang SC', 'Hiragino Sans GB', sans-serif;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236B7280' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 6px center;
+  background-size: 14px;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  white-space: nowrap;
 }
 
 .workflow-select:focus {

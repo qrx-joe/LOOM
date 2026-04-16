@@ -88,7 +88,7 @@ const localEdges = computed({
 // 节点类型定义
 const nodeTypes = [
   { type: 'input', label: '开始', icon: 'PlayCircle', color: '#10B981' },
-  { type: 'AI_AGENT', label: 'AI 节点', icon: 'Bot', color: '#4776F6' },
+  { type: 'AI_AGENT', label: 'AI 节点', icon: 'Bot', color: 'var(--primary)' },
   { type: 'KNOWLEDGE_RETRIEVAL', label: '知识检索', icon: 'BookOpen', color: '#F59E0B' },
   { type: 'HTTP_REQUEST', label: 'HTTP 请求', icon: 'Globe', color: '#8B5CF6' },
   { type: 'CONDITION', label: '条件分支', icon: 'GitBranch', color: '#EC4899' },
@@ -1203,7 +1203,7 @@ const handleBack = () => {
 }
 
 .log-node {
-  color: #4776F6;
+  color: var(--primary);
 }
 
 .log-type {

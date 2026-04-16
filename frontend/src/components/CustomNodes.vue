@@ -162,16 +162,16 @@ const isOutputNode = () => ['output', 'END', 'OUTPUT'].includes(props.type || ''
 }
 
 .ai-node {
-  border-left: 3px solid #4776F6;
+  border-left: 3px solid var(--primary);
 }
 
 .ai-node .node-header {
-  color: #4776F6;
+  color: var(--primary);
 }
 
 .model-tag {
-  background: #EEF2FF;
-  color: #4776F6;
+  background: var(--primary-light);
+  color: var(--primary);
   padding: 2px 6px;
   border-radius: 4px;
   font-size: 11px;

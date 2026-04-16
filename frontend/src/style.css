@@ -1,11 +1,14 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@400;500;600;700&display=swap');
 
 :root {
-  /* Color Palette - Cold Gray-Blue (Dify/Coze Style) */
-  --primary: #4776F6;
-  --primary-hover: #3B68E0;
-  --primary-light: #EEF2FF;
-  --primary-dark: #3B68E0;
+  /* Color Palette - Industrial Indigo & Amber (Loom Style) */
+  --primary: #4338CA;
+  --primary-hover: #3730A3;
+  --primary-light: #E0E7FF;
+  --primary-dark: #312E81;
+
+  --accent: #D97706;
+  --accent-light: #FEF3C7;
 
   /* Background Colors */
   --bg-app: #F4F6F8;
