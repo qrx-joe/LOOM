@@ -3,8 +3,7 @@
   "version": "0.0.1",
   "description": "LOOM Backend - AI Workflow Orchestration",
   "author": "",
-  "private": true,
-  "license": "UNLICENSED",
+  "license": "MIT",
   "scripts": {
     "build": "nest build",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
