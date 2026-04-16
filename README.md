@@ -5,26 +5,28 @@
 [![Vue 3](https://img.shields.io/badge/Vue-3.5+-green.svg)](https://vuejs.org/)
 [![NestJS](https://img.shields.io/badge/NestJS-11.0+-red.svg)](https://nestjs.com/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.7+-blue.svg)](https://www.typescriptlang.org/)
-[![License](https://img.shields.io/badge/License-UNLICENSED-yellow.svg)]()
+[![License](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
+[![CI](https://github.com/qrx-joe/loom/actions/workflows/ci.yml/badge.svg)](https://github.com/qrx-joe/loom/actions/workflows/ci.yml)
 
 ---
 
-## 🎯 项目简介
+## 项目简介
 
-**LOOM** 是一个可视化的 AI 工作流编排工具，让你像搭积木一样构建 AI 应用。无需复杂编码，通过拖拽节点即可实现智能问答、知识库检索等功能。
+**LOOM** 是一个可视化的 AI 工作流编排工具，让你像搭积木一样构建 AI 应用。无需复杂编码，通过拖拽节点即可实现智能问答、知识库检索、HTTP 请求等功能。
 
 ### 核心特性
 
-- 🎨 **可视化工作流编排** - 拖拽式节点编辑器，支持 5 种节点类型（开始、AI 回答、知识检索、条件分支、结束）
-- 📚 **知识库 RAG 检索** - 支持 PDF、Word、Markdown、TXT 文档上传，自动分片、向量化存储和混合检索
-- 🤖 **AI 对话** - 集成 DeepSeek 等大模型，支持流式输出和多轮对话
-- ⚡ **实时执行** - SSE 流式推送执行状态和日志
-- 🔄 **撤销重做** - 最多 50 步历史记录
-- 📱 **响应式设计** - 现代化的 UI 界面
+- 可视化工作流编排 - 拖拽式节点编辑器，支持 6 种节点类型（开始、AI 回答、知识检索、条件分支、HTTP 请求、结束）
+- 工作流描述 - 为工作流添加可编辑的描述，便于管理和理解
+- 知识库 RAG 检索 - 支持 PDF、Word、Markdown、TXT 文档上传，自动分片、向量化存储和混合检索
+- AI 对话 - 集成 DeepSeek 等大模型，支持流式输出和多轮对话
+- 实时执行 - SSE 流式推送执行状态和日志
+- 撤销重做 - 最多 50 步历史记录
+- 响应式设计 - 现代化的 UI 界面
 
 ---
 
-## 🏗️ 系统架构
+## 系统架构
 
 ```
 ┌─────────────────────────────────────────────────────────┐
@@ -66,24 +68,25 @@
 
 ---
 
-## 🛠️ 技术栈
+## 技术栈
 
 | 层级 | 技术选型 | 说明 |
 |------|----------|------|
-| **前端框架** | Vue 3 + TypeScript | 现代化响应式框架，Composition API |
-| **构建工具** | Vite | 快速开发和构建 |
-| **状态管理** | Pinia | Vue 官方推荐状态管理方案 |
-| **工作流可视化** | @vue-flow/core | Vue 工作流编辑器 |
-| **UI 组件** | Lucide Vue | 图标库 |
-| **后端框架** | NestJS + TypeScript | 企业级 Node.js 框架 |
-| **ORM** | TypeORM | 支持多种数据库 |
-| **数据库** | SQLite (开发) / PostgreSQL (生产) | 轻量与性能兼顾 |
-| **AI 调用** | OpenAI SDK | 兼容多家国内大模型 |
-| **文档解析** | pdf-parse, mammoth | PDF、Word、Markdown 和 TXT 解析 |
+| 前端框架 | Vue 3 + TypeScript | 现代化响应式框架，Composition API |
+| 构建工具 | Vite | 快速开发和构建 |
+| 状态管理 | Pinia | Vue 官方推荐状态管理方案 |
+| 路由 | Vue Router | 单页应用路由管理 |
+| 工作流可视化 | @vue-flow/core | Vue 工作流编辑器 |
+| UI 组件 | Lucide Vue | 图标库 |
+| 后端框架 | NestJS + TypeScript | 企业级 Node.js 框架 |
+| ORM | TypeORM | 支持多种数据库 |
+| 数据库 | SQLite (开发) / PostgreSQL (生产) | 轻量与性能兼顾 |
+| AI 调用 | OpenAI SDK | 兼容多家国内大模型 |
+| 文档解析 | pdf-parse, mammoth | PDF、Word、Markdown 和 TXT 解析 |
 
 ---
 
-## 📦 项目结构
+## 项目结构
 
 ```
 loom/
@@ -93,7 +96,9 @@ loom/
 │   │   ├── workflow/           # 工作流模块
 │   │   │   ├── executor.service.ts    # 工作流执行引擎
 │   │   │   ├── workflow.controller.ts
-│   │   │   └── workflow.service.ts
+│   │   │   ├── workflow.service.ts
+│   │   │   ├── interfaces/            # 类型定义
+│   │   │   └── strategies/            # 执行策略
 │   │   ├── knowledge/          # 知识库模块
 │   │   │   ├── services/       # 各服务组件
 │   │   │   │   ├── knowledge-base.service.ts
@@ -103,6 +108,7 @@ loom/
 │   │   │   │   └── search.service.ts
 │   │   │   └── entities/       # 数据库实体
 │   │   ├── chat/               # 聊天会话模块
+│   │   ├── common/             # 通用模块
 │   │   └── seeder/             # 数据初始化
 │   └── loom.db                 # SQLite 数据库
 │
@@ -110,13 +116,18 @@ loom/
 │   ├── src/
 │   │   ├── components/         # 业务组件
 │   │   │   ├── FlowCanvas.vue       # 工作流编辑器
+│   │   │   ├── FlowCanvas/          # 编辑器子组件
 │   │   │   ├── KnowledgeBaseManager.vue
 │   │   │   ├── ChatWidget.vue
+│   │   │   ├── CustomNodes.vue
 │   │   │   └── WorkflowList.vue
-│   │   ├── views/              # 页面视图
+│   │   ├── router/             # 路由配置
 │   │   ├── store/              # Pinia 状态管理
 │   │   ├── composables/        # 组合式函数
-│   │   └── config/api.ts       # API 配置
+│   │   ├── types/              # 类型定义
+│   │   ├── utils/              # 工具函数
+│   │   ├── config/             # 配置文件
+│   │   └── main.ts
 │   └── package.json
 │
 ├── Docs/                       # 项目文档
@@ -133,12 +144,12 @@ loom/
 
 ---
 
-## 🚀 快速开始
+## 快速开始
 
 ### 环境要求
 
-- **Node.js** 18+ （推荐 20+）
-- **npm** 9+ 或 **yarn**
+- **Node.js** 18+ （推荐 24+）
+- **npm** 9+ 或 **pnpm**
 
 ### 安装启动
 
@@ -185,7 +196,7 @@ npm run dev
 
 ---
 
-## 📖 使用指南
+## 使用指南
 
 ### 创建工作流
 
@@ -211,13 +222,14 @@ npm run dev
 | **AI 回答** | 调用大模型 | 生成 AI 回复 |
 | **知识检索** | 从知识库搜索 | RAG 检索 |
 | **条件分支** | IF/ELSE 判断 | 流程控制 |
+| **HTTP 请求** | 发起网络请求 | 调用外部 API |
 | **结束** | 工作流出口 | 输出结果 |
 
 详细使用指南请参考 [快速入门指南](./Docs/快速入门指南.md)
 
 ---
 
-## 📚 文档
+## 文档
 
 - [产品需求文档 (PRD)](./Docs/PRD.md) - 产品功能详细说明
 - [项目架构说明](./Docs/项目架构说明.md) - 技术架构和模块设计
@@ -227,7 +239,7 @@ npm run dev
 
 ---
 
-## ⚙️ 配置说明
+## 配置说明
 
 ### 环境变量
 
@@ -261,7 +273,7 @@ docker-compose up -d
 
 ---
 
-## 🧪 开发
+## 开发
 
 ### 代码规范
 
@@ -289,39 +301,41 @@ npm run lint           # 代码检查
 npm run dev            # 开发服务器
 npm run build          # 构建生产版本
 npm run preview        # 预览生产构建
+npm run test           # 运行 Vitest 测试
 ```
 
 ---
 
-## 🆚 与 Dify/Coze 对比
+## 与 Dify/Coze 对比
 
 | 功能 | LOOM | Dify | Coze |
 |------|------|------|------|
-| 工作流编排 | ✅ 基础 | ✅ 完整 | ✅ 完整 |
-| 知识库 RAG | ✅ 完整 | ✅ 完整 | ✅ 完整 |
-| 可视化编辑 | ✅ 完整 | ✅ 完整 | ✅ 完整 |
-| 流式输出 | ✅ | ✅ | ✅ |
-| 循环节点 | ❌ | ✅ | ✅ |
-| HTTP 请求节点 | ❌ | ✅ | ✅ |
-| 多用户系统 | ❌ | ✅ | ✅ |
-| 代码节点 | ❌ | ✅ | ✅ |
+| 工作流编排 | 基础 | 完整 | 完整 |
+| 知识库 RAG | 完整 | 完整 | 完整 |
+| 可视化编辑 | 完整 | 完整 | 完整 |
+| 流式输出 | 支持 | 支持 | 支持 |
+| HTTP 请求节点 | 支持 | 支持 | 支持 |
+| 循环节点 | 不支持 | 支持 | 支持 |
+| 多用户系统 | 不支持 | 支持 | 支持 |
+| 代码节点 | 不支持 | 支持 | 支持 |
 | 部署复杂度 | 低 | 中 | 高 |
 
 **适用场景：**
-- ✅ 学习工作流引擎和 RAG 原理
-- ✅ 个人 AI 助手搭建
-- ✅ 产品原型快速验证
-- ❌ 企业生产环境（缺少多租户、权限管理等）
+- 学习工作流引擎和 RAG 原理
+- 个人 AI 助手搭建
+- 产品原型快速验证
+- 企业生产环境（缺少多租户、权限管理等，暂不建议）
 
 ---
 
-## 🗺️ 路线图
+## 路线图
 
 - [x] 可视化工作流编排
 - [x] 知识库 RAG 检索
 - [x] AI 对话和流式输出
 - [x] 条件分支
-- [ ] HTTP 请求节点
+- [x] HTTP 请求节点
+- [x] 工作流描述
 - [ ] 循环节点
 - [ ] 变量管理
 - [ ] 多用户系统
@@ -329,19 +343,19 @@ npm run preview        # 预览生产构建
 
 ---
 
-## 🤝 贡献
+## 贡献
 
 欢迎提交 Issue 和 PR！
 
 ---
 
-## 📄 许可证
+## 许可证
 
-UNLICENSED - 本项目仅供学习和参考使用
+[MIT](./LICENSE)
 
 ---
 
-## 🙏 致谢
+## 致谢
 
 - [Vue Flow](https://vueflow.dev/) - 工作流可视化组件
 - [NestJS](https://nestjs.com/) - 后端框架

@@ -222,9 +222,9 @@ const formatDate = (dateStr?: string) => {
 
 /* 页面头部 */
 .page-header {
-  padding: 32px 0 24px;
+  padding: 20px 0 20px;
   border-bottom: 1px solid var(--border-subtle);
-  margin-bottom: 24px;
+  margin-bottom: 20px;
 }
 
 .header-content {

@@ -95,7 +95,7 @@ frontend/src/
 │   ├── KnowledgeBaseManager.vue
 │   ├── ChatWidget.vue
 │   └── WorkflowList.vue
-├── views/                 # 页面视图
+├── router/                # 路由配置
 ├── store/                 # Pinia 状态管理
 │   ├── workflow.ts
 │   └── chat.ts
@@ -302,6 +302,7 @@ enum NodeType {
   AI_AGENT = 'AI_AGENT',              // AI 节点
   CONDITION = 'CONDITION',            // 条件节点
   KNOWLEDGE_RETRIEVAL = 'KNOWLEDGE_RETRIEVAL',  // 知识检索节点
+  HTTP_REQUEST = 'HTTP_REQUEST',      // HTTP 请求节点
   OUTPUT = 'OUTPUT',                  // 结束节点
 }
 ```

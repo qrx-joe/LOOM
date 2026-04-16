@@ -25,14 +25,14 @@ const activeView = computed(() => {
         </div>
         <div class="nav-links">
           <router-link to="/workflow" :class="{ active: activeView === 'workflow' }">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <polyline points="16 18 22 12 16 6"></polyline>
               <polyline points="8 6 2 12 8 18"></polyline>
             </svg>
             工作流编排
           </router-link>
           <router-link to="/knowledge" :class="{ active: activeView === 'knowledge' }">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
               <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
             </svg>
@@ -79,7 +79,7 @@ const activeView = computed(() => {
   display: flex;
   align-items: center;
   padding: 0 24px;
-  gap: 32px;
+  gap: 24px;
 }
 
 .logo {
@@ -105,14 +105,14 @@ const activeView = computed(() => {
 .nav-links a {
   background: transparent;
   border: none;
-  padding: 8px 14px;
+  padding: 10px 16px;
   cursor: pointer;
   border-radius: var(--radius-md);
-  font-weight: 500;
+  font-weight: 600;
   color: var(--text-muted);
   transition: all var(--transition-fast);
   font-family: 'Inter', sans-serif;
-  font-size: 14px;
+  font-size: 15px;
   display: flex;
   align-items: center;
   gap: 8px;

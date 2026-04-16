@@ -395,7 +395,7 @@ const getNodeResult = (nodeId: string) => {
   display: flex;
   flex-direction: column;
   height: 100vh;
-  background: #f9fafb;
+  background: var(--bg-app);
 }
 
 .toolbar {
@@ -403,8 +403,8 @@ const getNodeResult = (nodeId: string) => {
   justify-content: space-between;
   align-items: center;
   padding: 12px 20px;
-  background: white;
-  border-bottom: 1px solid #e5e7eb;
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border-subtle);
 }
 
 .toolbar-left {
@@ -422,13 +422,13 @@ const getNodeResult = (nodeId: string) => {
 .workflow-name {
   font-size: 16px;
   font-weight: 600;
-  color: #111827;
+  color: var(--text-main);
   margin: 0;
 }
 
 .workflow-description-input {
   font-size: 13px;
-  color: #6b7280;
+  color: var(--text-muted);
   background: transparent;
   border: 1px solid transparent;
   border-radius: 4px;
@@ -440,12 +440,12 @@ const getNodeResult = (nodeId: string) => {
 }
 
 .workflow-description-input:hover {
-  background: #f3f4f6;
+  background: var(--bg-hover);
 }
 
 .workflow-description-input:focus {
-  background: white;
-  border-color: #3b82f6;
+  background: var(--bg-surface);
+  border-color: var(--primary);
 }
 
 .toolbar-actions {
@@ -458,7 +458,7 @@ const getNodeResult = (nodeId: string) => {
   align-items: center;
   gap: 6px;
   padding: 8px 16px;
-  border: 1px solid #d1d5db;
+  border: 1px solid var(--border-default);
   border-radius: 6px;
   font-size: 13px;
   font-weight: 500;
@@ -467,22 +467,23 @@ const getNodeResult = (nodeId: string) => {
 }
 
 .btn-primary {
-  background: #3b82f6;
-  color: white;
-  border-color: #3b82f6;
+  background: var(--primary);
+  color: var(--bg-surface);
+  border-color: var(--primary);
 }
 
 .btn-primary:hover:not(:disabled) {
-  background: #2563eb;
+  background: var(--primary-hover);
+  border-color: var(--primary-hover);
 }
 
 .btn-secondary {
-  background: white;
-  color: #374151;
+  background: var(--bg-surface);
+  color: var(--text-secondary);
 }
 
 .btn-secondary:hover:not(:disabled) {
-  background: #f9fafb;
+  background: var(--bg-hover);
 }
 
 .btn:disabled {
@@ -498,8 +499,8 @@ const getNodeResult = (nodeId: string) => {
 
 .sidebar-left {
   width: 200px;
-  background: white;
-  border-right: 1px solid #e5e7eb;
+  background: var(--bg-surface);
+  border-right: 1px solid var(--border-subtle);
   padding: 16px;
   overflow-y: auto;
 }
@@ -507,7 +508,7 @@ const getNodeResult = (nodeId: string) => {
 .sidebar-title {
   font-size: 12px;
   font-weight: 600;
-  color: #6b7280;
+  color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.5px;
   margin-bottom: 12px;
@@ -531,8 +532,8 @@ const getNodeResult = (nodeId: string) => {
 }
 
 .palette-item:hover {
-  background: #f3f4f6;
-  border-color: #e5e7eb;
+  background: var(--bg-hover);
+  border-color: var(--border-subtle);
 }
 
 .palette-icon {
@@ -545,16 +546,16 @@ const getNodeResult = (nodeId: string) => {
   font-size: 14px;
 }
 
-.palette-icon.start { background: #dbeafe; color: #2563eb; }
-.palette-icon.knowledge { background: #fef3c7; color: #d97706; }
-.palette-icon.ai { background: #dbeafe; color: #7c3aed; }
-.palette-icon.condition { background: #fce7f3; color: #db2777; }
-.palette-icon.http { background: #d1fae5; color: #059669; }
-.palette-icon.end { background: #fee2e2; color: #dc2626; }
+.palette-icon.start { background: var(--info-light); color: var(--info); }
+.palette-icon.knowledge { background: var(--warning-light); color: var(--warning); }
+.palette-icon.ai { background: var(--primary-light); color: var(--primary); }
+.palette-icon.condition { background: var(--error-light); color: var(--error); }
+.palette-icon.http { background: var(--success-light); color: var(--success); }
+.palette-icon.end { background: var(--error-light); color: var(--error); }
 
 .palette-item span {
   font-size: 13px;
-  color: #374151;
+  color: var(--text-secondary);
 }
 
 .flow-wrapper {
@@ -564,8 +565,8 @@ const getNodeResult = (nodeId: string) => {
 
 .sidebar-right {
   width: 300px;
-  background: white;
-  border-left: 1px solid #e5e7eb;
+  background: var(--bg-surface);
+  border-left: 1px solid var(--border-subtle);
   overflow-y: auto;
 }
 </style>
