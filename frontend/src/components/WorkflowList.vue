@@ -12,7 +12,9 @@ const chatStore = useChatStore()
 const isCreating = ref(false)
 const editingId = ref<string | null>(null)
 const editingName = ref('')
+const editingDescription = ref('')
 const editInputRef = ref<HTMLInputElement | null>(null)
+const editDescriptionRef = ref<HTMLTextAreaElement | null>(null)
 
 // 使用计算属性统一数据源，优先使用 workflow store
 const workflows = computed(() => store.savedWorkflows)
@@ -51,6 +53,7 @@ const startEdit = (e: Event, wf: any) => {
   e.stopPropagation()
   editingId.value = wf.id
   editingName.value = wf.name
+  editingDescription.value = wf.description || ''
   nextTick(() => {
     editInputRef.value?.focus()
     editInputRef.value?.select()
@@ -61,15 +64,19 @@ const cancelEdit = (e: Event) => {
   e.stopPropagation()
   editingId.value = null
   editingName.value = ''
+  editingDescription.value = ''
 }
 
 const saveEdit = async (e: Event, wf: any) => {
   e.stopPropagation()
-  if (editingName.value.trim() && editingName.value !== wf.name) {
-    await store.updateWorkflowName(wf.id, editingName.value.trim())
+  const nameChanged = editingName.value.trim() && editingName.value !== wf.name
+  const descriptionChanged = editingDescription.value !== (wf.description || '')
+  if (nameChanged || descriptionChanged) {
+    await store.updateWorkflowInfo(wf.id, editingName.value.trim(), editingDescription.value.trim())
   }
   editingId.value = null
   editingName.value = ''
+  editingDescription.value = ''
 }
 
 const formatDate = (dateStr?: string) => {
@@ -151,6 +158,14 @@ const formatDate = (dateStr?: string) => {
               class="edit-name-input"
               placeholder="输入工作流名称"
               @keydown.enter="saveEdit($event, wf)"
+              @keydown.escape="cancelEdit($event)"
+            />
+            <textarea
+              ref="editDescriptionRef"
+              v-model="editingDescription"
+              class="edit-description-input"
+              placeholder="添加描述（可选）"
+              rows="2"
               @keydown.escape="cancelEdit($event)"
             />
             <div class="edit-name-actions">
@@ -395,6 +410,24 @@ const formatDate = (dateStr?: string) => {
 }
 
 .edit-name-input:focus {
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+}
+
+.edit-description-input {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  background: var(--bg-app);
+  color: var(--text-main);
+  outline: none;
+  resize: none;
+  font-family: inherit;
+}
+
+.edit-description-input:focus {
+  border-color: var(--primary);
   box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
 }
 

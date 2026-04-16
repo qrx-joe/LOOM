@@ -456,6 +456,12 @@ const handleBack = () => {
           placeholder="工作流名称..."
           @change="store.hasUnsavedChanges = true"
         />
+        <input
+          v-model="store.workflowDescription"
+          class="workflow-description-input"
+          placeholder="添加描述（可选）"
+          @change="store.hasUnsavedChanges = true"
+        />
       </div>
 
       <div class="header-center">
@@ -850,6 +856,28 @@ const handleBack = () => {
   outline: none;
   border-color: var(--primary);
   background: var(--bg-surface);
+}
+
+.workflow-description-input {
+  padding: 6px 12px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  color: var(--text-secondary);
+  background: transparent;
+  min-width: 240px;
+  margin-left: 8px;
+}
+
+.workflow-description-input:hover {
+  background: var(--bg-hover);
+}
+
+.workflow-description-input:focus {
+  outline: none;
+  border-color: var(--primary);
+  background: var(--bg-surface);
+  color: var(--text-main);
 }
 
 .header-center {

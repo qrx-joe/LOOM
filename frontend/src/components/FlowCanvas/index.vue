@@ -114,6 +114,7 @@ const handleSave = async () => {
   try {
     const payload = {
       name: store.workflowName,
+      description: store.workflowDescription || undefined,
       nodes: localNodes.value,
       edges: localEdges.value
     }

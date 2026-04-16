@@ -267,6 +267,28 @@ export const useWorkflowStore = defineStore('workflow', () => {
         }
     };
 
+    // 更新工作流基本信息（名称和描述）
+    const updateWorkflowInfo = async (id: string, name: string, description?: string) => {
+        try {
+            await api.put(`/workflows/${id}`, { name, description: description || undefined });
+            await fetchWorkflows();
+            // 如果是当前编辑的工作流，更新本地状态
+            if (currentWorkflowId.value === id) {
+                workflowName.value = name;
+                workflowDescription.value = description || '';
+            }
+            showSuccess('工作流信息已更新');
+        } catch (err: any) {
+            // 忽略请求取消的错误
+            if (err?.message?.includes('取消')) {
+                return;
+            }
+            console.error('Failed to update workflow info', err);
+            showError(err);
+            throw err;
+        }
+    };
+
     return {
         nodes,
         edges,
@@ -285,6 +307,7 @@ export const useWorkflowStore = defineStore('workflow', () => {
         runWorkflow,
         deleteWorkflow,
         updateWorkflowName,
+        updateWorkflowInfo,
         saveHistory,
         undo,
         redo,
