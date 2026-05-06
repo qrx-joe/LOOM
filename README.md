@@ -15,19 +15,33 @@
 <table>
   <tr>
     <td align="center" width="33%">
-      <img src="./design-mockups/vADsk.png" width="100%" alt="工作流列表页面，展示卡片式布局"><br>
+      <img src="./design-mockups/联想截图_20260506185528.png" width="100%" alt="工作流列表页面"><br>
       <b>工作流列表</b><br>
-      <sub>查看、搜索和管理所有工作流，支持编辑描述</sub>
+      <sub>卡片式布局，查看节点数与连线数，快速编辑工作流</sub>
     </td>
     <td align="center" width="33%">
-      <img src="./design-mockups/E3Qqz.png" width="100%" alt="知识库管理页面，展示文档列表"><br>
-      <b>知识库管理</b><br>
-      <sub>上传多格式文档，自动分片与向量化存储</sub>
+      <img src="./design-mockups/联想截图_20260506185443.png" width="100%" alt="工作流编排画布"><br>
+      <b>可视化 DAG 编排</b><br>
+      <sub>拖拽/点击添加节点、连线配置，右侧属性面板实时编辑</sub>
     </td>
     <td align="center" width="33%">
-      <img src="./design-mockups/28Pdl.png" width="100%" alt="文档上传与向量化进度"><br>
-      <b>文档上传与向量化</b><br>
-      <sub>拖拽上传 PDF/Word/Markdown，实时解析入库</sub>
+      <img src="./design-mockups/联想截图_20260506185541.png" width="100%" alt="知识库中心"><br>
+      <b>知识库中心</b><br>
+      <sub>多知识库管理，支持搜索与创建，文档数量一目了然</sub>
+    </td>
+  </tr>
+  <tr>
+    <td align="center" width="33%">
+      <img src="./design-mockups/联想截图_20260506185554.png" width="100%" alt="知识库文档详情"><br>
+      <b>文档管理与上传</b><br>
+      <sub>PDF/Word/Markdown 多格式上传，实时查看解析与入库状态</sub>
+    </td>
+    <td align="center" width="33%">
+      <img src="./design-mockups/联想截图_20260506185653.png" width="100%" alt="AI 对话助手"><br>
+      <b>AI 对话助手</b><br>
+      <sub>基于知识库的 RAG 问答，SSE 流式输出实时响应</sub>
+    </td>
+    <td align="center" width="33%">
     </td>
   </tr>
 </table>
