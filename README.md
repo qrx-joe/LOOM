@@ -12,11 +12,25 @@
 
 ## 项目预览
 
-<p align="center">
-  <img src="./design-mockups/vADsk.png" width="32%" alt="工作流列表">
-  <img src="./design-mockups/E3Qqz.png" width="32%" alt="知识库管理">
-  <img src="./design-mockups/28Pdl.png" width="32%" alt="文档上传与向量化">
-</p>
+<table>
+  <tr>
+    <td align="center" width="33%">
+      <img src="./design-mockups/vADsk.png" width="100%" alt="工作流列表"><br>
+      <b>工作流列表</b><br>
+      <sub>查看、搜索和管理所有工作流，支持编辑描述</sub>
+    </td>
+    <td align="center" width="33%">
+      <img src="./design-mockups/E3Qqz.png" width="100%" alt="知识库管理"><br>
+      <b>知识库管理</b><br>
+      <sub>上传多格式文档，自动分片与向量化存储</sub>
+    </td>
+    <td align="center" width="33%">
+      <img src="./design-mockups/28Pdl.png" width="100%" alt="文档上传与向量化"><br>
+      <b>文档上传与向量化</b><br>
+      <sub>拖拽上传 PDF/Word/Markdown，实时解析入库</sub>
+    </td>
+  </tr>
+</table>
 
 ---
 
